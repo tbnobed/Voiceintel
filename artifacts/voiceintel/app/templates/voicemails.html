@@ -2,67 +2,70 @@
 {% block title %}Voicemails — VoiceIntel{% endblock %}
 
 {% block breadcrumb %}
-  <a href="/voicemails" style="color:#64748b; text-decoration:none;"><i class="fa-solid fa-inbox"></i> Voicemails</a>
+  <span>Voicemails</span>
+  {% if request.args.get('urgency') == 'urgent' %}
+    <span class="sep">·</span>
+    <span style="color: var(--urgent);">Urgent</span>
+  {% elif request.args.get('q') %}
+    <span class="sep">·</span>
+    <span>"{{ request.args.get('q') }}"</span>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
-<div style="display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:20px;">
+<div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
   <div>
-    <h1 style="font-size:22px; font-weight:700; color:#e2e8f0; letter-spacing:-.5px; margin:0;">Voicemails</h1>
-    <p style="color:#64748b; margin-top:4px; font-size:13px;">{{ pagination.total }} total</p>
+    <h1 class="page-title">Voicemails</h1>
+    <p class="page-sub">{{ pagination.total }} result{{ 's' if pagination.total != 1 }}</p>
   </div>
 </div>
 
 <!-- Filters -->
-<div class="card" style="margin-bottom:20px;">
-  <form method="GET" action="/voicemails" style="display:flex; flex-wrap:wrap; gap:12px; padding:16px 20px; align-items:flex-end;">
-    <div style="flex:1; min-width:160px;">
-      <label style="display:block; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;">Search</label>
-      <div style="position:relative;">
-        <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:9px; top:50%; transform:translateY(-50%); color:#475569; font-size:12px;"></i>
-        <input type="text" name="q" class="filter-input" placeholder="Search transcripts..." value="{{ q }}" style="padding-left:28px;" />
+<div class="card" style="margin-bottom: 20px;">
+  <form method="GET" action="/voicemails">
+    <div class="filter-row">
+      <div class="filter-group" style="flex: 1; min-width: 160px;">
+        <label>Search</label>
+        <div style="position:relative;">
+          <svg style="position:absolute; left:9px; top:50%; transform:translateY(-50%); width:12px; height:12px; color:var(--muted);" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
+          <input type="text" name="q" class="filter-input" placeholder="Keyword, phrase…" value="{{ q }}" style="padding-left: 28px;" />
+        </div>
       </div>
-    </div>
-    <div style="min-width:150px;">
-      <label style="display:block; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;">Category</label>
-      <select name="category" class="filter-select">
-        <option value="">All categories</option>
-        {% for cat in categories %}
-          <option value="{{ cat.id }}" {{ 'selected' if category_id == cat.id }}>{{ cat.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div style="min-width:130px;">
-      <label style="display:block; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;">Urgency</label>
-      <select name="urgency" class="filter-select">
-        <option value="">All</option>
-        <option value="urgent" {{ 'selected' if urgency == 'urgent' }}>Urgent only</option>
-        <option value="normal" {{ 'selected' if urgency == 'normal' }}>Normal only</option>
-      </select>
-    </div>
-    <div style="min-width:130px;">
-      <label style="display:block; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;">From</label>
-      <input type="date" name="date_from" class="filter-input" value="{{ date_from or '' }}" />
-    </div>
-    <div style="min-width:130px;">
-      <label style="display:block; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;">To</label>
-      <input type="date" name="date_to" class="filter-input" value="{{ date_to or '' }}" />
-    </div>
-    <div style="display:flex; gap:8px;">
-      <button type="submit" class="btn btn-primary" style="height:37px;"><i class="fa-solid fa-filter"></i> Filter</button>
-      <a href="/voicemails" class="btn btn-ghost" style="height:37px;">Clear</a>
+      <div class="filter-group" style="min-width: 150px;">
+        <label>Category</label>
+        <select name="category" class="filter-select">
+          <option value="">All categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat.id }}" {{ 'selected' if category_id == cat.id }}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group" style="min-width: 130px;">
+        <label>Urgency</label>
+        <select name="urgency" class="filter-select">
+          <option value="">All</option>
+          <option value="urgent" {{ 'selected' if urgency == 'urgent' }}>Urgent only</option>
+          <option value="normal"  {{ 'selected' if urgency == 'normal'  }}>Normal only</option>
+        </select>
+      </div>
+      <div class="filter-group" style="min-width: 130px;">
+        <label>From</label>
+        <input type="date" name="date_from" class="filter-input" value="{{ date_from or '' }}" />
+      </div>
+      <div class="filter-group" style="min-width: 130px;">
+        <label>To</label>
+        <input type="date" name="date_to" class="filter-input" value="{{ date_to or '' }}" />
+      </div>
+      <div style="display:flex; gap:8px; padding-bottom:0; align-self:flex-end;">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="/voicemails" class="btn btn-ghost">Clear</a>
+      </div>
     </div>
   </form>
 </div>
 
-{% if q %}
-  <div style="margin-bottom:12px; font-size:13px; color:#64748b;">
-    Results for <strong style="color:#e2e8f0;">"{{ q }}"</strong> — {{ pagination.total }} match{{ 'es' if pagination.total != 1 }}
-  </div>
-{% endif %}
-
 {% if voicemails %}
-<div class="card" style="margin-bottom:20px;">
+<div class="card" style="margin-bottom: 20px;">
   <table class="data-table">
     <thead>
       <tr>
@@ -78,43 +81,43 @@
     </thead>
     <tbody>
       {% for vm in voicemails %}
-        <tr class="{{ 'urg-row' if vm.is_urgent }}">
+        <tr class="{{ 'urg' if vm.is_urgent }}">
           <td style="white-space:nowrap;">
             {% if vm.received_at %}
-              <div style="font-weight:500; font-size:13px;">{{ vm.received_at.strftime('%b %d, %Y') }}</div>
-              <div style="color:#475569; font-size:11px;">{{ vm.received_at.strftime('%I:%M %p') }}</div>
-            {% else %}<span style="color:#475569;">—</span>{% endif %}
+              <div style="font-size:13px; font-weight:500; color:var(--text);">{{ vm.received_at.strftime('%b %d, %Y') }}</div>
+              <div style="font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums;">{{ vm.received_at.strftime('%I:%M %p') }}</div>
+            {% else %}<span style="color:var(--muted);">—</span>{% endif %}
           </td>
-          <td style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#94a3b8;">{{ vm.sender or '—' }}</td>
-          <td style="max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ vm.subject or '(No subject)' }}</td>
+          <td style="max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ vm.sender or '—' }}</td>
+          <td style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text);">{{ vm.subject or '(No subject)' }}</td>
+          <td>{% if vm.category_obj %}<span class="pill pill-cat">{{ vm.category_obj.name }}</span>{% else %}<span style="color:var(--muted);">—</span>{% endif %}</td>
           <td>
-            {% if vm.category_obj %}<span class="badge badge-cat">{{ vm.category_obj.name }}</span>
-            {% else %}<span style="color:#475569;">—</span>{% endif %}
-          </td>
-          <td>
-            {% if vm.is_urgent %}<span class="badge badge-urgent"><i class="fa-solid fa-triangle-exclamation"></i> Urgent</span>
-            {% else %}<span class="badge badge-normal">Normal</span>{% endif %}
+            {% if vm.is_urgent %}<span class="pill pill-urg">Urgent</span>
+            {% else %}<span style="font-size:12px; color:var(--muted);">—</span>{% endif %}
           </td>
           <td style="max-width:260px;">
             {% if vm.transcript and vm.transcript.text %}
               {% set text = vm.transcript.text %}
               {% if q and q.lower() in text.lower() %}
                 {% set idx = text.lower().find(q.lower()) %}
-                {% set start = [0, idx - 50]|max %}
-                {% set snippet = text[start:start+130] %}
-                <span style="font-size:12px; color:#64748b;">
-                  {{ snippet[:idx-start] }}<mark>{{ snippet[idx-start:idx-start+q|length] }}</mark>{{ snippet[idx-start+q|length:] }}…
-                </span>
+                {% set start = [0, idx - 40]|max %}
+                {% set snippet = text[start:start+120] %}
+                <span style="font-size:12px; color:var(--muted);">{% if start > 0 %}…{% endif %}{{ snippet[:idx-start] }}<mark>{{ snippet[idx-start:idx-start+q|length] }}</mark>{{ snippet[idx-start+q|length:] }}…</span>
               {% else %}
-                <span style="font-size:12px; color:#64748b;">{{ text[:120] }}{% if text|length > 120 %}…{% endif %}</span>
+                <span style="font-size:12px; color:var(--muted);">{{ text[:110] }}{% if text|length > 110 %}…{% endif %}</span>
               {% endif %}
             {% else %}
-              <span style="font-size:12px; color:#475569; font-style:italic;">{{ vm.processing_status }}</span>
+              <span style="font-size:12px; color:var(--muted); font-style:italic;">{{ vm.processing_status }}</span>
             {% endif %}
           </td>
-          <td><span class="status-pill s-{{ vm.processing_status }}">{{ vm.processing_status }}</span></td>
           <td>
-            <a href="/voicemails/{{ vm.id }}{% if q %}?q={{ q }}{% endif %}" class="btn btn-ghost btn-sm">View</a>
+            {% if vm.processing_status == 'completed' %}<span class="pill pill-done">Done</span>
+            {% elif vm.processing_status == 'processing' %}<span class="pill pill-proc">Processing</span>
+            {% elif vm.processing_status == 'error' %}<span class="pill pill-err">Error</span>
+            {% else %}<span class="pill pill-pend">Pending</span>{% endif %}
+          </td>
+          <td style="text-align:right; padding-right:16px;">
+            <a href="/voicemails/{{ vm.id }}{% if q %}?q={{ q }}{% endif %}" class="btn btn-ghost btn-sm">Open →</a>
           </td>
         </tr>
       {% endfor %}
@@ -123,37 +126,39 @@
 </div>
 
 {% if pagination.pages > 1 %}
-<div style="display:flex; justify-content:center; gap:6px; margin-top:16px;">
+<div class="pagination">
   {% if pagination.has_prev %}
-    <a href="/voicemails?page={{ pagination.prev_num }}&q={{ q }}&category={{ category_id or '' }}&urgency={{ urgency or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="page-btn"><i class="fa-solid fa-chevron-left" style="font-size:11px;"></i></a>
+    <a href="/voicemails?page={{ pagination.prev_num }}&q={{ q }}&category={{ category_id or '' }}&urgency={{ urgency or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="pg-btn">‹</a>
   {% endif %}
   {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
     {% if p %}
-      <a href="/voicemails?page={{ p }}&q={{ q }}&category={{ category_id or '' }}&urgency={{ urgency or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="page-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
+      <a href="/voicemails?page={{ p }}&q={{ q }}&category={{ category_id or '' }}&urgency={{ urgency or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="pg-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
     {% else %}
-      <span style="display:flex; align-items:center; padding:0 4px; color:#475569;">…</span>
+      <span style="padding: 0 4px; color:var(--muted);">…</span>
     {% endif %}
   {% endfor %}
   {% if pagination.has_next %}
-    <a href="/voicemails?page={{ pagination.next_num }}&q={{ q }}&category={{ category_id or '' }}&urgency={{ urgency or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="page-btn"><i class="fa-solid fa-chevron-right" style="font-size:11px;"></i></a>
+    <a href="/voicemails?page={{ pagination.next_num }}&q={{ q }}&category={{ category_id or '' }}&urgency={{ urgency or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="pg-btn">›</a>
   {% endif %}
 </div>
 {% endif %}
 
 {% else %}
 <div class="card">
-  <div style="display:flex; flex-direction:column; align-items:center; padding:56px 24px; text-align:center; gap:14px;">
-    <div style="width:64px; height:64px; background:rgba(99,102,241,.1); border-radius:16px; display:flex; align-items:center; justify-content:center;">
-      <i class="fa-solid fa-{{ 'magnifying-glass' if q else 'inbox' }}" style="font-size:26px; color:#6366f1; opacity:.5;"></i>
-    </div>
-    <div>
-      <p style="font-size:16px; font-weight:600; color:#e2e8f0; margin-bottom:6px;">{{ 'No results found' if q else 'No voicemails yet' }}</p>
-      <p style="font-size:13px; color:#64748b; max-width:320px;">
-        {% if q %}Try a different search term or clear your filters.
-        {% else %}Click <strong style="color:#94a3b8;">Poll Inbox</strong> in the sidebar to fetch voicemails from email.{% endif %}
-      </p>
-    </div>
-    {% if q %}<a href="/voicemails" class="btn btn-primary">Clear filters</a>{% endif %}
+  <div class="empty">
+    <svg class="empty-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1" width="44" height="44">
+      {% if q %}
+        <circle cx="17" cy="17" r="11"/><path d="M25 25l9 9"/>
+      {% else %}
+        <rect x="6" y="8" width="28" height="24" rx="2"/><path d="M6 14l14 10 14-10"/>
+      {% endif %}
+    </svg>
+    <p class="empty-title">{{ 'No results found' if q else 'No voicemails yet' }}</p>
+    <p class="empty-sub">
+      {% if q %}Try a different search term or clear the filters.
+      {% else %}Click <strong style="color:var(--sub);">Poll Inbox</strong> in the sidebar to fetch voicemails from your email account.{% endif %}
+    </p>
+    {% if q %}<a href="/voicemails" class="btn btn-primary" style="margin-top:4px;">Clear filters</a>{% endif %}
   </div>
 </div>
 {% endif %}

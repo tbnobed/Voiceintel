@@ -2,71 +2,54 @@
 {% block title %}Dashboard — VoiceIntel{% endblock %}
 
 {% block breadcrumb %}
-  <i class="fa-solid fa-gauge-high" style="color:#6366f1;"></i>
-  <span style="margin-left:6px;">Dashboard</span>
+  <span>Dashboard</span>
 {% endblock %}
 
 {% block content %}
-<div style="margin-bottom:28px;">
-  <h1 style="font-size:22px; font-weight:700; color:#e2e8f0; letter-spacing:-.5px; margin:0;">Dashboard</h1>
-  <p style="color:#64748b; margin-top:4px; font-size:13px;">Voicemail intelligence overview</p>
+<div class="page-header">
+  <h1 class="page-title">Dashboard</h1>
+  <p class="page-sub">Voicemail intelligence overview</p>
 </div>
 
-<!-- Stats -->
-<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">
-  <div class="stat-card">
-    <div class="stat-icon" style="background:linear-gradient(135deg,#6366f1,#818cf8);">
-      <i class="fa-solid fa-voicemail"></i>
-    </div>
-    <div>
-      <div class="stat-num">{{ total }}</div>
-      <div class="stat-lbl">Total Voicemails</div>
-    </div>
+<!-- Stat strip -->
+<div class="stats-grid">
+  <div class="stat-cell">
+    <div class="stat-label">Total Voicemails</div>
+    <div class="stat-value">{{ total }}</div>
+    <div class="stat-desc">All time</div>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8);">
-      <i class="fa-solid fa-calendar-day"></i>
-    </div>
-    <div>
-      <div class="stat-num">{{ today_count }}</div>
-      <div class="stat-lbl">Today</div>
-    </div>
+  <div class="stat-cell">
+    <div class="stat-label">Today</div>
+    <div class="stat-value">{{ today_count }}</div>
+    <div class="stat-desc">{{ "Today" }}</div>
   </div>
-  <div class="stat-card" style="border-color:rgba(239,68,68,.25);">
-    <div class="stat-icon" style="background:linear-gradient(135deg,#ef4444,#f87171);">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-    </div>
-    <div>
-      <div class="stat-num">{{ urgent_count }}</div>
-      <div class="stat-lbl">Urgent</div>
-    </div>
+  <div class="stat-cell" style="{{ 'border-top: 2px solid var(--urgent);' if urgent_count > 0 else '' }}">
+    <div class="stat-label">Urgent</div>
+    <div class="stat-value" style="{{ 'color: var(--urgent);' if urgent_count > 0 else '' }}">{{ urgent_count }}</div>
+    <div class="stat-desc">{% if urgent_count > 0 %}<a href="/voicemails?urgency=urgent" style="color:var(--urgent); text-decoration:underline; font-size:11px;">Review now</a>{% else %}No urgent items{% endif %}</div>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#34d399);">
-      <i class="fa-solid fa-tags"></i>
-    </div>
-    <div>
-      <div class="stat-num">{{ category_dist | length }}</div>
-      <div class="stat-lbl">Categories</div>
-    </div>
+  <div class="stat-cell">
+    <div class="stat-label">Categories</div>
+    <div class="stat-value">{{ category_dist | length }}</div>
+    <div class="stat-desc">Active</div>
   </div>
 </div>
 
-<!-- Row 1: Trend + Categories -->
-<div style="display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:20px;">
+<!-- Row 1: Chart + Categories -->
+<div class="grid-2-1" style="margin-bottom: 16px; align-items: start;">
 
   <!-- Trend chart -->
   <div class="card">
-    <div class="card-header">
-      <h2><i class="fa-solid fa-chart-line"></i> Daily Volume (7 days)</h2>
+    <div class="card-head">
+      <span class="card-head-title">Daily Volume — 7 Days</span>
     </div>
-    <div class="card-body" style="height:210px; position:relative;">
+    <div class="card-body" style="height: 220px; position: relative; padding: 16px 20px 12px;">
       {% if daily_trend %}
-        <canvas id="trendChart"></canvas>
+        <canvas id="trendChart" style="position:absolute; inset:16px 20px 12px 20px; width:calc(100% - 40px) !important; height:calc(100% - 28px) !important;"></canvas>
       {% else %}
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:8px; color:#475569;">
-          <i class="fa-solid fa-chart-bar" style="font-size:36px; opacity:.3;"></i>
-          <p style="font-size:13px;">Voicemails will appear here after ingestion</p>
+        <div class="empty" style="padding: 40px;">
+          <svg class="empty-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1" width="40" height="40"><polyline points="4,30 14,18 22,24 32,10"/><line x1="4" y1="36" x2="36" y2="36"/></svg>
+          <p class="empty-sub">Voicemails will appear here after ingestion</p>
         </div>
       {% endif %}
     </div>
@@ -74,31 +57,24 @@
 
   <!-- Categories -->
   <div class="card">
-    <div class="card-header">
-      <h2><i class="fa-solid fa-list-check"></i> Categories</h2>
-    </div>
-    <div class="card-body">
+    <div class="card-head"><span class="card-head-title">By Category</span></div>
+    <div class="card-body" style="padding: 8px 20px;">
       {% if category_dist %}
         {% set ns = namespace(total=0) %}
         {% for name, count in category_dist %}{% set ns.total = ns.total + count %}{% endfor %}
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          {% for name, count in category_dist %}
-            {% set pct = ((count / ns.total) * 100)|round(1) if ns.total > 0 else 0 %}
-            <div>
-              <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
-                <span style="color:#94a3b8;">{{ name }}</span>
-                <span style="color:#64748b; font-weight:600;">{{ count }}</span>
-              </div>
-              <div style="background:#0f1117; border-radius:4px; height:6px; overflow:hidden;">
-                <div style="width:{{ [pct, 100]|min }}%; height:100%; background:linear-gradient(90deg,#6366f1,#818cf8); border-radius:4px; min-width:{{ '4px' if count > 0 else '0' }};"></div>
-              </div>
+        {% for name, count in category_dist %}
+          {% set pct = ((count / ns.total) * 100)|round(1) if ns.total > 0 else 0 %}
+          <div class="cat-row">
+            <div class="cat-meta">
+              <span class="cat-name">{{ name }}</span>
+              <span class="cat-count">{{ count }}</span>
             </div>
-          {% endfor %}
-        </div>
+            <div class="bar-track"><div class="bar-fill" style="width: {{ [pct, 100]|min }}%"></div></div>
+          </div>
+        {% endfor %}
       {% else %}
-        <div style="display:flex; flex-direction:column; align-items:center; padding:24px; text-align:center; color:#475569; gap:8px;">
-          <i class="fa-solid fa-folder-open" style="font-size:28px; opacity:.3;"></i>
-          <p style="font-size:13px;">No data yet</p>
+        <div class="empty" style="padding: 32px 0;">
+          <p class="empty-sub">No data yet</p>
         </div>
       {% endif %}
     </div>
@@ -106,64 +82,58 @@
 </div>
 
 <!-- Row 2: Keywords + Recent -->
-<div style="display:grid; grid-template-columns:1fr 2fr; gap:20px;">
+<div class="grid-1-2" style="align-items: start;">
 
-  <!-- Top keywords -->
+  <!-- Keywords -->
   <div class="card">
-    <div class="card-header">
-      <h2><i class="fa-solid fa-key"></i> Top Keywords</h2>
-    </div>
+    <div class="card-head"><span class="card-head-title">Top Keywords</span></div>
     <div class="card-body">
       {% if top_keywords %}
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; line-height: 2;">
           {% for kw in top_keywords %}
             <a href="/voicemails?q={{ kw }}" class="kw-tag">{{ kw }}</a>
           {% endfor %}
         </div>
       {% else %}
-        <div style="display:flex; flex-direction:column; align-items:center; padding:20px; text-align:center; color:#475569; gap:8px;">
-          <i class="fa-solid fa-tag" style="font-size:24px; opacity:.3;"></i>
-          <p style="font-size:13px;">Keywords appear after transcription</p>
+        <div class="empty" style="padding: 28px 0;">
+          <svg class="empty-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1" width="32" height="32"><circle cx="16" cy="16" r="12"/><path d="M10 16h12M16 10v12"/></svg>
+          <p class="empty-sub">Keywords appear after transcription</p>
         </div>
       {% endif %}
     </div>
   </div>
 
-  <!-- Recent voicemails -->
+  <!-- Recent -->
   <div class="card">
-    <div class="card-header">
-      <h2><i class="fa-solid fa-clock-rotate-left"></i> Recent Voicemails</h2>
-      <a href="/voicemails" style="font-size:12px; color:#6366f1; text-decoration:none;">View all</a>
+    <div class="card-head">
+      <span class="card-head-title">Recent Voicemails</span>
+      <a href="/voicemails" style="font-size: 11px; color: var(--gold); letter-spacing:.03em;">View all →</a>
     </div>
-    <div class="card-body" style="padding:0;">
+    <div style="padding: 0;">
       {% if recent %}
         {% for vm in recent %}
-          <a href="/voicemails/{{ vm.id }}" style="display:block; padding:14px 20px; border-bottom:1px solid #ffffff08; text-decoration:none; transition:background .12s;" onmouseover="this.style.background='rgba(255,255,255,.02)'" onmouseout="this.style.background=''">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-              <span style="font-size:12px; color:#64748b;">{{ vm.sender or 'Unknown' }}</span>
-              {% if vm.is_urgent %}<span class="badge badge-urgent"><i class="fa-solid fa-triangle-exclamation"></i> Urgent</span>{% endif %}
-              {% if vm.category_obj %}<span class="badge badge-cat">{{ vm.category_obj.name }}</span>{% endif %}
-              <span style="margin-left:auto; font-size:11px; color:#475569;">
+          <a href="/voicemails/{{ vm.id }}" class="recent-item">
+            <div class="recent-sender">
+              {{ vm.sender or 'Unknown' }}
+              {% if vm.is_urgent %}&ensp;<span class="pill pill-urg">Urgent</span>{% endif %}
+              {% if vm.category_obj %}&ensp;<span class="pill pill-cat">{{ vm.category_obj.name }}</span>{% endif %}
+              <span style="margin-left:auto; font-size:10px; color:var(--muted);">
                 {% if vm.received_at %}{{ vm.received_at.strftime('%b %d') }}{% endif %}
               </span>
             </div>
-            <div style="font-size:13px; font-weight:600; color:#e2e8f0; margin-bottom:3px;">{{ vm.subject or '(No subject)' }}</div>
+            <div class="recent-subject">{{ vm.subject or '(No subject)' }}</div>
             {% if vm.transcript and vm.transcript.text %}
-              <div style="font-size:12px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ vm.transcript.text[:120] }}</div>
+              <div class="recent-snippet">{{ vm.transcript.text[:110] }}</div>
             {% else %}
-              <div style="font-size:12px; color:#475569; font-style:italic;">{{ vm.processing_status }}</div>
+              <div class="recent-snippet" style="font-style:italic;">{{ vm.processing_status }}</div>
             {% endif %}
           </a>
         {% endfor %}
       {% else %}
-        <div style="display:flex; flex-direction:column; align-items:center; padding:40px 24px; text-align:center; gap:12px;">
-          <div style="width:56px; height:56px; background:rgba(99,102,241,.1); border-radius:14px; display:flex; align-items:center; justify-content:center;">
-            <i class="fa-solid fa-inbox" style="font-size:24px; color:#6366f1; opacity:.5;"></i>
-          </div>
-          <div>
-            <p style="font-size:15px; font-weight:600; color:#e2e8f0; margin-bottom:6px;">No voicemails yet</p>
-            <p style="font-size:13px; color:#64748b;">Click <strong style="color:#94a3b8;">Poll Inbox</strong> in the sidebar to fetch voicemails from email.</p>
-          </div>
+        <div class="empty">
+          <svg class="empty-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1" width="40" height="40"><rect x="6" y="8" width="28" height="24" rx="3"/><path d="M6 14l14 10 14-10"/></svg>
+          <p class="empty-title">No voicemails yet</p>
+          <p class="empty-sub">Click <strong style="color:var(--sub);">Poll Inbox</strong> in the sidebar to fetch voicemails from your email account.</p>
         </div>
       {% endif %}
     </div>
@@ -175,35 +145,50 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
   const trend = {{ daily_trend | tojson }};
-  if (trend.length > 0) {
+  if (trend.length) {
+    Chart.defaults.color = 'rgba(175,155,70,0.5)';
+    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+    Chart.defaults.font.size = 11;
     const ctx = document.getElementById('trendChart').getContext('2d');
     new Chart(ctx, {
       type: 'bar',
       data: {
         labels: trend.map(d => d[0]),
         datasets: [{
-          label: 'Voicemails',
           data: trend.map(d => d[1]),
-          backgroundColor: 'rgba(99,102,241,0.65)',
-          borderColor: '#6366f1',
-          borderWidth: 0,
-          borderRadius: 5,
-          hoverBackgroundColor: 'rgba(99,102,241,0.85)',
+          backgroundColor: 'rgba(247,206,91,0.18)',
+          borderColor: 'rgba(247,206,91,0.6)',
+          borderWidth: 1,
+          borderRadius: 3,
+          hoverBackgroundColor: 'rgba(247,206,91,0.30)',
         }]
       },
       options: {
-        responsive: true,
+        responsive: false,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: {
-          backgroundColor: '#1e2535',
-          borderColor: '#ffffff18',
-          borderWidth: 1,
-          titleColor: '#94a3b8',
-          bodyColor: '#e2e8f0',
-        }},
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a1400',
+            borderColor: 'rgba(175,155,70,0.25)',
+            borderWidth: 1,
+            titleColor: 'rgba(175,155,70,0.6)',
+            bodyColor: '#DFD6A7',
+            padding: 10,
+          }
+        },
         scales: {
-          y: { beginAtZero: true, ticks: { stepSize: 1, color: '#475569', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,.05)' }, border: { display: false } },
-          x: { ticks: { color: '#475569', font: { size: 11 } }, grid: { display: false }, border: { display: false } }
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, color: 'rgba(175,155,70,0.4)', font: { size: 10 } },
+            grid: { color: 'rgba(175,155,70,0.06)' },
+            border: { display: false },
+          },
+          x: {
+            ticks: { color: 'rgba(175,155,70,0.4)', font: { size: 10 } },
+            grid: { display: false },
+            border: { display: false },
+          }
         }
       }
     });

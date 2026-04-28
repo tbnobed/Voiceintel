@@ -2,59 +2,60 @@
 {% block title %}{{ vm.subject or 'Voicemail' }} — VoiceIntel{% endblock %}
 
 {% block breadcrumb %}
-  <a href="/voicemails" style="color:#64748b; text-decoration:none;">Voicemails</a>
-  <i class="fa-solid fa-chevron-right" style="font-size:10px; margin:0 6px; color:#475569;"></i>
-  <span style="color:#94a3b8;">{{ (vm.subject or 'Detail')[:40] }}</span>
+  <a href="/voicemails" style="color:var(--muted);">Voicemails</a>
+  <span class="sep">›</span>
+  <span>{{ (vm.subject or 'Detail')[:44] }}</span>
 {% endblock %}
 
 {% block content %}
-<div style="display:grid; grid-template-columns:1fr 300px; gap:20px; align-items:start;">
+<div class="detail-grid">
 
-  <!-- Main column -->
-  <div style="display:flex; flex-direction:column; gap:20px;">
+  <!-- Left column -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
 
-    <!-- Header -->
+    <!-- Header card -->
     <div class="card">
-      <div style="padding:22px 24px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:18px;">
-          <div style="flex:1; min-width:0;">
-            <h1 style="font-size:20px; font-weight:700; color:#e2e8f0; margin:0 0 10px; line-height:1.3;">{{ vm.subject or '(No subject)' }}</h1>
-            <div style="display:flex; flex-wrap:wrap; gap:14px; font-size:13px; color:#64748b;">
-              <span><i class="fa-solid fa-user" style="margin-right:5px; color:#475569;"></i>{{ vm.sender or 'Unknown' }}</span>
-              {% if vm.received_at %}<span><i class="fa-solid fa-clock" style="margin-right:5px; color:#475569;"></i>{{ vm.received_at.strftime('%B %d, %Y at %I:%M %p') }}</span>{% endif %}
-              {% if vm.duration %}<span><i class="fa-solid fa-timer" style="margin-right:5px; color:#475569;"></i>{{ '%d:%02d'|format(vm.duration|int // 60, vm.duration|int % 60) }}</span>{% endif %}
-            </div>
-          </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-            {% if vm.is_urgent %}<span class="badge badge-urgent" style="padding:4px 12px; font-size:12px;"><i class="fa-solid fa-triangle-exclamation"></i> Urgent</span>{% endif %}
-            {% if vm.category_obj %}<span class="badge badge-cat" style="padding:4px 12px; font-size:12px;">{{ vm.category_obj.name }}</span>{% endif %}
-            <span class="status-pill s-{{ vm.processing_status }}">{{ vm.processing_status }}</span>
-          </div>
+      <div style="padding: 24px 28px 20px;">
+
+        <!-- Meta row -->
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:16px;">
+          {% if vm.is_urgent %}<span class="pill pill-urg">Urgent</span>{% endif %}
+          {% if vm.category_obj %}<span class="pill pill-cat">{{ vm.category_obj.name }}</span>{% endif %}
+          {% if vm.processing_status == 'completed' %}<span class="pill pill-done">Transcribed</span>
+          {% elif vm.processing_status == 'processing' %}<span class="pill pill-proc">Processing</span>
+          {% elif vm.processing_status == 'error' %}<span class="pill pill-err">Error</span>
+          {% else %}<span class="pill pill-pend">Pending</span>{% endif %}
+          <span style="margin-left:auto; font-size:11px; color:var(--muted);">
+            {% if vm.received_at %}{{ vm.received_at.strftime('%B %d, %Y at %I:%M %p') }}{% endif %}
+          </span>
         </div>
 
+        <h1 style="font-family:'DM Serif Display',Georgia,serif; font-size:22px; font-weight:400; color:var(--vanilla); letter-spacing:-.3px; margin-bottom:8px; line-height:1.3;">
+          {{ vm.subject or '(No subject)' }}
+        </h1>
+        <div style="font-size:13px; color:var(--muted);">From: {{ vm.sender or 'Unknown' }}{% if vm.duration %} &ensp;·&ensp; {{ '%d:%02d'|format(vm.duration|int // 60, vm.duration|int % 60) }}{% endif %}</div>
+
         {% if vm.converted_path or vm.original_path %}
-          <audio controls preload="metadata">
-            <source src="/voicemails/{{ vm.id }}/audio" />
-            Your browser does not support audio.
-          </audio>
+          <div style="margin-top:18px; padding-top:18px; border-top:1px solid var(--border-m);">
+            <audio controls preload="metadata">
+              <source src="/voicemails/{{ vm.id }}/audio" />
+            </audio>
+          </div>
         {% endif %}
       </div>
     </div>
 
-    <!-- Transcript -->
+    <!-- Transcript card -->
     <div class="card">
-      <div class="card-header">
-        <h2><i class="fa-solid fa-file-lines"></i> Transcript</h2>
+      <div class="card-head">
+        <span class="card-head-title">Transcript</span>
         {% if vm.transcript and vm.transcript.language %}
-          <span style="background:#0f1117; color:#64748b; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600;">{{ vm.transcript.language | upper }}</span>
+          <span style="font-size:10px; font-weight:600; letter-spacing:.06em; color:var(--muted); text-transform:uppercase;">{{ vm.transcript.language }}</span>
         {% endif %}
       </div>
-      <div class="card-body">
+      <div class="card-body" style="padding: 24px 28px;">
         {% if vm.transcript and vm.transcript.text %}
-          {% if vm.transcript.error %}
-            <div class="alert alert-warn" style="margin-bottom:12px;"><i class="fa-solid fa-circle-exclamation"></i> {{ vm.transcript.error }}</div>
-          {% endif %}
-          <div style="font-size:15px; line-height:1.85; color:#cbd5e1; white-space:pre-wrap;">
+          <div class="transcript-body">
             {% if q %}
               {% set text = vm.transcript.text %}
               {% set parts = text.split(q) %}
@@ -64,16 +65,17 @@
             {% endif %}
           </div>
           {% if vm.transcript.processing_time %}
-            <div style="margin-top:14px; font-size:12px; color:#475569; border-top:1px solid #ffffff08; padding-top:12px;">
-              <i class="fa-solid fa-stopwatch" style="margin-right:4px;"></i> Transcribed in {{ vm.transcript.processing_time }}s
+            <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-m); font-size:11px; color:var(--muted);">
+              Transcribed in {{ vm.transcript.processing_time }}s
             </div>
           {% endif %}
         {% elif vm.transcript and vm.transcript.error %}
-          <div class="alert alert-err"><i class="fa-solid fa-circle-xmark"></i> {{ vm.transcript.error }}</div>
+          <div style="background:rgba(224,92,58,0.08); border:1px solid rgba(224,92,58,0.2); border-radius:6px; padding:14px 18px; font-size:13px; color:var(--urgent);">
+            {{ vm.transcript.error }}
+          </div>
         {% else %}
-          <div style="display:flex; flex-direction:column; align-items:center; padding:32px; text-align:center; gap:8px; color:#475569;">
-            <i class="fa-solid fa-hourglass-half" style="font-size:28px; opacity:.3;"></i>
-            <p style="font-size:13px;">{{ 'Transcription in progress...' if vm.processing_status == 'processing' else 'No transcript available.' }}</p>
+          <div class="empty" style="padding:32px 0;">
+            <p class="empty-sub">{{ 'Transcription in progress…' if vm.processing_status == 'processing' else 'No transcript available.' }}</p>
           </div>
         {% endif %}
       </div>
@@ -82,11 +84,11 @@
     <!-- Segments -->
     {% if vm.transcript and vm.transcript.segments and vm.transcript.segments|length > 0 %}
     <div class="card">
-      <div class="card-header">
-        <h2><i class="fa-solid fa-list-timeline"></i> Segments</h2>
-        <span style="font-size:12px; color:#64748b;">{{ vm.transcript.segments|length }} segments</span>
+      <div class="card-head">
+        <span class="card-head-title">Timeline</span>
+        <span style="font-size:11px; color:var(--muted);">{{ vm.transcript.segments|length }} segments</span>
       </div>
-      <div class="card-body" style="max-height:300px; overflow-y:auto; padding:12px 20px;">
+      <div style="padding: 4px 20px 12px; max-height: 280px; overflow-y: auto;">
         {% for seg in vm.transcript.segments %}
           <div class="segment">
             <span class="seg-t">{{ '%d:%02d'|format(seg.start|int // 60, seg.start|int % 60) }}</span>
@@ -99,44 +101,44 @@
 
   </div>
 
-  <!-- Sidebar -->
+  <!-- Right sidebar -->
   <div style="display:flex; flex-direction:column; gap:16px;">
 
-    <!-- Insights -->
+    <!-- NLP Insights -->
     {% if vm.insights %}
     <div class="card">
-      <div class="card-header"><h2><i class="fa-solid fa-brain"></i> NLP Insights</h2></div>
-      <div class="card-body" style="padding:0;">
-        <div style="padding:12px 18px; border-bottom:1px solid #ffffff08; display:flex; align-items:center; gap:10px; font-size:13px;">
-          <span style="color:#64748b; min-width:80px;">Sentiment</span>
-          {% if vm.insights.sentiment == 'positive' %}
-            <span class="badge badge-pos"><i class="fa-solid fa-face-smile"></i> Positive</span>
-          {% elif vm.insights.sentiment == 'negative' %}
-            <span class="badge badge-neg"><i class="fa-solid fa-face-frown"></i> Negative</span>
-          {% else %}
-            <span class="badge badge-neu"><i class="fa-solid fa-face-meh"></i> Neutral</span>
-          {% endif %}
+      <div class="card-head"><span class="card-head-title">Analysis</span></div>
+      <div>
+        <div class="insight-row">
+          <span class="insight-label">Sentiment</span>
+          <span class="insight-val">
+            {% if vm.insights.sentiment == 'positive' %}<span class="pill pill-pos">Positive</span>
+            {% elif vm.insights.sentiment == 'negative' %}<span class="pill pill-neg">Negative</span>
+            {% else %}<span class="pill pill-neu">Neutral</span>{% endif %}
+          </span>
         </div>
         {% if vm.insights.sentiment_score is not none %}
-        <div style="padding:12px 18px; border-bottom:1px solid #ffffff08; display:flex; gap:10px; font-size:13px;">
-          <span style="color:#64748b; min-width:80px;">Score</span>
-          <span style="color:#94a3b8;">{{ vm.insights.sentiment_score }}</span>
+        <div class="insight-row">
+          <span class="insight-label">Score</span>
+          <span class="insight-val" style="font-variant-numeric:tabular-nums; color:var(--sub);">{{ vm.insights.sentiment_score }}</span>
         </div>
         {% endif %}
         {% if vm.insights.urgency_keywords %}
-        <div style="padding:12px 18px; border-bottom:1px solid #ffffff08; font-size:13px;">
-          <div style="color:#64748b; margin-bottom:8px;">Urgency flags</div>
-          <div style="display:flex; flex-wrap:wrap; gap:4px;">
-            {% for kw in vm.insights.urgency_keywords %}<span class="kw-tag urg">{{ kw }}</span>{% endfor %}
+        <div class="insight-row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+          <span class="insight-label">Urgency flags</span>
+          <div style="display:flex; flex-wrap:wrap; gap:5px;">
+            {% for kw in vm.insights.urgency_keywords %}
+              <span style="background:rgba(224,92,58,0.1); color:var(--urgent); border:1px solid rgba(224,92,58,0.2); padding:2px 8px; border-radius:3px; font-size:11px;">{{ kw }}</span>
+            {% endfor %}
           </div>
         </div>
         {% endif %}
         {% if vm.insights.keywords %}
-        <div style="padding:12px 18px; font-size:13px;">
-          <div style="color:#64748b; margin-bottom:8px;">Keywords</div>
-          <div style="display:flex; flex-wrap:wrap; gap:4px;">
+        <div class="insight-row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+          <span class="insight-label">Keywords</span>
+          <div style="display:flex; flex-wrap:wrap; gap:5px;">
             {% for kw in vm.insights.keywords %}
-              <a href="/voicemails?q={{ kw }}" class="kw-tag">{{ kw }}</a>
+              <a href="/voicemails?q={{ kw }}" class="kw-tag" style="font-size:11px; padding:2px 8px;">{{ kw }}</a>
             {% endfor %}
           </div>
         </div>
@@ -145,37 +147,47 @@
     </div>
     {% endif %}
 
-    <!-- Email metadata -->
+    <!-- File Metadata -->
     <div class="card">
-      <div class="card-header"><h2><i class="fa-solid fa-envelope"></i> Metadata</h2></div>
-      <div class="card-body" style="padding:0;">
-        {% set rows = [
-          ('Filename', vm.filename),
-          ('File size', ((vm.file_size / 1024)|round(1)|string + ' KB') if vm.file_size else None),
-          ('Duration', ('%d:%02d'|format(vm.duration|int // 60, vm.duration|int % 60)) if vm.duration else None),
-          ('Status', vm.processing_status),
-        ] %}
-        {% for label, val in rows %}{% if val %}
-          <div style="display:flex; justify-content:space-between; padding:10px 18px; border-bottom:1px solid #ffffff08; font-size:12px; gap:10px;">
-            <span style="color:#64748b; flex-shrink:0;">{{ label }}</span>
-            <span style="color:#94a3b8; text-align:right; word-break:break-all;">{{ val }}</span>
+      <div class="card-head"><span class="card-head-title">File Details</span></div>
+      <div>
+        {% if vm.filename %}
+          <div class="meta-row">
+            <span class="meta-label">Filename</span>
+            <span class="meta-val" style="word-break:break-all; font-size:11px;">{{ vm.filename }}</span>
           </div>
-        {% endif %}{% endfor %}
-        <div style="padding:10px 18px; font-size:11px;">
-          <span style="color:#64748b;">Message ID</span>
-          <div style="color:#475569; font-family:monospace; margin-top:3px; word-break:break-all;">{{ vm.message_id[:60] }}{% if vm.message_id|length > 60 %}…{% endif %}</div>
+        {% endif %}
+        {% if vm.file_size %}
+          <div class="meta-row">
+            <span class="meta-label">File size</span>
+            <span class="meta-val">{{ (vm.file_size / 1024)|round(1) }} KB</span>
+          </div>
+        {% endif %}
+        {% if vm.duration %}
+          <div class="meta-row">
+            <span class="meta-label">Duration</span>
+            <span class="meta-val">{{ '%d:%02d'|format(vm.duration|int // 60, vm.duration|int % 60) }}</span>
+          </div>
+        {% endif %}
+        <div class="meta-row">
+          <span class="meta-label">Status</span>
+          <span class="meta-val">{{ vm.processing_status }}</span>
+        </div>
+        <div class="meta-row" style="flex-direction:column; align-items:flex-start; gap:4px;">
+          <span class="meta-label">Message ID</span>
+          <span style="font-size:10px; color:var(--muted); font-family:monospace; word-break:break-all;">{{ vm.message_id[:72] }}{% if vm.message_id|length > 72 %}…{% endif %}</span>
         </div>
       </div>
     </div>
 
     <!-- Actions -->
     <div class="card">
-      <div class="card-header"><h2><i class="fa-solid fa-wrench"></i> Actions</h2></div>
+      <div class="card-head"><span class="card-head-title">Actions</span></div>
       <div class="card-body">
         <button onclick="reprocess({{ vm.id }})" class="btn btn-primary btn-block" id="reproc-btn">
-          <i class="fa-solid fa-rotate"></i> Reprocess
+          Reprocess
         </button>
-        <div id="reproc-msg" style="display:none; margin-top:10px; font-size:12px; color:#64748b; text-align:center;"></div>
+        <div id="reproc-msg" style="display:none; margin-top:10px; font-size:12px; color:var(--muted); text-align:center;"></div>
       </div>
     </div>
 
@@ -189,17 +201,17 @@ function reprocess(id) {
   const btn = document.getElementById('reproc-btn');
   const msg = document.getElementById('reproc-msg');
   btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing…';
+  btn.textContent = 'Processing…';
   fetch(`/api/voicemails/${id}/reprocess`, { method: 'POST' })
     .then(r => r.json())
     .then(() => {
       msg.style.display = 'block';
-      msg.textContent = 'Reprocessing started. Reloading shortly…';
+      msg.textContent = 'Queued for reprocessing. Refreshing…';
       setTimeout(() => window.location.reload(), 4000);
     })
     .catch(e => {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Reprocess';
+      btn.textContent = 'Reprocess';
       msg.style.display = 'block';
       msg.textContent = 'Error: ' + e.message;
     });
