@@ -144,11 +144,30 @@ def voicemail_detail(vm_id):
 @main_bp.route("/voicemails/<int:vm_id>/audio")
 @login_required
 def serve_audio(vm_id):
+    import mimetypes
     vm = Voicemail.query.get_or_404(vm_id)
+    # Prefer converted WAV; fall back to original
     audio_path = vm.converted_path or vm.original_path
     if not audio_path:
         abort(404)
-    try:
-        return send_file(audio_path, mimetype="audio/wav")
-    except Exception:
+
+    # Flask 2.x requires an absolute path for send_file
+    if not os.path.isabs(audio_path):
+        # Resolve relative to the app root (parent of the 'app' package)
+        base = os.path.dirname(current_app.root_path)
+        audio_path = os.path.join(base, audio_path)
+
+    if not os.path.isfile(audio_path):
+        current_app.logger.warning(f"Audio file not found: {audio_path}")
         abort(404)
+
+    mime = mimetypes.guess_type(audio_path)[0] or "audio/mpeg"
+    try:
+        return send_file(
+            audio_path,
+            mimetype=mime,
+            conditional=True,   # supports Range requests for seeking
+        )
+    except Exception as e:
+        current_app.logger.error(f"Audio serve error: {e}")
+        abort(500)
