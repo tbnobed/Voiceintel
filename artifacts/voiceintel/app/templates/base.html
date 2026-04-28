@@ -176,16 +176,6 @@
       color: var(--muted);
     }
 
-    /* Poll status */
-    #poll-status {
-      display: none;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--sub);
-    }
-    .spin { animation: spin .8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Page content */
     .content { padding: 36px 32px; flex: 1; }
@@ -480,12 +470,6 @@
           Urgent
         </a>
       </li>
-      <li style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-m);">
-        <a href="#" onclick="triggerPoll(event)" class="nav-link">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8A6.5 6.5 0 0114.5 8"/><path d="M14.5 8A6.5 6.5 0 011.5 8"/><polyline points="11.5,5 14.5,8 11.5,11"/></svg>
-          Poll Inbox
-        </a>
-      </li>
       {% if current_user.is_authenticated and current_user.is_admin %}
       <li style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-m);">
         <a href="/admin" class="nav-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.') else '' }}">
@@ -527,10 +511,6 @@
         {% block breadcrumb %}{% endblock %}
       </div>
       <div style="display:flex; align-items:center; gap:16px;">
-        <div id="poll-status">
-          <svg class="spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1.5A6.5 6.5 0 1114.5 8"/></svg>
-          Polling inbox…
-        </div>
         <form action="/voicemails" method="GET">
           <div class="search-wrap">
             <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
@@ -548,16 +528,6 @@
 </div>
 
 <script>
-  function triggerPoll(e) {
-    e.preventDefault();
-    const el = document.getElementById('poll-status');
-    el.style.display = 'flex';
-    fetch('/api/poll', { method: 'POST' })
-      .then(r => r.json())
-      .then(() => setTimeout(() => { el.style.display='none'; window.location.reload(); }, 4000))
-      .catch(() => { el.style.display='none'; });
-  }
-</script>
 
 {% block scripts %}{% endblock %}
 </body>
