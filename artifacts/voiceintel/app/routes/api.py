@@ -1,3 +1,4 @@
+import os
 import threading
 from flask import Blueprint, request, jsonify, current_app
 from sqlalchemy import func, desc
@@ -159,6 +160,53 @@ def trigger_poll():
 def categories():
     cats = Category.query.order_by(Category.name).all()
     return jsonify([c.to_dict() for c in cats])
+
+
+@api_bp.route("/webhook/inbound", methods=["GET", "POST"])
+def sendgrid_inbound():
+    """
+    SendGrid Inbound Parse webhook.
+
+    Configure SendGrid → Settings → Inbound Parse → Add Host & URL:
+        URL: https://<your-domain>/api/webhook/inbound
+        Check POST the raw, full MIME message: NO  (default multipart form)
+        Check Send Grid spam check: optional
+    """
+    if request.method == "GET":
+        # Liveness check for SendGrid configuration wizard
+        return jsonify({"status": "ok", "service": "VoiceIntel inbound webhook"}), 200
+
+    app = current_app._get_current_object()
+    webhook_key = os.environ.get("SENDGRID_WEBHOOK_KEY", "")
+
+    from app.services.webhook_service import verify_sendgrid_signature, parse_sendgrid_inbound
+
+    if not verify_sendgrid_signature(request, webhook_key):
+        return jsonify({"error": "Invalid signature"}), 403
+
+    storage_dir = app.config["STORAGE_DIR"]
+    try:
+        items = parse_sendgrid_inbound(request, storage_dir)
+    except Exception as e:
+        app.logger.error(f"Webhook parse error: {e}")
+        return jsonify({"error": str(e)}), 400
+
+    if not items:
+        # Acknowledge to SendGrid even if there were no audio attachments
+        return jsonify({"status": "ignored", "reason": "no audio attachments found"}), 200
+
+    # Process in background so SendGrid gets a fast 200
+    def _process():
+        from app.services.pipeline import process_email_items
+        process_email_items(app, items)
+
+    threading.Thread(target=_process, daemon=True).start()
+
+    return jsonify({
+        "status": "accepted",
+        "queued": len(items),
+        "filenames": [i["filename"] for i in items],
+    }), 200
 
 
 @api_bp.route("/health")
