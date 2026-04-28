@@ -1,116 +1,200 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}VoiceIntel{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0f1117',
+            panel: '#161b27',
+            card: '#1e2535',
+            border: '#ffffff12',
+            accent: '#6366f1',
+            'accent-hover': '#4f52d6',
+            sky: '#0ea5e9',
+            emerald: '#10b981',
+            rose: '#ef4444',
+            amber: '#f59e0b',
+            muted: '#64748b',
+            sub: '#94a3b8',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ffffff18; border-radius: 3px; }
+    .nav-link { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; color:#94a3b8; font-size:14px; font-weight:500; transition:all .15s; text-decoration:none; }
+    .nav-link:hover { background:#1e2535; color:#e2e8f0; }
+    .nav-link.active { background:rgba(99,102,241,.18); color:#6366f1; }
+    .nav-link i { width:16px; text-align:center; }
+    .card { background:#1e2535; border:1px solid #ffffff12; border-radius:12px; overflow:hidden; }
+    .card-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #ffffff10; }
+    .card-header h2 { font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; color:#e2e8f0; }
+    .card-header h2 i { color:#6366f1; font-size:13px; }
+    .card-body { padding:20px; }
+    .stat-card { background:#1e2535; border:1px solid #ffffff12; border-radius:12px; padding:20px; display:flex; align-items:center; gap:16px; }
+    .stat-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; color:#fff; flex-shrink:0; }
+    .stat-num { font-size:30px; font-weight:700; letter-spacing:-1px; line-height:1; }
+    .stat-lbl { font-size:12px; color:#94a3b8; margin-top:3px; }
+    .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600; }
+    .badge-urgent { background:rgba(239,68,68,.15); color:#ef4444; }
+    .badge-normal { background:rgba(100,116,139,.15); color:#64748b; }
+    .badge-cat { background:rgba(14,165,233,.12); color:#0ea5e9; }
+    .badge-pos { background:rgba(16,185,129,.12); color:#10b981; }
+    .badge-neg { background:rgba(239,68,68,.12); color:#ef4444; }
+    .badge-neu { background:rgba(100,116,139,.12); color:#94a3b8; }
+    .status-pill { display:inline-flex; align-items:center; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600; }
+    .s-completed { background:rgba(16,185,129,.12); color:#10b981; }
+    .s-processing { background:rgba(245,158,11,.12); color:#f59e0b; }
+    .s-pending { background:rgba(100,116,139,.12); color:#94a3b8; }
+    .s-error { background:rgba(239,68,68,.12); color:#ef4444; }
+    .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; transition:all .15s; text-decoration:none; white-space:nowrap; }
+    .btn-primary { background:#6366f1; color:#fff; }
+    .btn-primary:hover { background:#4f52d6; color:#fff; }
+    .btn-ghost { background:transparent; color:#94a3b8; border:1px solid #ffffff14; }
+    .btn-ghost:hover { background:#1e2535; color:#e2e8f0; }
+    .btn-sm { padding:4px 10px; font-size:12px; }
+    .btn-block { width:100%; justify-content:center; }
+    .btn:disabled { opacity:.5; cursor:not-allowed; }
+    .data-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .data-table thead th { background:#161b27; padding:10px 14px; text-align:left; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid #ffffff10; white-space:nowrap; }
+    .data-table tbody td { padding:12px 14px; border-bottom:1px solid #ffffff08; vertical-align:top; }
+    .data-table tbody tr:last-child td { border-bottom:none; }
+    .data-table tbody tr:hover { background:rgba(255,255,255,.025); }
+    .data-table tbody tr.urg-row { background:rgba(239,68,68,.04); }
+    .filter-input, .filter-select { background:#161b27; border:1px solid #ffffff12; color:#e2e8f0; padding:8px 12px; border-radius:8px; font-size:13px; outline:none; transition:border-color .15s; width:100%; }
+    .filter-input:focus, .filter-select:focus { border-color:#6366f1; }
+    .filter-input::placeholder { color:#475569; }
+    .kw-tag { background:rgba(99,102,241,.12); color:#6366f1; border:1px solid rgba(99,102,241,.2); padding:3px 10px; border-radius:20px; font-size:12px; font-weight:500; cursor:pointer; transition:all .15s; text-decoration:none; display:inline-block; }
+    .kw-tag:hover { background:rgba(99,102,241,.25); }
+    .kw-tag.urg { background:rgba(239,68,68,.12); color:#ef4444; border-color:rgba(239,68,68,.2); }
+    .page-btn { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:#1e2535; border:1px solid #ffffff12; color:#94a3b8; font-size:13px; text-decoration:none; transition:all .15s; }
+    .page-btn:hover { background:#283347; color:#e2e8f0; }
+    .page-btn.active { background:#6366f1; color:#fff; border-color:#6366f1; }
+    mark { background:rgba(99,102,241,.3); color:#e2e8f0; padding:0 2px; border-radius:3px; }
+    .alert { padding:10px 16px; border-radius:8px; font-size:13px; display:flex; align-items:center; gap:8px; }
+    .alert-warn { background:rgba(245,158,11,.1); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+    .alert-err { background:rgba(239,68,68,.1); color:#ef4444; border:1px solid rgba(239,68,68,.2); }
+    audio { width:100%; height:44px; border-radius:8px; background:#161b27; }
+    .segment { display:flex; gap:12px; padding:6px 0; border-bottom:1px solid #ffffff08; font-size:13px; }
+    .seg-t { color:#6366f1; font-weight:600; font-size:11px; min-width:42px; padding-top:2px; }
+    .seg-txt { color:#94a3b8; }
+    a { color:#6366f1; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+  </style>
 </head>
-<body>
-  <div class="layout">
+<body class="h-full">
+  <div style="display:flex; min-height:100vh;">
+
     <!-- Sidebar -->
-    <nav class="sidebar">
-      <div class="sidebar-header">
-        <div class="logo">
-          <i class="fa-solid fa-microphone-lines"></i>
-          <span>VoiceIntel</span>
+    <nav style="width:220px; background:#161b27; border-right:1px solid #ffffff0f; display:flex; flex-direction:column; position:fixed; top:0; left:0; bottom:0; z-index:100;">
+      <div style="padding:22px 20px 16px; border-bottom:1px solid #ffffff0f;">
+        <div style="display:flex; align-items:center; gap:10px; font-size:17px; font-weight:700; color:#e2e8f0;">
+          <div style="width:34px; height:34px; background:linear-gradient(135deg,#6366f1,#818cf8); border-radius:9px; display:flex; align-items:center; justify-content:center;">
+            <i class="fa-solid fa-microphone-lines" style="color:#fff; font-size:15px;"></i>
+          </div>
+          VoiceIntel
         </div>
       </div>
 
-      <ul class="nav-links">
-        <li>
-          <a href="{{ url_for('main.dashboard') }}" class="{{ 'active' if request.endpoint == 'main.dashboard' else '' }}">
-            <i class="fa-solid fa-gauge-high"></i>
-            <span>Dashboard</span>
+      <ul style="list-style:none; padding:12px 10px; flex:1; overflow-y:auto; margin:0;">
+        <li style="margin-bottom:2px;">
+          <a href="/" class="nav-link {{ 'active' if request.endpoint == 'main.dashboard' else '' }}">
+            <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
           </a>
         </li>
-        <li>
-          <a href="{{ url_for('main.voicemail_list') }}" class="{{ 'active' if request.endpoint in ['main.voicemail_list', 'main.voicemail_detail'] else '' }}">
-            <i class="fa-solid fa-inbox"></i>
-            <span>Voicemails</span>
+        <li style="margin-bottom:2px;">
+          <a href="/voicemails" class="nav-link {{ 'active' if request.endpoint in ['main.voicemail_list', 'main.voicemail_detail'] and request.args.get('urgency') != 'urgent' else '' }}">
+            <i class="fa-solid fa-inbox"></i><span>Voicemails</span>
           </a>
         </li>
-        <li>
-          <a href="{{ url_for('main.voicemail_list') }}?urgency=urgent" class="{{ 'active' if request.args.get('urgency') == 'urgent' else '' }}">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <span>Urgent</span>
+        <li style="margin-bottom:2px;">
+          <a href="/voicemails?urgency=urgent" class="nav-link {{ 'active' if request.args.get('urgency') == 'urgent' else '' }}">
+            <i class="fa-solid fa-triangle-exclamation"></i><span>Urgent</span>
           </a>
         </li>
-        <li>
-          <a href="#" onclick="triggerPoll(event)">
-            <i class="fa-solid fa-rotate"></i>
-            <span>Poll Inbox</span>
+        <li style="margin-bottom:2px;">
+          <a href="#" onclick="triggerPoll(event)" class="nav-link">
+            <i class="fa-solid fa-rotate"></i><span>Poll Inbox</span>
           </a>
         </li>
       </ul>
 
-      <div class="sidebar-footer">
-        <div class="model-badge">
-          <i class="fa-solid fa-microchip"></i>
-          <span>Whisper</span>
+      <div style="padding:14px 20px; border-top:1px solid #ffffff0f;">
+        <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(99,102,241,.12); color:#6366f1; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600;">
+          <i class="fa-solid fa-microchip"></i> Whisper
         </div>
       </div>
     </nav>
 
-    <!-- Main content -->
-    <div class="main">
-      <header class="topbar">
-        <div class="topbar-left">
+    <!-- Main -->
+    <div style="margin-left:220px; flex:1; display:flex; flex-direction:column; min-width:0;">
+
+      <!-- Topbar -->
+      <header style="height:60px; background:#161b27; border-bottom:1px solid #ffffff0f; display:flex; align-items:center; justify-content:space-between; padding:0 28px; position:sticky; top:0; z-index:50; gap:16px;">
+        <div style="font-size:13px; color:#64748b; display:flex; align-items:center; gap:6px;">
           {% block breadcrumb %}{% endblock %}
         </div>
-        <div class="topbar-right">
-          <div class="search-wrapper">
-            <form action="{{ url_for('main.voicemail_list') }}" method="GET">
-              <i class="fa-solid fa-magnifying-glass search-icon"></i>
-              <input
-                type="text"
-                name="q"
-                class="search-input"
-                placeholder="Search transcripts..."
-                value="{{ request.args.get('q', '') }}"
-              />
-            </form>
-          </div>
-          <div id="poll-status" class="poll-status hidden">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <form action="/voicemails" method="GET" style="position:relative;">
+            <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#475569; font-size:12px;"></i>
+            <input type="text" name="q" class="filter-input" placeholder="Search transcripts..." value="{{ request.args.get('q', '') }}" style="padding-left:30px; width:220px; height:36px;" />
+          </form>
+          <div id="poll-status" style="display:none; font-size:13px; color:#94a3b8; align-items:center; gap:6px;">
             <i class="fa-solid fa-circle-notch fa-spin"></i> Polling...
           </div>
         </div>
       </header>
 
-      <div class="content">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-          {% endfor %}
-        {% endwith %}
-
+      <!-- Content -->
+      <div style="padding:28px; flex:1;">
         {% block content %}{% endblock %}
       </div>
     </div>
   </div>
 
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-  {% block scripts %}{% endblock %}
-
   <script>
     function triggerPoll(e) {
       e.preventDefault();
-      const status = document.getElementById('poll-status');
-      status.classList.remove('hidden');
+      const el = document.getElementById('poll-status');
+      el.style.display = 'flex';
       fetch('/api/poll', { method: 'POST' })
         .then(r => r.json())
-        .then(() => {
-          setTimeout(() => {
-            status.classList.add('hidden');
-            window.location.reload();
-          }, 3000);
-        })
-        .catch(() => status.classList.add('hidden'));
+        .then(() => setTimeout(() => { el.style.display='none'; window.location.reload(); }, 3500))
+        .catch(() => el.style.display='none');
     }
+
+    // Animate stat numbers
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.stat-num').forEach(el => {
+        const target = parseInt(el.textContent, 10);
+        if (isNaN(target) || target === 0) return;
+        let cur = 0;
+        const step = Math.max(1, Math.ceil(target / 25));
+        const iv = setInterval(() => {
+          cur = Math.min(cur + step, target);
+          el.textContent = cur;
+          if (cur >= target) clearInterval(iv);
+        }, 20);
+      });
+    });
   </script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>
