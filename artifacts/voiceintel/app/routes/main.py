@@ -30,8 +30,9 @@ def dashboard():
         .all()
     )
 
-    daily_trend = (
-        db.session.query(
+    daily_trend = [
+        {"day": str(d), "count": c}
+        for d, c in db.session.query(
             func.date(Voicemail.received_at).label("day"),
             func.count(Voicemail.id).label("count"),
         )
@@ -39,7 +40,7 @@ def dashboard():
         .group_by(func.date(Voicemail.received_at))
         .order_by("day")
         .all()
-    )
+    ]
 
     all_keywords = []
     insights_with_kw = Insight.query.filter(Insight.keywords.isnot(None)).limit(100).all()
