@@ -32,11 +32,17 @@ def index():
         custom_kw = json.loads(custom_kw_raw)
     except Exception:
         custom_kw = []
+    # Check if SendGrid is configured (env var or DB)
+    import os as _os
+    sg_configured = bool(
+        _os.environ.get("SENDGRID_API_KEY") or Setting.get("sendgrid_api_key", "")
+    )
     return render_template(
         "admin/index.html",
         user_count=user_count,
         trigger_count=trigger_count,
         custom_kw_count=len(custom_kw),
+        sg_configured=sg_configured,
     )
 
 
@@ -243,3 +249,75 @@ def delete_trigger(trigger_id):
     db.session.delete(trigger)
     db.session.commit()
     return redirect(url_for("admin.triggers"))
+
+
+# ---------------------------------------------------------------------------
+# Integrations (SendGrid)
+# ---------------------------------------------------------------------------
+
+_SENDGRID_SETTINGS = [
+    ("sendgrid_api_key",      "SendGrid API Key",              "password", "SG.xxxxxxxxxxxxxxxx…"),
+    ("sendgrid_from_email",   "From Email Address",            "email",    "alerts@yourdomain.com"),
+    ("sendgrid_from_name",    "From Display Name",             "text",     "VoiceIntel"),
+    ("sendgrid_admin_email",  "Admin Notification Email(s)",   "text",     "ops@yourdomain.com"),
+    ("sendgrid_webhook_key",  "Inbound Parse Webhook Secret",  "text",     "random-secret-token"),
+]
+
+
+@admin_bp.route("/integrations", methods=["GET", "POST"])
+@login_required
+def integrations():
+    _admin_required()
+    error = None
+    success = None
+    test_result = None
+
+    if request.method == "POST":
+        action = request.form.get("action", "save")
+
+        if action == "test":
+            from app.services.email_service import test_sendgrid_connection
+            key = request.form.get("sendgrid_api_key", "").strip()
+            ok, msg = test_sendgrid_connection(key or None)
+            test_result = {"ok": ok, "msg": msg}
+        else:
+            # Save all settings
+            for key, *_ in _SENDGRID_SETTINGS:
+                val = request.form.get(key, "").strip()
+                # Don't overwrite API key with blank if field was left empty
+                if key == "sendgrid_api_key" and not val:
+                    continue
+                Setting.set(key, val)
+            success = "Integration settings saved."
+
+    current = {key: Setting.get(key, "") for key, *_ in _SENDGRID_SETTINGS}
+    # Mask stored API key for display
+    if current.get("sendgrid_api_key"):
+        raw = current["sendgrid_api_key"]
+        current["sendgrid_api_key_masked"] = raw[:6] + "…" + raw[-4:] if len(raw) > 12 else "••••••••"
+    else:
+        current["sendgrid_api_key_masked"] = ""
+
+    # Build example webhook URL
+    import os as _os
+    domains = _os.environ.get("REPLIT_DOMAINS", "")
+    if domains:
+        host = domains.split(",")[0].strip()
+        base_url = f"https://{host}"
+    else:
+        from flask import request as freq
+        base_url = freq.host_url.rstrip("/")
+    webhook_token = current.get("sendgrid_webhook_key", "")
+    webhook_url = f"{base_url}/api/webhook/inbound"
+    if webhook_token:
+        webhook_url += f"?token={webhook_token}"
+
+    return render_template(
+        "admin/integrations.html",
+        settings=_SENDGRID_SETTINGS,
+        current=current,
+        error=error,
+        success=success,
+        test_result=test_result,
+        webhook_url=webhook_url,
+    )

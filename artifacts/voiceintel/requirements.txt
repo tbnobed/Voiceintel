@@ -14,3 +14,4 @@ requests==2.32.3
 python-dateutil==2.9.0
 Werkzeug==3.0.6
 gunicorn==23.0.0
+sendgrid==6.11.0

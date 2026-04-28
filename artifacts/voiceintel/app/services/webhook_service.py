@@ -11,31 +11,75 @@ logger = logging.getLogger(__name__)
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".ogg", ".aac", ".flac", ".wma", ".opus", ".amr"}
 
 
-def verify_sendgrid_signature(request, webhook_key: str) -> bool:
+def _get_webhook_key() -> str:
     """
-    Verify the SendGrid Event Webhook signature (signed event webhook).
-    SendGrid sends the HMAC-SHA256 of the raw body using the webhook key.
-    If SENDGRID_WEBHOOK_KEY is not set, verification is skipped (dev mode).
+    Resolve webhook key: env var takes precedence, then Setting table.
+    """
+    key = os.environ.get("SENDGRID_WEBHOOK_KEY", "")
+    if not key:
+        try:
+            from app.models.voicemail import Setting
+            key = Setting.get("sendgrid_webhook_key", "")
+        except Exception:
+            pass
+    return key
+
+
+def verify_sendgrid_signature(request, webhook_key: str = "") -> bool:
+    """
+    Verify SendGrid Inbound Parse webhook authenticity.
+
+    Supports two modes (checked in order):
+
+    1. **URL token** (recommended for Inbound Parse):
+       Add ?token=<SENDGRID_WEBHOOK_KEY> to the webhook URL you register
+       in SendGrid. The key is compared with constant-time comparison.
+
+    2. **Signed Event Webhook HMAC** (for Event Webhooks):
+       SendGrid sends X-Twilio-Email-Event-Webhook-Signature +
+       X-Twilio-Email-Event-Webhook-Timestamp headers.
+
+    If no key is configured, verification is skipped (dev/open mode).
     """
     if not webhook_key:
+        webhook_key = _get_webhook_key()
+    if not webhook_key:
+        logger.debug("No webhook key configured — accepting request without verification")
         return True
 
+    # --- Mode 1: URL token ---
+    url_token = request.args.get("token", "")
+    if url_token:
+        ok = hmac.compare_digest(url_token, webhook_key)
+        if not ok:
+            logger.warning("Webhook URL token mismatch — rejecting request")
+        return ok
+
+    # --- Mode 2: Signed Event Webhook (HMAC-SHA256) ---
     signature = request.headers.get("X-Twilio-Email-Event-Webhook-Signature", "")
     timestamp = request.headers.get("X-Twilio-Email-Event-Webhook-Timestamp", "")
 
-    if not signature or not timestamp:
-        logger.warning("SendGrid signature headers missing — accepting anyway")
-        return True
+    if signature and timestamp:
+        try:
+            import base64
+            payload = timestamp.encode() + request.get_data()
+            expected = hmac.new(webhook_key.encode(), payload, hashlib.sha256).digest()
+            expected_b64 = base64.b64encode(expected).decode()
+            ok = hmac.compare_digest(expected_b64, signature)
+            if not ok:
+                logger.warning("Webhook HMAC signature mismatch — rejecting request")
+            return ok
+        except Exception as e:
+            logger.error(f"Signature verification error: {e}")
+            return False
 
-    try:
-        payload = timestamp.encode() + request.get_data()
-        expected = hmac.new(webhook_key.encode(), payload, hashlib.sha256).digest()
-        import base64
-        expected_b64 = base64.b64encode(expected).decode()
-        return hmac.compare_digest(expected_b64, signature)
-    except Exception as e:
-        logger.error(f"Signature verification error: {e}")
-        return False
+    # Webhook key is set but no verification material was provided.
+    # Accept with a warning so a misconfigured sender doesn't silently drop mail.
+    logger.warning(
+        "Webhook key configured but no token param or signature headers found — "
+        "accepting request. Add ?token=<key> to your SendGrid webhook URL to enforce auth."
+    )
+    return True
 
 
 def parse_sendgrid_inbound(request, storage_dir: str) -> list[dict]:

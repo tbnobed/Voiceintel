@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Integrations — Admin — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span><span>Integrations</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Integrations</div>
+  <div class="page-sub">Configure SendGrid for inbound voicemail ingestion and outbound email notifications.</div>
+</div>
+
+<div class="grid-2-1" style="gap:16px; align-items:start;">
+
+  <!-- Left: settings form -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    {% if success %}
+    <div style="background:rgba(175,155,70,0.1);border:1px solid rgba(175,155,70,0.2);color:var(--gold);font-size:12px;padding:10px 14px;border-radius:6px;">{{ success }}</div>
+    {% endif %}
+    {% if error %}
+    <div style="background:rgba(224,92,58,0.1);border:1px solid rgba(224,92,58,0.25);color:var(--urgent);font-size:12px;padding:10px 14px;border-radius:6px;">{{ error }}</div>
+    {% endif %}
+    {% if test_result %}
+    <div style="background:{{ 'rgba(175,155,70,0.1)' if test_result.ok else 'rgba(224,92,58,0.1)' }};border:1px solid {{ 'rgba(175,155,70,0.2)' if test_result.ok else 'rgba(224,92,58,0.25)' }};color:{{ 'var(--gold)' if test_result.ok else 'var(--urgent)' }};font-size:12px;padding:10px 14px;border-radius:6px;">
+      <strong>{{ '✓ Connected' if test_result.ok else '✗ Failed' }}:</strong> {{ test_result.msg }}
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title">SendGrid</span>
+        <span style="font-size:11px;color:var(--muted);margin-left:auto;">Settings are stored in the database. Env vars take precedence if set.</span>
+      </div>
+      <div class="card-body">
+        <form method="POST" id="sg-form">
+
+          <!-- API Key -->
+          <div class="filter-group" style="margin-bottom:18px;">
+            <label>SendGrid API Key</label>
+            {% if current.sendgrid_api_key_masked %}
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">
+              Currently set: <code style="color:var(--gold);background:rgba(247,206,91,0.08);padding:1px 5px;border-radius:3px;">{{ current.sendgrid_api_key_masked }}</code>
+              — Leave blank to keep existing key.
+            </div>
+            {% endif %}
+            <input type="password" name="sendgrid_api_key" class="filter-input"
+                   placeholder="{{ 'Leave blank to keep current key' if current.sendgrid_api_key_masked else 'SG.xxxxxxxxxxxxxxxxxxxxxxxx' }}"
+                   autocomplete="new-password">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Create a key at <a href="https://app.sendgrid.com/settings/api_keys" target="_blank" style="color:var(--gold);">SendGrid → Settings → API Keys</a>. Needs "Mail Send" + "Inbound Parse" permissions.</div>
+          </div>
+
+          <!-- From Email -->
+          <div class="filter-group" style="margin-bottom:18px;">
+            <label>From Email Address</label>
+            <input type="email" name="sendgrid_from_email" class="filter-input"
+                   value="{{ current.sendgrid_from_email }}"
+                   placeholder="alerts@yourdomain.com">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Must be a verified sender in SendGrid.</div>
+          </div>
+
+          <!-- From Name -->
+          <div class="filter-group" style="margin-bottom:18px;">
+            <label>From Display Name</label>
+            <input type="text" name="sendgrid_from_name" class="filter-input"
+                   value="{{ current.sendgrid_from_name }}"
+                   placeholder="VoiceIntel">
+          </div>
+
+          <!-- Admin Email -->
+          <div class="filter-group" style="margin-bottom:18px;">
+            <label>Admin Notification Email(s)</label>
+            <input type="text" name="sendgrid_admin_email" class="filter-input"
+                   value="{{ current.sendgrid_admin_email }}"
+                   placeholder="ops@yourdomain.com, manager@yourdomain.com">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Used by the <em>Notify Admin</em> trigger action. Comma-separated for multiple recipients.</div>
+          </div>
+
+          <!-- Webhook Key -->
+          <div class="filter-group" style="margin-bottom:24px;">
+            <label>Inbound Parse Webhook Secret</label>
+            <input type="text" name="sendgrid_webhook_key" class="filter-input"
+                   value="{{ current.sendgrid_webhook_key }}"
+                   placeholder="a-random-secret-token">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Appended to your webhook URL as <code style="font-size:11px;">?token=…</code>. Leave blank to accept all incoming requests (not recommended for production).</div>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="submit" name="action" value="save" class="btn btn-primary">Save Settings</button>
+            <button type="submit" name="action" value="test" class="btn btn-ghost">Test API Connection</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: reference -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <div class="card">
+      <div class="card-head"><span class="card-head-title">Webhook URL</span></div>
+      <div class="card-body">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+          Register this URL in <strong style="color:var(--vanilla);">SendGrid → Settings → Inbound Parse</strong> to route voicemail emails into VoiceIntel.
+        </div>
+        <div style="position:relative;">
+          <code id="wh-url" style="display:block;background:rgba(247,206,91,0.06);border:1px solid var(--border-m);border-radius:6px;padding:10px 40px 10px 12px;font-size:11px;color:var(--gold);word-break:break-all;line-height:1.6;">{{ webhook_url }}</code>
+          <button onclick="copyWebhook()" title="Copy" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><rect x="5" y="5" width="8" height="8" rx="1.5"/><path d="M3 11V3h8"/></svg>
+          </button>
+        </div>
+        {% if not current.sendgrid_webhook_key %}
+        <div style="margin-top:8px;font-size:11px;color:var(--urgent);">⚠ No webhook secret set — the URL accepts requests from anyone.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-head-title">How It Works</span></div>
+      <div class="card-body" style="font-size:13px;color:var(--sub);line-height:1.8;">
+        <p style="margin-bottom:12px;">
+          <strong style="color:var(--vanilla);">Inbound:</strong> Your phone system emails voicemail MP3 attachments to SendGrid, which POSTs them to the webhook URL above. VoiceIntel transcribes and analyzes each one automatically.
+        </p>
+        <p style="margin-bottom:12px;">
+          <strong style="color:var(--vanilla);">Outbound:</strong> Automation triggers with <em>Notify Admin</em> or <em>Send Email</em> actions deliver rich HTML alerts via SendGrid.
+        </p>
+        <p>
+          <strong style="color:var(--vanilla);">Docker env vars</strong> override any setting saved here. See <code style="font-size:11px;">.env.example</code> in the project root for the full list.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-head-title">SendGrid Setup Checklist</span></div>
+      <div class="card-body">
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--sub);">
+          {% set steps = [
+            ("Create an API key with Mail Send + Inbound Parse permissions.", "https://app.sendgrid.com/settings/api_keys"),
+            ("Verify your From address as a single sender or authenticate your domain.", "https://app.sendgrid.com/settings/sender_auth"),
+            ("Add an Inbound Parse hostname pointing to your server's MX record.", "https://app.sendgrid.com/settings/parse"),
+            ("Paste the Webhook URL above into Inbound Parse → URL field.", "https://app.sendgrid.com/settings/parse"),
+            ("Send a test email with a .mp3 attachment to verify end-to-end.", None),
+          ] %}
+          {% for step, link in steps %}{% set i = loop.index %}
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <span style="min-width:20px;height:20px;border-radius:50%;background:rgba(247,206,91,0.12);color:var(--gold);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">{{ i }}</span>
+            <span>{{ step }}{% if link %} <a href="{{ link }}" target="_blank" style="color:var(--gold);font-size:11px;">↗</a>{% endif %}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyWebhook() {
+  const text = document.getElementById('wh-url').textContent.trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('[onclick="copyWebhook()"]');
+    btn.style.color = 'var(--gold)';
+    setTimeout(() => btn.style.color = '', 1500);
+  });
+}
+</script>
+{% endblock %}

@@ -27,6 +27,11 @@
     <div class="stat-value">{{ custom_kw_count }}</div>
     <div class="stat-desc"><a href="/admin/keywords" style="color:var(--gold)">Manage keywords →</a></div>
   </div>
+  <div class="stat-cell">
+    <div class="stat-label">SendGrid</div>
+    <div class="stat-value" style="font-size:18px;">{{ '✓' if sg_configured else '—' }}</div>
+    <div class="stat-desc"><a href="/admin/integrations" style="color:var(--gold)">Configure →</a></div>
+  </div>
 </div>
 
 <div class="grid-2-1" style="gap:16px;">
@@ -47,6 +52,10 @@
         <a href="/admin/keywords" class="btn btn-ghost">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M2 4h12M2 8h8M2 12h5"/></svg>
           Edit Urgency Keywords
+        </a>
+        <a href="/admin/integrations" class="btn btn-ghost">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="5" cy="8" r="2.5"/><circle cx="11" cy="4" r="2.5"/><circle cx="11" cy="12" r="2.5"/><path d="M7.5 7L8.5 5M7.5 9L8.5 11"/></svg>
+          SendGrid Integrations
         </a>
       </div>
     </div>
