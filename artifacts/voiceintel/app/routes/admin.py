@@ -25,8 +25,10 @@ def _admin_required():
 @login_required
 def index():
     _admin_required()
+    from app.models.voicemail import Category
     user_count = User.query.count()
     trigger_count = AutomationTrigger.query.filter_by(is_active=True).count()
+    cat_count = Category.query.count()
     custom_kw_raw = Setting.get("custom_urgency_keywords", "[]")
     try:
         custom_kw = json.loads(custom_kw_raw)
@@ -42,6 +44,7 @@ def index():
         user_count=user_count,
         trigger_count=trigger_count,
         custom_kw_count=len(custom_kw),
+        cat_count=cat_count,
         sg_configured=sg_configured,
     )
 
@@ -120,6 +123,90 @@ def delete_user(user_id):
     db.session.delete(user)
     db.session.commit()
     return redirect(url_for("admin.users"))
+
+
+# ---------------------------------------------------------------------------
+# Category management
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/categories")
+@login_required
+def categories():
+    _admin_required()
+    from app.models.voicemail import Category, Voicemail
+    from sqlalchemy import func
+    cats = (
+        db.session.query(Category, func.count(Voicemail.id).label("vm_count"))
+        .outerjoin(Voicemail, Voicemail.category_id == Category.id)
+        .group_by(Category.id)
+        .order_by(Category.name)
+        .all()
+    )
+    return render_template("admin/categories.html", cats=cats)
+
+
+@admin_bp.route("/categories/new", methods=["GET", "POST"])
+@login_required
+def new_category():
+    _admin_required()
+    from app.models.voicemail import Category
+    error = None
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        description = request.form.get("description", "").strip()
+        if not name:
+            error = "Category name is required."
+        elif Category.query.filter(db.func.lower(Category.name) == name.lower()).first():
+            error = "A category with that name already exists."
+        else:
+            db.session.add(Category(name=name, description=description or None))
+            db.session.commit()
+            flash("Category created.")
+            return redirect(url_for("admin.categories"))
+    return render_template("admin/category_form.html", category=None, error=error, action="Create Category")
+
+
+@admin_bp.route("/categories/<int:cat_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_category(cat_id):
+    _admin_required()
+    from app.models.voicemail import Category
+    cat = Category.query.get_or_404(cat_id)
+    error = None
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        description = request.form.get("description", "").strip()
+        if not name:
+            error = "Category name is required."
+        elif (
+            Category.query
+            .filter(db.func.lower(Category.name) == name.lower(), Category.id != cat_id)
+            .first()
+        ):
+            error = "Another category with that name already exists."
+        else:
+            cat.name = name
+            cat.description = description or None
+            db.session.commit()
+            flash("Category updated.")
+            return redirect(url_for("admin.categories"))
+    return render_template("admin/category_form.html", category=cat, error=error, action="Save Changes")
+
+
+@admin_bp.route("/categories/<int:cat_id>/delete", methods=["POST"])
+@login_required
+def delete_category(cat_id):
+    _admin_required()
+    from app.models.voicemail import Category, Voicemail
+    cat = Category.query.get_or_404(cat_id)
+    count = Voicemail.query.filter_by(category_id=cat_id).count()
+    if count:
+        flash(f"Cannot delete — {count} voicemail(s) are assigned to this category. Reassign them first.", "error")
+        return redirect(url_for("admin.categories"))
+    db.session.delete(cat)
+    db.session.commit()
+    flash("Category deleted.")
+    return redirect(url_for("admin.categories"))
 
 
 # ---------------------------------------------------------------------------

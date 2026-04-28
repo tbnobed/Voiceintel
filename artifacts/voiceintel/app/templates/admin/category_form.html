@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} — Categories — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span>
+<a href="/admin/categories" style="color:var(--muted);">Categories</a>
+<span class="sep">/</span>
+<span>{{ action }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ action }}</div>
+  <div class="page-sub">Categories are used to classify voicemails automatically during analysis.</div>
+</div>
+
+<div class="grid-2-1" style="gap:16px;align-items:start;">
+  <div class="card">
+    <div class="card-head"><span class="card-head-title">Category Details</span></div>
+    <div class="card-body">
+      {% if error %}
+      <div style="background:rgba(224,92,58,0.1);border:1px solid rgba(224,92,58,0.25);color:var(--urgent);font-size:12px;padding:10px 14px;border-radius:6px;margin-bottom:20px;">{{ error }}</div>
+      {% endif %}
+
+      <form method="POST">
+        <div class="filter-group" style="margin-bottom:18px;">
+          <label>Category Name <span style="color:var(--urgent);">*</span></label>
+          <input type="text" name="name" class="filter-input" required autofocus
+                 value="{{ category.name if category else '' }}"
+                 placeholder="e.g. Billing Question">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Must be unique. This exact name is used as the NLP classification label.</div>
+        </div>
+
+        <div class="filter-group" style="margin-bottom:24px;">
+          <label>Description <span style="color:var(--muted);">(optional)</span></label>
+          <input type="text" name="description" class="filter-input"
+                 value="{{ category.description if category and category.description else '' }}"
+                 placeholder="Short description shown to admins">
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button type="submit" class="btn btn-primary">{{ action }}</button>
+          <a href="/admin/categories" class="btn btn-ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-head-title">Built-in keyword patterns</span></div>
+    <div class="card-body" style="font-size:13px;color:var(--sub);line-height:1.8;">
+      <p style="margin-bottom:12px;">The NLP engine has hardcoded keyword patterns for the default categories. If you create a <strong style="color:var(--vanilla);">new</strong> category, voicemails won't be auto-assigned to it until a matching keyword pattern is added to the NLP service.</p>
+      <p style="margin-bottom:12px;">To teach the engine about your new category, edit <code style="font-size:11px;color:var(--gold);">app/services/nlp_service.py</code> and add a pattern under <code style="font-size:11px;color:var(--gold);">CATEGORY_PATTERNS</code>.</p>
+      <p>Renaming an existing category immediately updates all voicemails already assigned to it.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

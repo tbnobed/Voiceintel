@@ -522,6 +522,15 @@
 
     <!-- Content -->
     <div class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div style="margin-bottom:16px;padding:10px 16px;border-radius:6px;font-size:13px;
+            {% if category == 'error' %}background:rgba(224,92,58,0.12);border:1px solid rgba(224,92,58,0.3);color:var(--urgent);
+            {% else %}background:rgba(175,155,70,0.1);border:1px solid rgba(175,155,70,0.2);color:var(--gold);{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endwith %}
       {% block content %}{% endblock %}
     </div>
   </div>

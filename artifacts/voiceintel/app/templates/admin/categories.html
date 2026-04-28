@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Categories — Admin — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span><span>Categories</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="page-title">Categories</div>
+    <div class="page-sub">Categories control how voicemails are classified during NLP analysis.</div>
+  </div>
+  <a href="/admin/categories/new" class="btn btn-primary" style="flex-shrink:0;">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v14M1 8h14"/></svg>
+    New Category
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <span class="card-head-title">All Categories</span>
+    <span style="font-size:12px;color:var(--muted);margin-left:auto;">{{ cats|length }} total</span>
+  </div>
+  <div style="overflow:hidden;">
+    {% if cats %}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border-m);">
+          <th style="text-align:left;padding:10px 20px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Name</th>
+          <th style="text-align:left;padding:10px 20px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Description</th>
+          <th style="text-align:center;padding:10px 20px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Voicemails</th>
+          <th style="padding:10px 20px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cat, vm_count in cats %}
+        <tr style="border-bottom:1px solid var(--border-s);" class="table-row">
+          <td style="padding:13px 20px;">
+            <span style="font-size:13px;font-weight:500;color:var(--vanilla);">{{ cat.name }}</span>
+          </td>
+          <td style="padding:13px 20px;">
+            <span style="font-size:12px;color:var(--sub);">{{ cat.description or '—' }}</span>
+          </td>
+          <td style="padding:13px 20px;text-align:center;">
+            {% if vm_count %}
+            <a href="/voicemails?category={{ cat.id }}" style="font-size:13px;color:var(--gold);text-decoration:none;">{{ vm_count }}</a>
+            {% else %}
+            <span style="font-size:13px;color:var(--muted);">0</span>
+            {% endif %}
+          </td>
+          <td style="padding:13px 20px;text-align:right;white-space:nowrap;">
+            <a href="/admin/categories/{{ cat.id }}/edit" class="btn btn-ghost" style="padding:5px 12px;font-size:12px;margin-right:6px;">Edit</a>
+            {% if vm_count == 0 %}
+            <form method="POST" action="/admin/categories/{{ cat.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete category "{{ cat.name }}"?');">
+              <button type="submit" class="btn btn-ghost" style="padding:5px 12px;font-size:12px;color:var(--urgent);border-color:rgba(224,92,58,0.25);">Delete</button>
+            </form>
+            {% else %}
+            <button disabled class="btn btn-ghost" style="padding:5px 12px;font-size:12px;opacity:.35;cursor:not-allowed;" title="{{ vm_count }} voicemail(s) assigned — reassign before deleting">Delete</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">
+      No categories yet. <a href="/admin/categories/new" style="color:var(--gold);">Create one →</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <div class="card-head"><span class="card-head-title">How classification works</span></div>
+  <div class="card-body" style="font-size:13px;color:var(--sub);line-height:1.8;">
+    After transcription, the NLP engine matches the transcript against keyword patterns for each category. The first matching category wins; if none match, the voicemail is assigned to <strong style="color:var(--vanilla);">General Inquiry</strong>. Renaming or adding categories takes effect on the next voicemail processed — existing voicemails can be re-analyzed from their detail page.
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.table-row:hover { background: rgba(247,206,91,0.03); }
+</style>
+{% endblock %}

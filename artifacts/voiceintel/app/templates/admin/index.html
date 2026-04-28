@@ -11,7 +11,7 @@
   <div class="page-sub">Manage users, urgency keywords, and automation triggers.</div>
 </div>
 
-<div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 32px;">
+<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 32px;">
   <div class="stat-cell">
     <div class="stat-label">Users</div>
     <div class="stat-value">{{ user_count }}</div>
@@ -26,6 +26,11 @@
     <div class="stat-label">Custom Urgency Keywords</div>
     <div class="stat-value">{{ custom_kw_count }}</div>
     <div class="stat-desc"><a href="/admin/keywords" style="color:var(--gold)">Manage keywords →</a></div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-label">Categories</div>
+    <div class="stat-value">{{ cat_count }}</div>
+    <div class="stat-desc"><a href="/admin/categories" style="color:var(--gold)">Manage categories →</a></div>
   </div>
   <div class="stat-cell">
     <div class="stat-label">SendGrid</div>
@@ -52,6 +57,10 @@
         <a href="/admin/keywords" class="btn btn-ghost">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M2 4h12M2 8h8M2 12h5"/></svg>
           Edit Urgency Keywords
+        </a>
+        <a href="/admin/categories" class="btn btn-ghost">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M2 3h12M2 8h9M2 13h6"/><circle cx="13" cy="11" r="2.5"/></svg>
+          Manage Categories
         </a>
         <a href="/admin/integrations" class="btn btn-ghost">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="5" cy="8" r="2.5"/><circle cx="11" cy="4" r="2.5"/><circle cx="11" cy="12" r="2.5"/><path d="M7.5 7L8.5 5M7.5 9L8.5 11"/></svg>
