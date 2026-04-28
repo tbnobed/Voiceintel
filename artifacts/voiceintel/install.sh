@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+# =============================================================================
+# VoiceIntel — Ubuntu Server Bootstrap & Docker Deploy
+# =============================================================================
+# Run this script once on a fresh Ubuntu 22.04 / 24.04 server.
+# It installs Docker, prompts for your configuration, then builds and starts
+# the VoiceIntel application stack.
+#
+# Usage:
+#   sudo bash install.sh
+# =============================================================================
+
+set -e
+
+# ── Colours ───────────────────────────────────────────────────────────────────
+RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+
+info()    { echo -e "${CYAN}${BOLD}[INFO]${RESET}  $*"; }
+success() { echo -e "${GREEN}${BOLD}[OK]${RESET}    $*"; }
+warn()    { echo -e "${YELLOW}${BOLD}[WARN]${RESET}  $*"; }
+error()   { echo -e "${RED}${BOLD}[ERROR]${RESET} $*"; exit 1; }
+section() { echo -e "\n${BOLD}${YELLOW}══  $*  ══${RESET}"; }
+
+# ── Preflight checks ──────────────────────────────────────────────────────────
+section "Preflight"
+
+if [[ $EUID -ne 0 ]]; then
+  error "This script must be run as root.  Try: sudo bash install.sh"
+fi
+
+if ! grep -qi "ubuntu" /etc/os-release 2>/dev/null; then
+  warn "This script was written for Ubuntu.  Proceed anyway? (y/N)"
+  read -r confirm
+  [[ "$confirm" =~ ^[Yy]$ ]] || exit 0
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ ! -f "$SCRIPT_DIR/main.py" || ! -f "$SCRIPT_DIR/Dockerfile" ]]; then
+  error "Run this script from the VoiceIntel project directory (where main.py lives)."
+fi
+
+info "Running from: $SCRIPT_DIR"
+
+# ── Install Docker ────────────────────────────────────────────────────────────
+section "Docker Installation"
+
+if command -v docker &>/dev/null; then
+  success "Docker already installed: $(docker --version)"
+else
+  info "Installing Docker Engine..."
+  apt-get update -qq
+  apt-get install -y -qq ca-certificates curl gnupg lsb-release
+
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  chmod a+r /etc/apt/keyrings/docker.gpg
+
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+    https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable" \
+    > /etc/apt/sources.list.d/docker.list
+
+  apt-get update -qq
+  apt-get install -y -qq docker-ce docker-ce-cli containerd.io \
+    docker-buildx-plugin docker-compose-plugin
+
+  systemctl enable --now docker
+  success "Docker installed."
+fi
+
+if ! docker compose version &>/dev/null; then
+  error "Docker Compose plugin not found. Please install docker-compose-plugin."
+fi
+success "Docker Compose: $(docker compose version --short)"
+
+# ── Configuration prompts ─────────────────────────────────────────────────────
+section "Configuration"
+
+echo ""
+echo -e "  ${BOLD}Press Enter to accept [defaults] shown in brackets.${RESET}"
+echo -e "  ${CYAN}Sensitive fields (passwords/keys) are not echoed.${RESET}"
+echo ""
+
+# Helper: prompt with default
+prompt() {
+  local var="$1" label="$2" default="$3" secret="${4:-no}"
+  if [[ "$secret" == "yes" ]]; then
+    read -r -s -p "  $label [$default]: " input; echo ""
+  else
+    read -r    -p "  $label [$default]: " input
+  fi
+  printf -v "$var" '%s' "${input:-$default}"
+}
+
+# Generate a random 48-char hex secret
+GEN_SECRET=$(head -c 32 /dev/urandom | xxd -p | tr -d '\n' | head -c 48)
+GEN_DB_PASS=$(head -c 16 /dev/urandom | xxd -p | tr -d '\n' | head -c 16)
+
+echo -e "${BOLD}  Application${RESET}"
+prompt PORT            "HTTP port to expose"           "5000"
+prompt WHISPER_MODEL   "Whisper model size (tiny/base/small/medium/large)" "base"
+
+echo ""
+echo -e "${BOLD}  Security${RESET}"
+prompt SESSION_SECRET  "Flask session secret (leave blank to auto-generate)" "" "yes"
+[[ -z "$SESSION_SECRET" ]] && SESSION_SECRET="$GEN_SECRET" && info "Auto-generated session secret."
+
+prompt DB_PASSWORD     "PostgreSQL password (leave blank to auto-generate)" "" "yes"
+[[ -z "$DB_PASSWORD" ]] && DB_PASSWORD="$GEN_DB_PASS" && info "Auto-generated database password."
+
+echo ""
+echo -e "${BOLD}  IMAP Email Ingestion  (optional — press Enter to skip)${RESET}"
+prompt IMAP_HOST     "IMAP hostname (e.g. imap.gmail.com)" ""
+prompt IMAP_PORT     "IMAP port"                          "993"
+prompt IMAP_USERNAME "IMAP username / email address"      ""
+prompt IMAP_PASSWORD "IMAP password or app-password"      "" "yes"
+prompt IMAP_FOLDER   "Mailbox folder to watch"            "INBOX"
+prompt POLL_INTERVAL "Poll interval in seconds"           "60"
+
+echo ""
+echo -e "${BOLD}  SendGrid  (optional — press Enter to skip)${RESET}"
+prompt SENDGRID_API_KEY      "SendGrid API key"         "" "yes"
+prompt SENDGRID_FROM_EMAIL   "From email address"       ""
+prompt SENDGRID_FROM_NAME    "From display name"        "VoiceIntel"
+prompt SENDGRID_ADMIN_EMAIL  "Admin notification email" ""
+prompt SENDGRID_WEBHOOK_KEY  "Inbound Parse webhook token (any secret string)" ""
+
+# ── Write .env ────────────────────────────────────────────────────────────────
+section "Writing .env"
+
+ENV_FILE="$SCRIPT_DIR/.env"
+cat > "$ENV_FILE" <<EOF
+# ── VoiceIntel .env ──────────────────────────────────────────────────────────
+# Generated by install.sh on $(date -u)
+# Do not commit this file to version control.
+
+PORT=${PORT}
+WHISPER_MODEL=${WHISPER_MODEL}
+
+SESSION_SECRET=${SESSION_SECRET}
+DB_PASSWORD=${DB_PASSWORD}
+
+IMAP_HOST=${IMAP_HOST}
+IMAP_PORT=${IMAP_PORT}
+IMAP_USERNAME=${IMAP_USERNAME}
+IMAP_PASSWORD=${IMAP_PASSWORD}
+IMAP_FOLDER=${IMAP_FOLDER}
+POLL_INTERVAL=${POLL_INTERVAL}
+
+SENDGRID_API_KEY=${SENDGRID_API_KEY}
+SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
+SENDGRID_FROM_NAME=${SENDGRID_FROM_NAME}
+SENDGRID_ADMIN_EMAIL=${SENDGRID_ADMIN_EMAIL}
+SENDGRID_WEBHOOK_KEY=${SENDGRID_WEBHOOK_KEY}
+EOF
+
+chmod 600 "$ENV_FILE"
+success ".env written to $ENV_FILE"
+
+# ── Build & start ─────────────────────────────────────────────────────────────
+section "Building & Starting Containers"
+
+cd "$SCRIPT_DIR"
+
+info "Building Docker image (this downloads the Whisper model — may take a few minutes)..."
+docker compose build --pull
+
+info "Starting services..."
+docker compose up -d
+
+# ── Wait for health ───────────────────────────────────────────────────────────
+section "Waiting for Application"
+
+MAX_WAIT=120
+ELAPSED=0
+info "Waiting for VoiceIntel to become ready (up to ${MAX_WAIT}s)..."
+until curl -sf "http://localhost:${PORT}/login" -o /dev/null 2>/dev/null; do
+  sleep 3
+  ELAPSED=$((ELAPSED+3))
+  if [[ $ELAPSED -ge $MAX_WAIT ]]; then
+    warn "App did not respond within ${MAX_WAIT}s."
+    info "Check logs with:  docker compose logs -f app"
+    break
+  fi
+  echo -n "."
+done
+echo ""
+success "VoiceIntel is up!"
+
+# ── Firewall (ufw) ────────────────────────────────────────────────────────────
+if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
+  if ! ufw status | grep -qw "${PORT}"; then
+    info "Opening port ${PORT} in ufw..."
+    ufw allow "${PORT}/tcp" >/dev/null
+    success "ufw rule added for port ${PORT}."
+  fi
+fi
+
+# ── Summary ───────────────────────────────────────────────────────────────────
+section "All Done"
+
+SERVER_IP=$(hostname -I | awk '{print $1}')
+echo ""
+echo -e "  ${BOLD}${GREEN}VoiceIntel is running!${RESET}"
+echo ""
+echo -e "  ${BOLD}URL${RESET}            http://${SERVER_IP}:${PORT}"
+echo -e "  ${BOLD}Default login${RESET}  admin@voiceintel.local  /  changeme123"
+echo ""
+echo -e "  ${YELLOW}${BOLD}⚠  Change the admin password immediately after first login.${RESET}"
+echo ""
+echo -e "  ${BOLD}Useful commands:${RESET}"
+echo -e "    View logs:     cd $SCRIPT_DIR && docker compose logs -f app"
+echo -e "    Stop:          cd $SCRIPT_DIR && docker compose down"
+echo -e "    Restart:       cd $SCRIPT_DIR && docker compose restart app"
+echo -e "    Update & rebuild:"
+echo -e "                   cd $SCRIPT_DIR && docker compose build --pull && docker compose up -d"
+echo ""

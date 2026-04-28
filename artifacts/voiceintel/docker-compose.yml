@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       voiceintel
+      POSTGRES_USER:     voiceintel
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voiceintel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      # ── Flask ───────────────────────────────────────────────────────────────
+      SESSION_SECRET:       ${SESSION_SECRET}
+      FLASK_ENV:            production
+      PORT:                 5000
+
+      # ── Database ────────────────────────────────────────────────────────────
+      DATABASE_URL:         postgresql://voiceintel:${DB_PASSWORD:-changeme}@db:5432/voiceintel
+
+      # ── Storage ─────────────────────────────────────────────────────────────
+      STORAGE_DIR:          /data/storage
+
+      # ── Whisper ─────────────────────────────────────────────────────────────
+      WHISPER_MODEL:        ${WHISPER_MODEL:-base}
+      TRANSFORMERS_CACHE:   /data/model_cache
+      HF_HOME:              /data/model_cache
+
+      # ── IMAP (optional) ─────────────────────────────────────────────────────
+      IMAP_HOST:            ${IMAP_HOST:-}
+      IMAP_PORT:            ${IMAP_PORT:-993}
+      IMAP_USERNAME:        ${IMAP_USERNAME:-}
+      IMAP_PASSWORD:        ${IMAP_PASSWORD:-}
+      IMAP_FOLDER:          ${IMAP_FOLDER:-INBOX}
+      POLL_INTERVAL:        ${POLL_INTERVAL:-60}
+
+      # ── SendGrid ────────────────────────────────────────────────────────────
+      SENDGRID_API_KEY:     ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL:  ${SENDGRID_FROM_EMAIL:-}
+      SENDGRID_FROM_NAME:   ${SENDGRID_FROM_NAME:-VoiceIntel}
+      SENDGRID_ADMIN_EMAIL: ${SENDGRID_ADMIN_EMAIL:-}
+      SENDGRID_WEBHOOK_KEY: ${SENDGRID_WEBHOOK_KEY:-}
+
+    volumes:
+      # Audio files — persisted across container restarts
+      - app_storage:/data/storage
+      # Whisper model cache — avoids re-downloading on each restart
+      - model_cache:/data/model_cache
+
+volumes:
+  db_data:
+  app_storage:
+  model_cache:
