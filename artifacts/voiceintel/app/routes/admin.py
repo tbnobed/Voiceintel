@@ -21,7 +21,7 @@ def _admin_required():
 # Admin overview
 # ---------------------------------------------------------------------------
 
-@admin_bp.route("/")
+@admin_bp.route("/", strict_slashes=False)
 @login_required
 def index():
     _admin_required()
