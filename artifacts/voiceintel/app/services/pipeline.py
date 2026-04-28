@@ -6,14 +6,39 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-def _load_custom_urgency_keywords():
-    """Pull admin-configured urgency keywords from the settings table."""
+def _load_urgency_keywords() -> list:
+    """
+    Load the unified urgency keyword list from the settings table.
+
+    Priority:
+      1. 'urgency_keywords' setting (the unified admin-managed list).
+      2. 'custom_urgency_keywords' (legacy key, migrated automatically).
+      3. Seed from nlp_service.DEFAULT_URGENCY_KEYWORDS on first run.
+    """
     try:
         from app.models.voicemail import Setting
-        raw = Setting.get("custom_urgency_keywords", "[]")
-        return json.loads(raw)
+        from app.services.nlp_service import DEFAULT_URGENCY_KEYWORDS
+
+        raw = Setting.get("urgency_keywords", "")
+        if raw:
+            return json.loads(raw)
+
+        # Migrate from old custom-only key
+        legacy_raw = Setting.get("custom_urgency_keywords", "")
+        if legacy_raw:
+            legacy = json.loads(legacy_raw)
+            if legacy:
+                # Merge legacy custom list with defaults and save under new key
+                merged = sorted(set(DEFAULT_URGENCY_KEYWORDS) | {k.lower() for k in legacy})
+                Setting.set("urgency_keywords", json.dumps(merged))
+                return merged
+
+        # First run — seed from defaults
+        Setting.set("urgency_keywords", json.dumps(sorted(DEFAULT_URGENCY_KEYWORDS)))
+        return list(DEFAULT_URGENCY_KEYWORDS)
     except Exception:
-        return []
+        from app.services.nlp_service import DEFAULT_URGENCY_KEYWORDS
+        return list(DEFAULT_URGENCY_KEYWORDS)
 
 
 def process_email_items(app, items: list):
@@ -34,7 +59,7 @@ def process_email_items(app, items: list):
         model_size = app.config["WHISPER_MODEL"]
         transcriber = TranscriptionService(model_size)
         processed_dir = os.path.join(storage_dir, "processed")
-        custom_kw = _load_custom_urgency_keywords()
+        custom_kw = _load_urgency_keywords()
 
         for item in items:
             try:
@@ -157,7 +182,7 @@ def reprocess_voicemail(app, voicemail_id):
 
         model_size = app.config["WHISPER_MODEL"]
         transcriber = TranscriptionService(model_size)
-        custom_kw = _load_custom_urgency_keywords()
+        custom_kw = _load_urgency_keywords()
 
         audio_path = vm.converted_path or vm.original_path
         if not audio_path or not os.path.exists(audio_path):

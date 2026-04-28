@@ -8,11 +8,16 @@ logger = logging.getLogger(__name__)
 # Keyword lists
 # ---------------------------------------------------------------------------
 
-URGENCY_KEYWORDS = {
+# Factory defaults — used to seed the database on first run.
+# Admins can modify the live list via Admin → Keywords without touching this file.
+DEFAULT_URGENCY_KEYWORDS = [
     "emergency", "urgent", "hospital", "death", "died", "suicide",
     "crisis", "abuse", "threat", "help me", "immediately", "asap",
     "critical", "danger", "dying", "overdose", "violence", "attacked",
-}
+]
+
+# Keep the old name as an alias so nothing else breaks during transition
+URGENCY_KEYWORDS = set(DEFAULT_URGENCY_KEYWORDS)
 
 # Each category maps to a list of whole words/phrases.
 # Matching uses word-boundary regex so "pray" won't match "praying grace" (a product name).
@@ -131,15 +136,20 @@ def detect_sentiment(text: str) -> tuple[str, float]:
 
 def detect_urgency(text: str, extra_keywords: list[str] | None = None) -> tuple[bool, list[str]]:
     """
-    Check for urgency keywords.  `extra_keywords` are admin-configured custom words
-    loaded from the settings table at pipeline time.
+    Check for urgency keywords.
+
+    If `extra_keywords` is a non-empty list it is used as the **complete** keyword
+    set (admin-managed, loaded from the DB).  If it is None or empty the built-in
+    DEFAULT_URGENCY_KEYWORDS are used as a fallback so the detector still works
+    when the DB is empty or unavailable.
     """
     if not text:
         return False, []
     text_lower = text.lower()
-    all_keywords = set(URGENCY_KEYWORDS)
     if extra_keywords:
-        all_keywords.update(kw.lower().strip() for kw in extra_keywords if kw.strip())
+        all_keywords = {kw.lower().strip() for kw in extra_keywords if kw.strip()}
+    else:
+        all_keywords = set(URGENCY_KEYWORDS)
 
     found = []
     for kw in all_keywords:

@@ -8,57 +8,105 @@
 {% block content %}
 <div class="page-header">
   <div class="page-title">Urgency Keywords</div>
-  <div class="page-sub">Voicemails containing any of these words will be automatically flagged as urgent.</div>
+  <div class="page-sub">Voicemails whose transcript contains any of these words are automatically flagged as urgent. Add, remove, or edit the list freely — all changes take effect on the next voicemail processed.</div>
 </div>
 
 <div class="grid-2-1" style="gap:16px; align-items:start;">
+
+  <!-- Editor -->
   <div class="card">
     <div class="card-head">
-      <span class="card-head-title">Custom Keywords</span>
+      <span class="card-head-title">All Urgency Keywords</span>
+      <span style="font-size:12px;color:var(--muted);margin-left:auto;">{{ kw_list | length }} active</span>
     </div>
     <div class="card-body">
-      {% if success %}
-      <div style="background:rgba(175,155,70,0.1); border:1px solid rgba(175,155,70,0.2); color:var(--gold); font-size:12px; padding:10px 14px; border-radius:6px; margin-bottom:20px;">{{ success }}</div>
-      {% endif %}
-      {% if error %}
-      <div style="background:rgba(224,92,58,0.1); border:1px solid rgba(224,92,58,0.25); color:var(--urgent); font-size:12px; padding:10px 14px; border-radius:6px; margin-bottom:20px;">{{ error }}</div>
-      {% endif %}
-      <form method="POST">
+      <form method="POST" id="kw-form">
         <div class="filter-group" style="margin-bottom:8px;">
-          <label>Keywords (comma or newline separated)</label>
-          <textarea name="keywords" rows="8" class="filter-input" style="resize:vertical; font-family:monospace; font-size:13px; line-height:1.7; min-height:160px;" placeholder="e.g. danger, threat, overdose, assault">{{ kw_list | join(', ') }}</textarea>
+          <label>Keywords — one per line, or comma-separated</label>
+          <textarea id="kw-textarea" name="keywords" rows="12" class="filter-input"
+                    style="resize:vertical; font-family:monospace; font-size:13px; line-height:1.8; min-height:200px;"
+                    placeholder="e.g. emergency, crisis, overdose">{{ kw_list | join('\n') }}</textarea>
         </div>
-        <div style="font-size:11px; color:var(--muted); margin-bottom:20px;">These are checked against the full transcript. Whole-word matching is used, so "pain" won't match "Spain".</div>
-        <button type="submit" class="btn btn-primary">Save Keywords</button>
+        <div style="font-size:11px; color:var(--muted); margin-bottom:20px;">
+          Whole-word matching is used — "pain" won't trigger on "Spain" or "explain".
+          Multi-word phrases like "help me" are supported.
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <button type="submit" name="action" value="save" class="btn btn-primary">Save Keywords</button>
+          <button type="submit" name="action" value="reset"
+                  class="btn btn-ghost"
+                  onclick="return confirm('Reset to the {{ default_count }} factory defaults? Your current list will be replaced.');">
+            Reset to Defaults
+          </button>
+          <span style="font-size:11px; color:var(--muted); margin-left:4px;">{{ default_count }} factory defaults</span>
+        </div>
       </form>
     </div>
   </div>
 
+  <!-- Live preview -->
   <div>
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-head"><span class="card-head-title">Current Keywords ({{ kw_list | length }})</span></div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title">Active Keywords</span>
+        <span id="kw-count" style="font-size:12px;color:var(--muted);margin-left:auto;">{{ kw_list | length }}</span>
+      </div>
       <div class="card-body">
-        {% if kw_list %}
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        <div id="kw-pills" style="display:flex; flex-wrap:wrap; gap:6px; min-height:32px;">
           {% for kw in kw_list %}
-          <span class="pill pill-urg">{{ kw }}</span>
+          <span class="pill pill-urg" style="font-size:11px;">{{ kw }}</span>
           {% endfor %}
         </div>
-        {% else %}
-        <div style="color:var(--muted); font-size:13px;">No custom keywords set. Built-in urgency detection still applies.</div>
+        {% if not kw_list %}
+        <div style="color:var(--urgent); font-size:12px; margin-top:4px;">
+          ⚠ No keywords active — urgency detection is disabled.
+        </div>
         {% endif %}
       </div>
     </div>
-    <div class="card">
-      <div class="card-head"><span class="card-head-title">Built-in Urgency Keywords</span></div>
-      <div class="card-body">
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">
-          {% for kw in ["emergency", "urgent", "hospital", "death", "died", "suicide", "crisis", "abuse", "threat", "help me", "immediately", "asap", "critical", "danger", "dying", "overdose", "violence", "attacked"] %}
-          <span class="kw-tag" style="font-size:11px;">{{ kw }}</span>
-          {% endfor %}
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-head"><span class="card-head-title">Tips</span></div>
+      <div class="card-body" style="font-size:13px; color:var(--sub); line-height:1.8; display:flex; flex-direction:column; gap:10px;">
+        <div>
+          <strong style="color:var(--vanilla);">Add a keyword</strong> — type it in the editor and save. It applies to new voicemails immediately.
+        </div>
+        <div>
+          <strong style="color:var(--vanilla);">Remove a keyword</strong> — delete its line from the editor and save.
+        </div>
+        <div>
+          <strong style="color:var(--vanilla);">Re-analyze existing voicemails</strong> — open any voicemail and use the Reprocess button to apply the updated keyword list retroactively.
+        </div>
+        <div>
+          <strong style="color:var(--vanilla);">Reset to Defaults</strong> — restores the original {{ default_count }} built-in keywords and discards any changes.
         </div>
       </div>
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Update the live pill preview as the user types
+const textarea = document.getElementById('kw-textarea');
+const pillsEl  = document.getElementById('kw-pills');
+const countEl  = document.getElementById('kw-count');
+
+function rebuildPills() {
+  const raw = textarea.value;
+  const kws = [...new Set(
+    raw.split(/[\n,]+/)
+       .map(k => k.trim().toLowerCase())
+       .filter(k => k.length > 0)
+  )].sort();
+
+  countEl.textContent = kws.length;
+  pillsEl.innerHTML = kws.length
+    ? kws.map(k => `<span class="pill pill-urg" style="font-size:11px;">${k}</span>`).join('')
+    : '<span style="color:var(--urgent);font-size:12px;">⚠ No keywords active</span>';
+}
+
+textarea.addEventListener('input', rebuildPills);
+</script>
 {% endblock %}

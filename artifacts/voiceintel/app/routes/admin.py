@@ -217,22 +217,42 @@ def delete_category(cat_id):
 @login_required
 def keywords():
     _admin_required()
-    error = None
-    success = None
+    from app.services.nlp_service import DEFAULT_URGENCY_KEYWORDS
 
     if request.method == "POST":
-        raw = request.form.get("keywords", "")
-        parsed = [kw.strip().lower() for kw in raw.replace("\n", ",").split(",") if kw.strip()]
-        Setting.set("custom_urgency_keywords", json.dumps(parsed))
-        success = f"Saved {len(parsed)} custom urgency keyword(s)."
+        action = request.form.get("action", "save")
+        if action == "reset":
+            kw_list = sorted(DEFAULT_URGENCY_KEYWORDS)
+            Setting.set("urgency_keywords", json.dumps(kw_list))
+            flash(f"Reset to {len(kw_list)} default urgency keywords.")
+        else:
+            raw = request.form.get("keywords", "")
+            kw_list = sorted({
+                kw.strip().lower()
+                for kw in raw.replace("\n", ",").split(",")
+                if kw.strip()
+            })
+            Setting.set("urgency_keywords", json.dumps(kw_list))
+            flash(f"Saved {len(kw_list)} urgency keyword(s).")
+        return redirect(url_for("admin.keywords"))
 
-    raw_setting = Setting.get("custom_urgency_keywords", "[]")
-    try:
-        kw_list = json.loads(raw_setting)
-    except Exception:
-        kw_list = []
+    # Load from DB (seeded from defaults on first run)
+    raw = Setting.get("urgency_keywords", "")
+    if raw:
+        try:
+            kw_list = json.loads(raw)
+        except Exception:
+            kw_list = sorted(DEFAULT_URGENCY_KEYWORDS)
+    else:
+        # First visit — seed and save
+        kw_list = sorted(DEFAULT_URGENCY_KEYWORDS)
+        Setting.set("urgency_keywords", json.dumps(kw_list))
 
-    return render_template("admin/keywords.html", kw_list=kw_list, error=error, success=success)
+    return render_template(
+        "admin/keywords.html",
+        kw_list=kw_list,
+        default_count=len(DEFAULT_URGENCY_KEYWORDS),
+    )
 
 
 # ---------------------------------------------------------------------------
