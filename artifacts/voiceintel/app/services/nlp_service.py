@@ -4,33 +4,63 @@ from collections import Counter
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Keyword lists
+# ---------------------------------------------------------------------------
+
 URGENCY_KEYWORDS = {
     "emergency", "urgent", "hospital", "death", "died", "suicide",
     "crisis", "abuse", "threat", "help me", "immediately", "asap",
     "critical", "danger", "dying", "overdose", "violence", "attacked",
 }
 
+# Each category maps to a list of whole words/phrases.
+# Matching uses word-boundary regex so "pray" won't match "praying grace" (a product name).
+# Order matters only for tie-breaking — highest score wins.
 CATEGORY_RULES = {
     "Prayer Request": [
-        "pray", "prayer", "god", "church", "faith", "blessing", "jesus",
-        "heal", "spirit", "worship", "bible", "amen", "lord",
+        r"\bpray\b", r"\bprayer\b", r"\bpray(?:ing|ed|s)\s+(?:for|request)\b",
+        r"\bgod\b", r"\bchurch\b", r"\bfaith\b", r"\bblessing\b",
+        r"\bjesus\b", r"\bheal(?:ing)?\b", r"\bspirit(?:ual)?\b",
+        r"\bworship\b", r"\bbible\b", r"\bamen\b", r"\blord\b",
     ],
     "Donation Issue": [
-        "donate", "donation", "payment", "charge", "refund", "credit card",
-        "billing", "contribute", "fund", "gave", "giving",
+        r"\bdonat(?:e|ion|ions|ed|ing)\b", r"\bpayment\b", r"\bcharge(?:d|s)?\b",
+        r"\brefund\b", r"\bcredit\s+card\b", r"\bbilling\b",
+        r"\bcontribut(?:e|ion|ed|ing)\b", r"\bfund(?:ing|s)?\b",
+        r"\bgav(?:e|ing)\b", r"\bgiving\b",
     ],
     "Technical Issue": [
-        "website", "app", "login", "password", "error", "broken", "bug",
-        "crash", "technical", "not working", "issue", "problem with",
+        r"\bwebsite\b", r"\bapp\b", r"\blogin\b", r"\bpassword\b",
+        r"\berror\b", r"\bbroken\b", r"\bbug\b", r"\bcrash(?:ed|ing)?\b",
+        r"\btechnical\b", r"\bnot\s+working\b", r"\bproblem\s+with\b",
+        r"\bcan't\s+(?:log\s+in|access|open)\b",
     ],
     "Complaint": [
-        "complaint", "unhappy", "disappointed", "terrible", "awful",
-        "horrible", "unacceptable", "ridiculous", "worst", "disgusted",
-        "never again",
+        r"\bcomplaint\b", r"\bunhappy\b", r"\bdisappoint(?:ed|ing|ment)\b",
+        r"\bterrible\b", r"\bawful\b", r"\bhorrible\b",
+        r"\bunacceptable\b", r"\bridiculous\b", r"\bworst\b",
+        r"\bdisgusted?\b", r"\bnever\s+again\b",
     ],
     "Urgent": [
-        "urgent", "emergency", "immediately", "asap", "critical", "crisis",
-        "death", "hospital", "suicide", "abuse",
+        r"\burgent\b", r"\bemergency\b", r"\bimmediately\b", r"\basap\b",
+        r"\bcritical\b", r"\bcrisis\b", r"\bdeath\b",
+        r"\bhospital\b", r"\bsuicide\b", r"\babuse\b",
+    ],
+    "Product Inquiry": [
+        r"\boffer\b", r"\boffers?\b", r"\bpromotion\b", r"\bpromo\b",
+        r"\bdeal\b", r"\bdiscount\b", r"\bpackage\b",
+        r"\bpurchas(?:e|ing|ed)\b", r"\bbuy\b", r"\border(?:ing|ed)?\b",
+        r"\bsign(?:ing)?\s+up\b", r"\bregister\b", r"\benroll\b",
+        r"\binterested\s+in\b", r"\blearn\s+more\b", r"\bmore\s+info\b",
+        r"\bpric(?:e|ing)\b", r"\bcost\b",
+    ],
+    "General Inquiry": [
+        r"\bquestion\b", r"\bquestions\b", r"\binfo(?:rmation)?\b",
+        r"\bcalling\s+(?:about|regarding|to\s+ask)\b",
+        r"\bwondering\b", r"\bwanted?\s+to\s+(?:know|ask|find\s+out)\b",
+        r"\bfollow[\s-]up\b", r"\bget\s+(?:in\s+touch|more\s+details?)\b",
+        r"\bspeak\s+(?:with|to)\b", r"\bcontact\b",
     ],
 }
 
@@ -43,11 +73,27 @@ STOPWORDS = {
     "your", "his", "our", "their", "this", "that", "these", "those",
     "about", "just", "so", "up", "out", "if", "then", "than", "too",
     "very", "also", "not", "no", "am", "hi", "hello", "yes", "okay",
-    "yeah", "well", "um", "uh", "like",
+    "yeah", "well", "um", "uh", "like", "its", "it's", "i'm", "i'd",
+    "they're", "we're", "there", "their", "get", "got", "going", "want",
+    "wanted", "call", "called", "calling", "name", "number", "phone",
+    "telephone", "area", "code", "thank", "thanks", "day", "great",
 }
 
 
-def extract_keywords(text, top_n=10):
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _match_keywords(text_lower: str, patterns: list[str]) -> int:
+    """Return count of pattern matches (whole-word aware via regex)."""
+    return sum(1 for p in patterns if re.search(p, text_lower))
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def extract_keywords(text: str, top_n: int = 10) -> list[str]:
     if not text:
         return []
     words = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
@@ -56,70 +102,74 @@ def extract_keywords(text, top_n=10):
     return [word for word, _ in counter.most_common(top_n)]
 
 
-def detect_sentiment(text):
+def detect_sentiment(text: str) -> tuple[str, float]:
     if not text:
         return "neutral", 0.0
 
     try:
         from textblob import TextBlob
-        blob = TextBlob(text)
-        polarity = blob.sentiment.polarity
+        polarity = TextBlob(text).sentiment.polarity
         if polarity > 0.1:
             return "positive", round(polarity, 3)
         elif polarity < -0.1:
             return "negative", round(polarity, 3)
-        else:
-            return "neutral", round(polarity, 3)
+        return "neutral", round(polarity, 3)
     except ImportError:
         pass
 
     text_lower = text.lower()
-    positive_words = {"thank", "great", "wonderful", "blessed", "appreciate", "love", "good", "excellent", "amazing"}
-    negative_words = {"terrible", "awful", "bad", "horrible", "disgusting", "angry", "upset", "disappointed", "worst"}
-
+    pos = {"thank", "great", "wonderful", "blessed", "appreciate", "love", "good", "excellent", "amazing"}
+    neg = {"terrible", "awful", "bad", "horrible", "disgusting", "angry", "upset", "disappointed", "worst"}
     words = set(re.findall(r"\b[a-zA-Z]+\b", text_lower))
-    pos_count = len(words & positive_words)
-    neg_count = len(words & negative_words)
-
-    if pos_count > neg_count:
-        return "positive", round(pos_count / max(len(words), 1), 3)
-    elif neg_count > pos_count:
-        return "negative", round(-neg_count / max(len(words), 1), 3)
+    p, n = len(words & pos), len(words & neg)
+    if p > n:
+        return "positive", round(p / max(len(words), 1), 3)
+    if n > p:
+        return "negative", round(-n / max(len(words), 1), 3)
     return "neutral", 0.0
 
 
-def detect_urgency(text):
+def detect_urgency(text: str) -> tuple[bool, list[str]]:
     if not text:
         return False, []
     text_lower = text.lower()
-    found = [kw for kw in URGENCY_KEYWORDS if kw in text_lower]
+    # Use word-boundary matching for multi-word phrases; simple `in` for single words
+    found = []
+    for kw in URGENCY_KEYWORDS:
+        pattern = r"\b" + re.escape(kw) + r"\b"
+        if re.search(pattern, text_lower):
+            found.append(kw)
     return len(found) > 0, found
 
 
-def classify_category(text):
+def classify_category(text: str) -> str:
     if not text:
         return "General Inquiry"
     text_lower = text.lower()
-    scores = {}
-    for category, keywords in CATEGORY_RULES.items():
-        score = sum(1 for kw in keywords if kw in text_lower)
-        if score > 0:
-            scores[category] = score
-    if not scores:
+    scores = {
+        cat: _match_keywords(text_lower, patterns)
+        for cat, patterns in CATEGORY_RULES.items()
+    }
+    # Filter out zero-score categories
+    nonzero = {k: v for k, v in scores.items() if v > 0}
+    if not nonzero:
         return "General Inquiry"
-    return max(scores, key=scores.get)
+
+    best_cat = max(nonzero, key=nonzero.get)
+    logger.debug(f"Category scores: {scores} → {best_cat}")
+    return best_cat
 
 
-def analyze(text):
+def analyze(text: str) -> dict:
     keywords = extract_keywords(text)
     sentiment, sentiment_score = detect_sentiment(text)
     is_urgent, urgency_kws = detect_urgency(text)
     category = classify_category(text)
     return {
-        "keywords": keywords,
-        "sentiment": sentiment,
+        "keywords":        keywords,
+        "sentiment":       sentiment,
         "sentiment_score": sentiment_score,
         "urgency_keywords": urgency_kws,
-        "is_urgent": is_urgent,
-        "category": category,
+        "is_urgent":       is_urgent,
+        "category":        category,
     }

@@ -45,6 +45,7 @@ def _seed_categories():
         ("Donation Issue", "Issues or questions about donations"),
         ("Technical Issue", "Technical problems or support requests"),
         ("Complaint", "Complaints or dissatisfaction"),
+        ("Product Inquiry", "Calls about offers, products, promotions, or sign-ups"),
         ("General Inquiry", "General questions or information requests"),
         ("Urgent", "Time-sensitive or emergency matters"),
     ]
