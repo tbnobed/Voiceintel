@@ -53,16 +53,6 @@ def dashboard():
         Voicemail.query.order_by(desc(Voicemail.created_at)).limit(5).all()
     )
 
-    # Build public webhook URL from REPLIT_DOMAINS or HOST header
-    domains = os.environ.get("REPLIT_DOMAINS", "")
-    if domains:
-        primary_domain = domains.split(",")[0].strip()
-        webhook_url = f"https://{primary_domain}/api/webhook/inbound"
-    else:
-        host = request.host or "localhost"
-        scheme = "https" if "replit" in host else request.scheme
-        webhook_url = f"{scheme}://{host}/api/webhook/inbound"
-
     return render_template(
         "dashboard.html",
         total=total,
@@ -72,7 +62,6 @@ def dashboard():
         daily_trend=daily_trend,
         top_keywords=top_keywords,
         recent=recent,
-        webhook_url=webhook_url,
     )
 
 

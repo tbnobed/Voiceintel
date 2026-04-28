@@ -35,50 +35,6 @@
   </div>
 </div>
 
-<!-- SendGrid webhook setup panel -->
-<div class="card" style="margin-bottom: 16px; border-color: rgba(247,206,91,0.22);">
-  <div class="card-head" style="background: rgba(247,206,91,0.04);">
-    <span class="card-head-title" style="color: var(--accent);">Inbound Webhook · SendGrid</span>
-    <span style="font-size: 11px; color: var(--muted);">Configure once — voicemails arrive automatically</span>
-  </div>
-  <div style="padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
-
-    <!-- Webhook URL -->
-    <div style="flex: 1; min-width: 280px;">
-      <div style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px;">Webhook URL</div>
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <code id="wh-url" style="flex:1; background: var(--surface); border: 1px solid var(--border); padding: 8px 12px; border-radius: 5px; font-size: 12px; color: var(--accent); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ webhook_url }}</code>
-        <button onclick="copyWebhookUrl()" class="btn btn-ghost btn-sm" id="copy-btn" style="flex-shrink:0;">Copy</button>
-      </div>
-    </div>
-
-    <!-- Steps -->
-    <div style="flex: 1; min-width: 240px;">
-      <div style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px;">Setup Steps</div>
-      <ol style="list-style: none; display: flex; flex-direction: column; gap: 5px;">
-        {% for step in [
-          ('1', 'SendGrid → Settings → Inbound Parse'),
-          ('2', 'Add Host & URL — paste the webhook URL above'),
-          ('3', 'Leave "POST raw full MIME" unchecked'),
-          ('4', 'Point your voicemail system to email that domain'),
-        ] %}
-        <li style="display: flex; gap: 8px; font-size: 12px; color: var(--sub); align-items: flex-start;">
-          <span style="background: rgba(247,206,91,0.1); color: var(--gold); width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px;">{{ step[0] }}</span>
-          <span>{{ step[1] }}</span>
-        </li>
-        {% endfor %}
-      </ol>
-    </div>
-
-    <!-- Optional key -->
-    <div style="flex: 0 0 auto; min-width: 180px;">
-      <div style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px;">Signature Verification</div>
-      <p style="font-size: 12px; color: var(--muted); line-height: 1.6;">Set <code style="color:var(--sub); background:var(--surface); padding:1px 5px; border-radius:3px; font-size:11px;">SENDGRID_WEBHOOK_KEY</code> in Secrets to enable HMAC verification.</p>
-      <p style="font-size: 11px; color: var(--muted); margin-top: 4px;">Leave unset during testing — all requests will be accepted.</p>
-    </div>
-  </div>
-</div>
-
 <!-- Row 1: Chart + Categories -->
 <div class="grid-2-1" style="margin-bottom: 16px; align-items: start;">
 
