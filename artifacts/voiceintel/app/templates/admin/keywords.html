@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Urgency Keywords — Admin — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span><span>Urgency Keywords</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Urgency Keywords</div>
+  <div class="page-sub">Voicemails containing any of these words will be automatically flagged as urgent.</div>
+</div>
+
+<div class="grid-2-1" style="gap:16px; align-items:start;">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-head-title">Custom Keywords</span>
+    </div>
+    <div class="card-body">
+      {% if success %}
+      <div style="background:rgba(175,155,70,0.1); border:1px solid rgba(175,155,70,0.2); color:var(--gold); font-size:12px; padding:10px 14px; border-radius:6px; margin-bottom:20px;">{{ success }}</div>
+      {% endif %}
+      {% if error %}
+      <div style="background:rgba(224,92,58,0.1); border:1px solid rgba(224,92,58,0.25); color:var(--urgent); font-size:12px; padding:10px 14px; border-radius:6px; margin-bottom:20px;">{{ error }}</div>
+      {% endif %}
+      <form method="POST">
+        <div class="filter-group" style="margin-bottom:8px;">
+          <label>Keywords (comma or newline separated)</label>
+          <textarea name="keywords" rows="8" class="filter-input" style="resize:vertical; font-family:monospace; font-size:13px; line-height:1.7; min-height:160px;" placeholder="e.g. danger, threat, overdose, assault">{{ kw_list | join(', ') }}</textarea>
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-bottom:20px;">These are checked against the full transcript. Whole-word matching is used, so "pain" won't match "Spain".</div>
+        <button type="submit" class="btn btn-primary">Save Keywords</button>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-head"><span class="card-head-title">Current Keywords ({{ kw_list | length }})</span></div>
+      <div class="card-body">
+        {% if kw_list %}
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          {% for kw in kw_list %}
+          <span class="pill pill-urg">{{ kw }}</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="color:var(--muted); font-size:13px;">No custom keywords set. Built-in urgency detection still applies.</div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-head-title">Built-in Urgency Keywords</span></div>
+      <div class="card-body">
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          {% for kw in ["emergency", "urgent", "hospital", "death", "died", "suicide", "crisis", "abuse", "threat", "help me", "immediately", "asap", "critical", "danger", "dying", "overdose", "violence", "attacked"] %}
+          <span class="kw-tag" style="font-size:11px;">{{ kw }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

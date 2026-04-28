@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — VoiceIntel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #000; --surface: #0d0b00; --card: #1a1400; --border: rgba(175,155,70,0.16);
+      --accent: #F7CE5B; --gold: #AF9B46; --vanilla: #DFD6A7; --sub: #AF9B46;
+      --muted: rgba(175,155,70,0.5); --urgent: #e05c3a;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg); color: var(--vanilla);
+      font-size: 14px; line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    }
+    .login-wrap {
+      width: 100%; max-width: 380px; padding: 24px;
+    }
+    .login-brand {
+      text-align: center; margin-bottom: 40px;
+    }
+    .login-brand-name {
+      font-size: 13px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 4px;
+    }
+    .login-brand-tagline {
+      font-size: 11px; color: var(--muted); letter-spacing: .04em;
+    }
+    .login-heading {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: 26px; font-weight: 400; color: var(--vanilla);
+      letter-spacing: -.3px; text-align: center; margin-bottom: 32px;
+    }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 32px;
+    }
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block; font-size: 10px; font-weight: 600; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+    }
+    .field input {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      color: var(--vanilla); font-family: inherit; font-size: 13px;
+      padding: 9px 12px; border-radius: 6px; outline: none;
+      transition: border-color .15s;
+    }
+    .field input:focus { border-color: var(--gold); }
+    .field input::placeholder { color: var(--muted); }
+    .remember-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 24px;
+      font-size: 12px; color: var(--sub);
+    }
+    .remember-row input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+    .btn-login {
+      width: 100%; padding: 10px; background: var(--accent); color: #000;
+      border: none; border-radius: 6px; font-family: inherit; font-size: 13px;
+      font-weight: 600; letter-spacing: .02em; cursor: pointer; transition: background .12s;
+    }
+    .btn-login:hover { background: var(--vanilla); }
+    .error-msg {
+      background: rgba(224,92,58,0.1); border: 1px solid rgba(224,92,58,0.25);
+      color: var(--urgent); font-size: 12px; padding: 10px 14px; border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    .login-footer {
+      text-align: center; margin-top: 24px; font-size: 11px; color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-brand">
+    <div class="login-brand-name">VoiceIntel</div>
+    <div class="login-brand-tagline">Voicemail Intelligence</div>
+  </div>
+  <div class="login-heading">Sign in</div>
+  <div class="login-card">
+    {% if error %}
+    <div class="error-msg">{{ error }}</div>
+    {% endif %}
+    <form method="POST" action="/login">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="you@example.com" required autofocus />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="••••••••" required />
+      </div>
+      <div class="remember-row">
+        <input type="checkbox" name="remember" id="remember" value="1" />
+        <label for="remember" style="margin:0; text-transform:none; font-size:12px; letter-spacing:0; color:var(--sub);">Keep me signed in</label>
+      </div>
+      <button type="submit" class="btn-login">Sign In</button>
+    </form>
+  </div>
+  <div class="login-footer">Secure · Local Whisper transcription · No cloud audio</div>
+</div>
+</body>
+</html>

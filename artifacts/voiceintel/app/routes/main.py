@@ -1,7 +1,9 @@
 import os
 from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app
+from flask_login import login_required
 from sqlalchemy import func, desc, or_
 from datetime import datetime, timedelta
+from collections import Counter
 
 from app import db
 from app.models.voicemail import Voicemail, Transcript, Insight, Category
@@ -10,6 +12,7 @@ main_bp = Blueprint("main", __name__)
 
 
 @main_bp.route("/")
+@login_required
 def dashboard():
     today = datetime.utcnow().date()
     week_ago = datetime.utcnow() - timedelta(days=7)
@@ -43,7 +46,6 @@ def dashboard():
     for ins in insights_with_kw:
         if ins.keywords:
             all_keywords.extend(ins.keywords)
-    from collections import Counter
     top_keywords = [kw for kw, _ in Counter(all_keywords).most_common(15)]
 
     recent = (
@@ -74,6 +76,7 @@ def dashboard():
 
 
 @main_bp.route("/voicemails")
+@login_required
 def voicemail_list():
     page = request.args.get("page", 1, type=int)
     per_page = 20
@@ -131,6 +134,7 @@ def voicemail_list():
 
 
 @main_bp.route("/voicemails/<int:vm_id>")
+@login_required
 def voicemail_detail(vm_id):
     vm = Voicemail.query.get_or_404(vm_id)
     q = request.args.get("q", "").strip()
@@ -138,6 +142,7 @@ def voicemail_detail(vm_id):
 
 
 @main_bp.route("/voicemails/<int:vm_id>/audio")
+@login_required
 def serve_audio(vm_id):
     vm = Voicemail.query.get_or_404(vm_id)
     audio_path = vm.converted_path or vm.original_path

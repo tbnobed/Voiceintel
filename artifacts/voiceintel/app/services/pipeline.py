@@ -1,13 +1,24 @@
 import os
+import json
 import logging
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
+def _load_custom_urgency_keywords():
+    """Pull admin-configured urgency keywords from the settings table."""
+    try:
+        from app.models.voicemail import Setting
+        raw = Setting.get("custom_urgency_keywords", "[]")
+        return json.loads(raw)
+    except Exception:
+        return []
+
+
 def process_email_items(app, items: list):
     """
-    Core pipeline: convert audio → transcribe → NLP → persist.
+    Core pipeline: convert audio → transcribe → NLP → persist → run triggers.
     Accepts a list of item dicts (from IMAP fetch or SendGrid webhook).
     Each item must have: message_id, filename, saved_path, sender, subject, received_at.
     """
@@ -16,12 +27,14 @@ def process_email_items(app, items: list):
     from app.services import audio_service
     from app.services.transcription_service import TranscriptionService
     from app.services import nlp_service
+    from app.services.trigger_service import run_triggers
 
     with app.app_context():
         storage_dir = app.config["STORAGE_DIR"]
         model_size = app.config["WHISPER_MODEL"]
         transcriber = TranscriptionService(model_size)
         processed_dir = os.path.join(storage_dir, "processed")
+        custom_kw = _load_custom_urgency_keywords()
 
         for item in items:
             try:
@@ -70,7 +83,7 @@ def process_email_items(app, items: list):
                 db.session.add(transcript)
 
                 if transcription.get("text"):
-                    nlp = nlp_service.analyze(transcription["text"])
+                    nlp = nlp_service.analyze(transcription["text"], extra_urgency_keywords=custom_kw)
                     cat_name = nlp.get("category", "General Inquiry")
                     cat = Category.query.filter_by(name=cat_name).first()
                     voicemail.category_id = cat.id if cat else None
@@ -89,6 +102,12 @@ def process_email_items(app, items: list):
                 voicemail.processing_status = "error" if transcription.get("error") else "completed"
                 db.session.commit()
                 logger.info(f"Processed voicemail id={voicemail.id}: {item['filename']} (source={item.get('source','imap')})")
+
+                # Run automation triggers
+                try:
+                    run_triggers(app, voicemail)
+                except Exception as te:
+                    logger.error(f"Trigger engine error for voicemail {voicemail.id}: {te}")
 
             except Exception as e:
                 logger.error(f"Pipeline error for {item.get('filename')}: {e}")
@@ -114,7 +133,6 @@ def run_ingestion_pipeline(app):
         if emails:
             process_email_items(app, emails)
 
-            # Mark emails as read after successful pipeline
             from app.services import email_service as es
             for item in emails:
                 if item.get("uid"):
@@ -130,6 +148,7 @@ def reprocess_voicemail(app, voicemail_id):
     from app.models.voicemail import Voicemail, Transcript, Insight, Category
     from app.services.transcription_service import TranscriptionService
     from app.services import nlp_service
+    from app.services.trigger_service import run_triggers
 
     with app.app_context():
         vm = Voicemail.query.get(voicemail_id)
@@ -138,6 +157,7 @@ def reprocess_voicemail(app, voicemail_id):
 
         model_size = app.config["WHISPER_MODEL"]
         transcriber = TranscriptionService(model_size)
+        custom_kw = _load_custom_urgency_keywords()
 
         audio_path = vm.converted_path or vm.original_path
         if not audio_path or not os.path.exists(audio_path):
@@ -166,7 +186,7 @@ def reprocess_voicemail(app, voicemail_id):
             db.session.add(transcript)
 
         if transcription.get("text"):
-            nlp = nlp_service.analyze(transcription["text"])
+            nlp = nlp_service.analyze(transcription["text"], extra_urgency_keywords=custom_kw)
             cat_name = nlp.get("category", "General Inquiry")
             cat = Category.query.filter_by(name=cat_name).first()
             vm.category_id = cat.id if cat else None
@@ -191,4 +211,11 @@ def reprocess_voicemail(app, voicemail_id):
 
         vm.processing_status = "error" if transcription.get("error") else "completed"
         db.session.commit()
+
+        # Run automation triggers on reprocessed voicemail too
+        try:
+            run_triggers(app, vm)
+        except Exception as te:
+            logger.error(f"Trigger engine error for voicemail {vm.id}: {te}")
+
         return True, "Reprocessed successfully"

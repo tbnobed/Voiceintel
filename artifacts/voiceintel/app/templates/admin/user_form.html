@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} User — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span>
+<a href="/admin/users" style="color:var(--sub);">Users</a>
+<span class="sep">/</span><span>{{ 'Edit' if user else 'New' }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ 'Edit User' if user else 'Add User' }}</div>
+  <div class="page-sub">{{ 'Update account details and permissions.' if user else 'Create a new VoiceIntel account.' }}</div>
+</div>
+
+<div style="max-width: 480px;">
+  <div class="card">
+    <div class="card-body">
+      {% if error %}
+      <div style="background:rgba(224,92,58,0.1); border:1px solid rgba(224,92,58,0.25); color:var(--urgent); font-size:12px; padding:10px 14px; border-radius:6px; margin-bottom:20px;">{{ error }}</div>
+      {% endif %}
+      <form method="POST">
+        <div class="filter-group" style="margin-bottom:18px;">
+          <label>Full Name</label>
+          <input type="text" name="name" class="filter-input" value="{{ user.name if user else '' }}" placeholder="Jane Smith" required />
+        </div>
+        {% if not user %}
+        <div class="filter-group" style="margin-bottom:18px;">
+          <label>Email Address</label>
+          <input type="email" name="email" class="filter-input" placeholder="jane@example.com" required />
+        </div>
+        {% else %}
+        <div class="filter-group" style="margin-bottom:18px;">
+          <label>Email Address</label>
+          <div style="padding:9px 12px; background:var(--surface); border:1px solid var(--border); border-radius:5px; font-size:13px; color:var(--muted);">{{ user.email }}</div>
+        </div>
+        {% endif %}
+        <div class="filter-group" style="margin-bottom:18px;">
+          <label>Role</label>
+          <select name="role" class="filter-select">
+            <option value="viewer" {{ 'selected' if user and user.role == 'viewer' else '' }}>Viewer — read-only access</option>
+            <option value="admin" {{ 'selected' if user and user.role == 'admin' else '' }}>Admin — full access + admin panel</option>
+          </select>
+        </div>
+        {% if user %}
+        <div class="filter-group" style="margin-bottom:18px;">
+          <label>Status</label>
+          <select name="is_active" class="filter-select">
+            <option value="1" {{ 'selected' if user.is_active else '' }}>Active</option>
+            <option value="0" {{ 'selected' if not user.is_active else '' }}>Inactive (cannot log in)</option>
+          </select>
+        </div>
+        {% endif %}
+        <div class="filter-group" style="margin-bottom:24px;">
+          <label>{{ 'New Password (leave blank to keep current)' if user else 'Password' }}</label>
+          <input type="password" name="password" class="filter-input" placeholder="••••••••" {{ 'required' if not user else '' }} autocomplete="new-password" />
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button type="submit" class="btn btn-primary">{{ action }}</button>
+          <a href="/admin/users" class="btn btn-ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

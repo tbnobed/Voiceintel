@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span><span>Panel</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Admin Panel</div>
+  <div class="page-sub">Manage users, urgency keywords, and automation triggers.</div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 32px;">
+  <div class="stat-cell">
+    <div class="stat-label">Users</div>
+    <div class="stat-value">{{ user_count }}</div>
+    <div class="stat-desc"><a href="/admin/users" style="color:var(--gold)">Manage users →</a></div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-label">Active Triggers</div>
+    <div class="stat-value">{{ trigger_count }}</div>
+    <div class="stat-desc"><a href="/admin/triggers" style="color:var(--gold)">Manage triggers →</a></div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-label">Custom Urgency Keywords</div>
+    <div class="stat-value">{{ custom_kw_count }}</div>
+    <div class="stat-desc"><a href="/admin/keywords" style="color:var(--gold)">Manage keywords →</a></div>
+  </div>
+</div>
+
+<div class="grid-2-1" style="gap:16px;">
+  <div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-head">
+        <span class="card-head-title">Quick Actions</span>
+      </div>
+      <div class="card-body" style="display:flex; flex-direction:column; gap:10px;">
+        <a href="/admin/users/new" class="btn btn-primary">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="5" r="3"/><path d="M1.5 14.5c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/></svg>
+          Add New User
+        </a>
+        <a href="/admin/triggers/new" class="btn btn-ghost">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v14M1 8h14"/></svg>
+          Create Automation Trigger
+        </a>
+        <a href="/admin/keywords" class="btn btn-ghost">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M2 4h12M2 8h8M2 12h5"/></svg>
+          Edit Urgency Keywords
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-head-title">About Automation</span>
+    </div>
+    <div class="card-body" style="font-size:13px; color:var(--sub); line-height:1.8;">
+      <p style="margin-bottom:12px;">Triggers fire automatically after each voicemail is processed. Set a <strong style="color:var(--vanilla)">condition</strong> (category, keyword, sentiment) and an <strong style="color:var(--vanilla)">action</strong> (mark urgent, send notification, add label).</p>
+      <p>Custom <strong style="color:var(--vanilla)">urgency keywords</strong> supplement the built-in urgency detection. Any voicemail whose transcript contains one of these words will be flagged urgent.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

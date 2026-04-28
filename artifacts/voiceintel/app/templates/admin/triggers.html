@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Automation Triggers — Admin — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span><span>Triggers</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+  <div>
+    <div class="page-title">Automation Triggers</div>
+    <div class="page-sub">Rules that fire automatically after each voicemail is analyzed.</div>
+  </div>
+  <a href="/admin/triggers/new" class="btn btn-primary">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v14M1 8h14"/></svg>
+    New Trigger
+  </a>
+</div>
+
+{% if triggers %}
+<div style="display:flex; flex-direction:column; gap:10px;">
+  {% for t in triggers %}
+  <div class="card" style="{% if not t.is_active %}opacity:.55;{% endif %}">
+    <div style="display:flex; align-items:center; gap:16px; padding:16px 20px;">
+      <!-- Active indicator -->
+      <div style="width:8px; height:8px; border-radius:50%; flex-shrink:0; background:{{ 'var(--gold)' if t.is_active else 'rgba(175,155,70,0.2)' }};"></div>
+
+      <!-- Name + condition/action summary -->
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:14px; font-weight:500; color:var(--vanilla); margin-bottom:4px;">{{ t.name }}</div>
+        <div style="font-size:12px; color:var(--sub); display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="color:var(--muted);">When</span>
+          <span class="pill pill-pend">{{ t.condition_label }}{% if t.condition_value %}: <strong>{{ t.condition_value }}</strong>{% endif %}</span>
+          <span style="color:var(--muted);">→</span>
+          <span class="pill pill-done">{{ t.action_label }}{% if t.action_value %}: <strong>{{ t.action_value }}</strong>{% endif %}</span>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div style="text-align:right; min-width:100px;">
+        <div style="font-size:20px; font-weight:300; color:var(--accent); letter-spacing:-.5px;">{{ t.trigger_count }}</div>
+        <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;">times fired</div>
+        {% if t.last_triggered %}
+        <div style="font-size:10px; color:var(--muted); margin-top:2px;">last {{ t.last_triggered.strftime('%b %d') }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex; gap:6px; flex-shrink:0;">
+        <a href="/admin/triggers/{{ t.id }}/edit" class="btn btn-ghost btn-sm">Edit</a>
+        <form method="POST" action="/admin/triggers/{{ t.id }}/toggle">
+          <button type="submit" class="btn btn-ghost btn-sm">{{ 'Disable' if t.is_active else 'Enable' }}</button>
+        </form>
+        <form method="POST" action="/admin/triggers/{{ t.id }}/delete" onsubmit="return confirm('Delete this trigger?')">
+          <button type="submit" class="btn btn-sm" style="background:rgba(224,92,58,0.1); color:var(--urgent); border:1px solid rgba(224,92,58,0.2);">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty">
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon" width="48" height="48"><path d="M24 4L4 16v16l20 12 20-12V16L24 4z"/><path d="M24 4v28M4 16l20 12 20-12"/></svg>
+    <div class="empty-title">No automation triggers</div>
+    <div class="empty-sub">Create your first trigger to automatically act on incoming voicemails based on category, keywords, or sentiment.</div>
+    <a href="/admin/triggers/new" class="btn btn-primary" style="margin-top:16px;">Create First Trigger</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

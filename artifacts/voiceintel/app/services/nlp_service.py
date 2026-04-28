@@ -129,13 +129,20 @@ def detect_sentiment(text: str) -> tuple[str, float]:
     return "neutral", 0.0
 
 
-def detect_urgency(text: str) -> tuple[bool, list[str]]:
+def detect_urgency(text: str, extra_keywords: list[str] | None = None) -> tuple[bool, list[str]]:
+    """
+    Check for urgency keywords.  `extra_keywords` are admin-configured custom words
+    loaded from the settings table at pipeline time.
+    """
     if not text:
         return False, []
     text_lower = text.lower()
-    # Use word-boundary matching for multi-word phrases; simple `in` for single words
+    all_keywords = set(URGENCY_KEYWORDS)
+    if extra_keywords:
+        all_keywords.update(kw.lower().strip() for kw in extra_keywords if kw.strip())
+
     found = []
-    for kw in URGENCY_KEYWORDS:
+    for kw in all_keywords:
         pattern = r"\b" + re.escape(kw) + r"\b"
         if re.search(pattern, text_lower):
             found.append(kw)
@@ -160,10 +167,10 @@ def classify_category(text: str) -> str:
     return best_cat
 
 
-def analyze(text: str) -> dict:
+def analyze(text: str, extra_urgency_keywords: list[str] | None = None) -> dict:
     keywords = extract_keywords(text)
     sentiment, sentiment_score = detect_sentiment(text)
-    is_urgent, urgency_kws = detect_urgency(text)
+    is_urgent, urgency_kws = detect_urgency(text, extra_keywords=extra_urgency_keywords)
     category = classify_category(text)
     return {
         "keywords":        keywords,

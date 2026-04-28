@@ -1,6 +1,7 @@
 import os
 import threading
 from flask import Blueprint, request, jsonify, current_app
+from flask_login import login_required
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
 from collections import Counter
@@ -12,6 +13,7 @@ api_bp = Blueprint("api", __name__)
 
 
 @api_bp.route("/stats")
+@login_required
 def stats():
     today = datetime.utcnow().date()
     week_ago = datetime.utcnow() - timedelta(days=7)
@@ -57,6 +59,7 @@ def stats():
 
 
 @api_bp.route("/voicemails")
+@login_required
 def list_voicemails():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
@@ -86,6 +89,7 @@ def list_voicemails():
 
 
 @api_bp.route("/voicemails/<int:vm_id>")
+@login_required
 def get_voicemail(vm_id):
     vm = Voicemail.query.get_or_404(vm_id)
     data = vm.to_dict()
@@ -97,6 +101,7 @@ def get_voicemail(vm_id):
 
 
 @api_bp.route("/voicemails/<int:vm_id>/reprocess", methods=["POST"])
+@login_required
 def reprocess(vm_id):
     app = current_app._get_current_object()
 
@@ -110,6 +115,7 @@ def reprocess(vm_id):
 
 
 @api_bp.route("/search")
+@login_required
 def search():
     q = request.args.get("q", "").strip()
     if not q:
@@ -143,6 +149,7 @@ def search():
 
 
 @api_bp.route("/poll", methods=["POST"])
+@login_required
 def trigger_poll():
     """Manually trigger email ingestion."""
     app = current_app._get_current_object()
@@ -157,6 +164,7 @@ def trigger_poll():
 
 
 @api_bp.route("/categories")
+@login_required
 def categories():
     cats = Category.query.order_by(Category.name).all()
     return jsonify([c.to_dict() for c in cats])
@@ -165,15 +173,10 @@ def categories():
 @api_bp.route("/webhook/inbound", methods=["GET", "POST"])
 def sendgrid_inbound():
     """
-    SendGrid Inbound Parse webhook.
-
-    Configure SendGrid → Settings → Inbound Parse → Add Host & URL:
-        URL: https://<your-domain>/api/webhook/inbound
-        Check POST the raw, full MIME message: NO  (default multipart form)
-        Check Send Grid spam check: optional
+    SendGrid Inbound Parse webhook — intentionally not login_required
+    (uses its own HMAC signature verification instead).
     """
     if request.method == "GET":
-        # Liveness check for SendGrid configuration wizard
         return jsonify({"status": "ok", "service": "VoiceIntel inbound webhook"}), 200
 
     app = current_app._get_current_object()
@@ -192,10 +195,8 @@ def sendgrid_inbound():
         return jsonify({"error": str(e)}), 400
 
     if not items:
-        # Acknowledge to SendGrid even if there were no audio attachments
         return jsonify({"status": "ignored", "reason": "no audio attachments found"}), 200
 
-    # Process in background so SendGrid gets a fast 200
     def _process():
         from app.services.pipeline import process_email_items
         process_email_items(app, items)

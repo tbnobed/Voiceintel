@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} — Triggers — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span>
+<a href="/admin/triggers" style="color:var(--sub);">Triggers</a>
+<span class="sep">/</span><span>{{ 'Edit' if trigger else 'New' }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ 'Edit Trigger' if trigger else 'New Trigger' }}</div>
+  <div class="page-sub">Define when the trigger fires and what action to take.</div>
+</div>
+
+<div style="max-width: 560px;">
+  <div class="card">
+    <div class="card-body">
+      {% if error %}
+      <div style="background:rgba(224,92,58,0.1); border:1px solid rgba(224,92,58,0.25); color:var(--urgent); font-size:12px; padding:10px 14px; border-radius:6px; margin-bottom:20px;">{{ error }}</div>
+      {% endif %}
+      <form method="POST">
+
+        <div class="filter-group" style="margin-bottom:20px;">
+          <label>Trigger Name</label>
+          <input type="text" name="name" class="filter-input" value="{{ trigger.name if trigger else '' }}" placeholder="e.g. Escalate Prayer Requests" required />
+        </div>
+
+        <div style="border:1px solid var(--border); border-radius:8px; padding:20px; margin-bottom:20px;">
+          <div style="font-size:10px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--gold); margin-bottom:16px;">Condition — When this happens</div>
+
+          <div class="filter-group" style="margin-bottom:14px;">
+            <label>Condition Type</label>
+            <select name="condition_type" class="filter-select" id="cond-type" onchange="updateConditionHint()">
+              <option value="always"   {{ 'selected' if trigger and trigger.condition_type == 'always' else '' }}>Always (every voicemail)</option>
+              <option value="category" {{ 'selected' if trigger and trigger.condition_type == 'category' else '' }}>Category equals</option>
+              <option value="keyword"  {{ 'selected' if trigger and trigger.condition_type == 'keyword' else '' }}>Transcript contains keyword</option>
+              <option value="sentiment"{{ 'selected' if trigger and trigger.condition_type == 'sentiment' else '' }}>Sentiment is</option>
+              <option value="is_urgent"{{ 'selected' if trigger and trigger.condition_type == 'is_urgent' else '' }}>Flagged as Urgent</option>
+            </select>
+          </div>
+
+          <div class="filter-group" id="cond-value-wrap" style="margin-bottom:0;">
+            <label id="cond-value-label">Value</label>
+            <!-- Category select -->
+            <select name="condition_value_category" class="filter-select" id="cond-cat" style="display:none;">
+              {% for cat in categories %}
+              <option value="{{ cat.name }}" {{ 'selected' if trigger and trigger.condition_type == 'category' and trigger.condition_value == cat.name else '' }}>{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+            <!-- Sentiment select -->
+            <select name="condition_value_sentiment" class="filter-select" id="cond-sent" style="display:none;">
+              <option value="positive" {{ 'selected' if trigger and trigger.condition_type == 'sentiment' and trigger.condition_value == 'positive' else '' }}>Positive</option>
+              <option value="negative" {{ 'selected' if trigger and trigger.condition_type == 'sentiment' and trigger.condition_value == 'negative' else '' }}>Negative</option>
+              <option value="neutral"  {{ 'selected' if trigger and trigger.condition_type == 'sentiment' and trigger.condition_value == 'neutral' else '' }}>Neutral</option>
+            </select>
+            <!-- Text input for keywords -->
+            <input type="text" name="condition_value_keyword" class="filter-input" id="cond-kw" style="display:none;"
+              value="{{ trigger.condition_value if trigger and trigger.condition_type == 'keyword' else '' }}"
+              placeholder="e.g. billing, refund, cancel (comma-separated)" />
+            <!-- Hidden combined value -->
+            <input type="hidden" name="condition_value" id="cond-value-hidden" value="{{ trigger.condition_value if trigger else '' }}" />
+          </div>
+        </div>
+
+        <div style="border:1px solid var(--border); border-radius:8px; padding:20px; margin-bottom:24px;">
+          <div style="font-size:10px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--gold); margin-bottom:16px;">Action — Do this</div>
+
+          <div class="filter-group" style="margin-bottom:14px;">
+            <label>Action Type</label>
+            <select name="action_type" class="filter-select" id="action-type" onchange="updateActionHint()">
+              <option value="mark_urgent"  {{ 'selected' if trigger and trigger.action_type == 'mark_urgent' else '' }}>Mark as Urgent</option>
+              <option value="add_label"    {{ 'selected' if trigger and trigger.action_type == 'add_label' else '' }}>Prepend Label to Subject</option>
+              <option value="notify_admin" {{ 'selected' if trigger and trigger.action_type == 'notify_admin' else '' }}>Email Admin Notification</option>
+              <option value="send_email"   {{ 'selected' if trigger and trigger.action_type == 'send_email' else '' }}>Send Email to Address</option>
+            </select>
+          </div>
+
+          <div class="filter-group" id="action-value-wrap" style="margin-bottom:0; display:none;">
+            <label id="action-value-label">Value</label>
+            <input type="text" name="action_value" class="filter-input" id="action-value-input"
+              value="{{ trigger.action_value if trigger else '' }}" placeholder="" />
+          </div>
+        </div>
+
+        {% if trigger %}
+        <div class="filter-group" style="margin-bottom:24px;">
+          <label>Status</label>
+          <select name="is_active" class="filter-select">
+            <option value="1" {{ 'selected' if trigger.is_active else '' }}>Active</option>
+            <option value="0" {{ 'selected' if not trigger.is_active else '' }}>Inactive</option>
+          </select>
+        </div>
+        {% endif %}
+
+        <div style="display:flex; gap:10px;">
+          <button type="submit" class="btn btn-primary" onclick="mergeConditionValue()">{{ action }}</button>
+          <a href="/admin/triggers" class="btn btn-ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateConditionHint() {
+  const type = document.getElementById('cond-type').value;
+  document.getElementById('cond-cat').style.display = type === 'category' ? '' : 'none';
+  document.getElementById('cond-sent').style.display = type === 'sentiment' ? '' : 'none';
+  document.getElementById('cond-kw').style.display = type === 'keyword' ? '' : 'none';
+  document.getElementById('cond-value-wrap').style.display = (type === 'always' || type === 'is_urgent') ? 'none' : '';
+}
+
+function updateActionHint() {
+  const type = document.getElementById('action-type').value;
+  const wrap = document.getElementById('action-value-wrap');
+  const lbl = document.getElementById('action-value-label');
+  const inp = document.getElementById('action-value-input');
+  if (type === 'mark_urgent') {
+    wrap.style.display = 'none';
+  } else if (type === 'add_label') {
+    lbl.textContent = 'Label Text';
+    inp.placeholder = 'e.g. [ESCALATED]';
+    wrap.style.display = '';
+  } else if (type === 'notify_admin' || type === 'send_email') {
+    lbl.textContent = type === 'send_email' ? 'Recipient Email' : 'Admin Email';
+    inp.placeholder = 'admin@example.com';
+    wrap.style.display = '';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function mergeConditionValue() {
+  const type = document.getElementById('cond-type').value;
+  let val = '';
+  if (type === 'category') val = document.getElementById('cond-cat').value;
+  else if (type === 'sentiment') val = document.getElementById('cond-sent').value;
+  else if (type === 'keyword') val = document.getElementById('cond-kw').value;
+  document.getElementById('cond-value-hidden').value = val;
+}
+
+updateConditionHint();
+updateActionHint();
+</script>
+{% endblock %}
