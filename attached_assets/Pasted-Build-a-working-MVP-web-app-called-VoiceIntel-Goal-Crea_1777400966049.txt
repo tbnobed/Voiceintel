@@ -1,0 +1,223 @@
+Build a working MVP web app called VoiceIntel.
+
+Goal:
+Create a voicemail intelligence dashboard that ingests voicemail recordings from email, transcribes them using a LOCAL Whisper model (no cloud APIs), and provides a searchable analytics UI.
+
+Tech stack:
+- Python Flask backend
+- PostgreSQL database
+- HTML/CSS/JavaScript frontend
+- Bootstrap or Tailwind UI
+- faster-whisper (local transcription)
+- FFmpeg for audio conversion
+- IMAP for email ingestion
+- SQLAlchemy ORM
+- APScheduler for background jobs
+
+CRITICAL REQUIREMENT:
+- ALL transcription must be done locally using faster-whisper
+- DO NOT use OpenAI API or any external transcription service
+- Must support GPU acceleration if available (CUDA), fallback to CPU
+
+--------------------------------------------------
+1. Email ingestion (IMAP)
+--------------------------------------------------
+- Connect to IMAP using environment variables:
+  IMAP_HOST, IMAP_PORT, IMAP_USERNAME, IMAP_PASSWORD, IMAP_FOLDER
+- Poll every 60 seconds
+- Fetch unread emails with audio attachments
+- Supported formats: wav, mp3, m4a, ogg, aac
+- Save attachments to /storage/voicemails
+- Store metadata:
+  sender, subject, timestamp, message_id, filename
+- Prevent duplicates using message_id + filename
+- Mark emails as read ONLY after successful processing
+
+--------------------------------------------------
+2. Audio processing
+--------------------------------------------------
+- Use FFmpeg to convert all audio to:
+  mono, 16kHz WAV (required for Whisper optimization)
+- Store:
+  original_path
+  converted_path
+  duration
+  size
+  processing_status
+
+--------------------------------------------------
+3. LOCAL transcription (faster-whisper)
+--------------------------------------------------
+- Use faster-whisper Python package
+- Load model at startup (configurable):
+  options:
+    tiny
+    base
+    small
+    medium
+    large-v2
+
+- Detect GPU automatically:
+  if CUDA available → use GPU
+  else → fallback to CPU
+
+- Transcribe audio files
+- Store:
+  transcript text
+  segments (timestamps optional)
+  detected language
+  processing time
+  errors if any
+
+- Wrap transcription in a service class:
+  TranscriptionService.transcribe(file_path)
+
+--------------------------------------------------
+4. Keyword + NLP extraction (LOCAL)
+--------------------------------------------------
+- DO NOT use external APIs
+- Use local Python NLP tools:
+  - spaCy OR
+  - simple keyword extraction (TF-IDF)
+
+Extract:
+- keywords
+- sentiment (use TextBlob or simple rule-based)
+- urgency detection (keyword-based)
+- category classification (rule-based for MVP)
+
+Default categories:
+- Prayer Request
+- Donation Issue
+- Technical Issue
+- Complaint
+- General Inquiry
+- Urgent
+
+--------------------------------------------------
+5. Dashboard UI
+--------------------------------------------------
+Create a modern dashboard with:
+- Total voicemails
+- Voicemails today
+- Top keywords
+- Category distribution
+- Urgent count
+- Trend graph (daily volume)
+
+Include:
+- Search bar
+- Filters:
+  date range, category, urgency, keyword
+
+--------------------------------------------------
+6. Voicemail list view
+--------------------------------------------------
+Table with:
+- date
+- sender
+- subject
+- category
+- urgency
+- transcript preview
+- status
+
+--------------------------------------------------
+7. Voicemail detail page
+--------------------------------------------------
+- Audio player
+- Full transcript
+- Highlighted keywords
+- Category
+- Urgency
+- Email metadata
+- Reprocess button
+
+--------------------------------------------------
+8. Search functionality
+--------------------------------------------------
+- Full-text search across transcripts
+- Highlight matching keywords
+- Return snippets of transcript
+
+--------------------------------------------------
+9. Alerts / urgency detection
+--------------------------------------------------
+Flag as urgent if transcript contains:
+- emergency
+- urgent
+- hospital
+- death
+- suicide
+- crisis
+- abuse
+- threat
+
+--------------------------------------------------
+10. Background worker
+--------------------------------------------------
+- Use APScheduler to:
+  poll email inbox
+  process new voicemails
+  run transcription pipeline
+
+--------------------------------------------------
+11. Database models
+--------------------------------------------------
+Create:
+- users
+- voicemails
+- transcripts
+- insights
+- categories
+- settings
+
+--------------------------------------------------
+12. File structure
+--------------------------------------------------
+/app
+  /routes
+  /models
+  /services
+    email_service.py
+    audio_service.py
+    transcription_service.py
+    nlp_service.py
+  /templates
+  /static
+/storage/voicemails
+/storage/processed
+
+--------------------------------------------------
+13. Performance considerations
+--------------------------------------------------
+- Queue transcription jobs (do not block requests)
+- Cache loaded Whisper model
+- Limit concurrent transcriptions
+- Log processing times
+
+--------------------------------------------------
+14. Setup requirements
+--------------------------------------------------
+Include:
+- requirements.txt
+- .env.example
+- README.md
+
+Dependencies:
+- flask
+- sqlalchemy
+- psycopg2
+- faster-whisper
+- ffmpeg-python
+- apscheduler
+- python-dotenv
+- spacy or textblob
+
+--------------------------------------------------
+15. IMPORTANT
+--------------------------------------------------
+- This must be a WORKING MVP, not mockups
+- All ingestion, transcription, and UI must function
+- No external APIs allowed
+- Code must be modular and production-expandable

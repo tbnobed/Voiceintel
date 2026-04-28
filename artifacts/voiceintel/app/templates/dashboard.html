@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+  <span class="breadcrumb-label"><i class="fa-solid fa-gauge-high"></i> Dashboard</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Dashboard</h1>
+  <p class="subtitle">Voicemail intelligence overview</p>
+</div>
+
+<!-- Stats cards -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#6366f1;">
+      <i class="fa-solid fa-voicemail"></i>
+    </div>
+    <div class="stat-body">
+      <div class="stat-number">{{ total }}</div>
+      <div class="stat-label">Total Voicemails</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#0ea5e9;">
+      <i class="fa-solid fa-calendar-day"></i>
+    </div>
+    <div class="stat-body">
+      <div class="stat-number">{{ today_count }}</div>
+      <div class="stat-label">Today</div>
+    </div>
+  </div>
+  <div class="stat-card urgent-card">
+    <div class="stat-icon" style="background:#ef4444;">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    <div class="stat-body">
+      <div class="stat-number">{{ urgent_count }}</div>
+      <div class="stat-label">Urgent</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#10b981;">
+      <i class="fa-solid fa-tags"></i>
+    </div>
+    <div class="stat-body">
+      <div class="stat-number">{{ category_dist | length }}</div>
+      <div class="stat-label">Categories</div>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-grid">
+  <!-- Trend chart -->
+  <div class="card chart-card">
+    <div class="card-header">
+      <h2><i class="fa-solid fa-chart-line"></i> Daily Volume (7 days)</h2>
+    </div>
+    <div class="card-body">
+      <canvas id="trendChart"></canvas>
+      {% if not daily_trend %}
+        <div class="empty-state small">
+          <i class="fa-solid fa-chart-bar"></i>
+          <p>No data yet — voicemails will appear here after ingestion.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Category distribution -->
+  <div class="card">
+    <div class="card-header">
+      <h2><i class="fa-solid fa-pie-chart"></i> Categories</h2>
+    </div>
+    <div class="card-body">
+      {% if category_dist %}
+        {% set total_with_cat = namespace(n=0) %}
+        {% for name, count in category_dist %}{% set total_with_cat.n = total_with_cat.n + count %}{% endfor %}
+        <div class="category-bars">
+          {% for name, count in category_dist %}
+            {% set pct = ((count / total_with_cat.n) * 100)|round(1) if total_with_cat.n > 0 else 0 %}
+            <div class="cat-row">
+              <span class="cat-name">{{ name }}</span>
+              <div class="cat-bar-wrap">
+                <div class="cat-bar" style="width: {{ pct }}%;"></div>
+              </div>
+              <span class="cat-count">{{ count }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state small">
+          <i class="fa-solid fa-folder-open"></i>
+          <p>No categorized voicemails yet.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Top keywords -->
+  <div class="card">
+    <div class="card-header">
+      <h2><i class="fa-solid fa-key"></i> Top Keywords</h2>
+    </div>
+    <div class="card-body">
+      {% if top_keywords %}
+        <div class="keyword-cloud">
+          {% for kw in top_keywords %}
+            <a href="{{ url_for('main.voicemail_list') }}?q={{ kw }}" class="keyword-tag">{{ kw }}</a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state small">
+          <i class="fa-solid fa-tag"></i>
+          <p>Keywords will appear after transcription.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recent voicemails -->
+  <div class="card recent-card">
+    <div class="card-header">
+      <h2><i class="fa-solid fa-clock-rotate-left"></i> Recent Voicemails</h2>
+      <a href="{{ url_for('main.voicemail_list') }}" class="view-all">View all</a>
+    </div>
+    <div class="card-body">
+      {% if recent %}
+        <div class="recent-list">
+          {% for vm in recent %}
+            <a href="{{ url_for('main.voicemail_detail', vm_id=vm.id) }}" class="recent-item">
+              <div class="recent-meta">
+                <span class="recent-sender">{{ vm.sender or 'Unknown' }}</span>
+                {% if vm.is_urgent %}
+                  <span class="badge badge-urgent"><i class="fa-solid fa-triangle-exclamation"></i> Urgent</span>
+                {% endif %}
+                {% if vm.category_obj %}
+                  <span class="badge badge-cat">{{ vm.category_obj.name }}</span>
+                {% endif %}
+              </div>
+              <div class="recent-subject">{{ vm.subject or '(No subject)' }}</div>
+              {% if vm.transcript and vm.transcript.text %}
+                <div class="recent-preview">{{ vm.transcript.text[:120] }}{% if vm.transcript.text|length > 120 %}...{% endif %}</div>
+              {% else %}
+                <div class="recent-preview muted">{{ vm.processing_status }}</div>
+              {% endif %}
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <i class="fa-solid fa-inbox"></i>
+          <h3>No voicemails yet</h3>
+          <p>Click <strong>Poll Inbox</strong> in the sidebar to fetch voicemails from your email account.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const trend = {{ daily_trend | tojson }};
+  if (trend.length > 0) {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: trend.map(d => d[0]),
+        datasets: [{
+          label: 'Voicemails',
+          data: trend.map(d => d[1]),
+          backgroundColor: 'rgba(99,102,241,0.7)',
+          borderColor: '#6366f1',
+          borderWidth: 1,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, color: '#94a3b8' },
+            grid: { color: 'rgba(148,163,184,0.15)' },
+          },
+          x: {
+            ticks: { color: '#94a3b8' },
+            grid: { display: false },
+          }
+        }
+      }
+    });
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Voicemails — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+  <span class="breadcrumb-label"><i class="fa-solid fa-inbox"></i> Voicemails</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Voicemails</h1>
+  <p class="subtitle">{{ pagination.total }} total</p>
+</div>
+
+<!-- Filters -->
+<div class="filters-bar card">
+  <form method="GET" action="{{ url_for('main.voicemail_list') }}" class="filters-form">
+    <div class="filter-group">
+      <label>Search</label>
+      <div class="input-icon-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="q" placeholder="Search transcripts..." value="{{ q }}" class="filter-input" />
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Category</label>
+      <select name="category" class="filter-select">
+        <option value="">All categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat.id }}" {{ 'selected' if category_id == cat.id }}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Urgency</label>
+      <select name="urgency" class="filter-select">
+        <option value="">All</option>
+        <option value="urgent" {{ 'selected' if urgency == 'urgent' }}>Urgent only</option>
+        <option value="normal" {{ 'selected' if urgency == 'normal' }}>Normal only</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>From</label>
+      <input type="date" name="date_from" value="{{ date_from or '' }}" class="filter-input" />
+    </div>
+    <div class="filter-group">
+      <label>To</label>
+      <input type="date" name="date_to" value="{{ date_to or '' }}" class="filter-input" />
+    </div>
+    <div class="filter-actions">
+      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter"></i> Filter</button>
+      <a href="{{ url_for('main.voicemail_list') }}" class="btn btn-ghost">Clear</a>
+    </div>
+  </form>
+</div>
+
+{% if q %}
+  <div class="search-summary">
+    Showing results for <strong>"{{ q }}"</strong> — {{ pagination.total }} match{{ 'es' if pagination.total != 1 }}
+  </div>
+{% endif %}
+
+<!-- Table -->
+{% if voicemails %}
+<div class="card table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Sender</th>
+        <th>Subject</th>
+        <th>Category</th>
+        <th>Urgency</th>
+        <th>Transcript preview</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for vm in voicemails %}
+        <tr class="{{ 'urgent-row' if vm.is_urgent }}">
+          <td class="date-col">
+            {% if vm.received_at %}
+              <span class="date-main">{{ vm.received_at.strftime('%b %d, %Y') }}</span>
+              <span class="date-sub">{{ vm.received_at.strftime('%I:%M %p') }}</span>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td class="sender-col">{{ vm.sender or '—' }}</td>
+          <td class="subject-col">{{ vm.subject or '(No subject)' }}</td>
+          <td>
+            {% if vm.category_obj %}
+              <span class="badge badge-cat">{{ vm.category_obj.name }}</span>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if vm.is_urgent %}
+              <span class="badge badge-urgent"><i class="fa-solid fa-triangle-exclamation"></i> Urgent</span>
+            {% else %}
+              <span class="badge badge-normal">Normal</span>
+            {% endif %}
+          </td>
+          <td class="transcript-col">
+            {% if vm.transcript and vm.transcript.text %}
+              {% set text = vm.transcript.text %}
+              {% if q and q.lower() in text.lower() %}
+                {% set idx = text.lower().find(q.lower()) %}
+                {% set start = [0, idx - 60] | max %}
+                {% set snippet = text[start:start+150] %}
+                <span class="transcript-preview">
+                  {{ snippet[:idx-start] }}<mark>{{ snippet[idx-start:idx-start+q|length] }}</mark>{{ snippet[idx-start+q|length:] }}...
+                </span>
+              {% else %}
+                <span class="transcript-preview">{{ text[:120] }}{% if text|length > 120 %}...{% endif %}</span>
+              {% endif %}
+            {% else %}
+              <span class="muted">{{ vm.processing_status }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="status-pill status-{{ vm.processing_status }}">{{ vm.processing_status }}</span>
+          </td>
+          <td>
+            <a href="{{ url_for('main.voicemail_detail', vm_id=vm.id) }}{% if q %}?q={{ q }}{% endif %}" class="btn btn-sm">View</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<div class="pagination">
+  {% if pagination.has_prev %}
+    <a href="{{ url_for('main.voicemail_list', page=pagination.prev_num, q=q, category=category_id, urgency=urgency, date_from=date_from, date_to=date_to) }}" class="page-btn">
+      <i class="fa-solid fa-chevron-left"></i>
+    </a>
+  {% endif %}
+  {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+    {% if p %}
+      <a href="{{ url_for('main.voicemail_list', page=p, q=q, category=category_id, urgency=urgency, date_from=date_from, date_to=date_to) }}"
+         class="page-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
+    {% else %}
+      <span class="page-ellipsis">…</span>
+    {% endif %}
+  {% endfor %}
+  {% if pagination.has_next %}
+    <a href="{{ url_for('main.voicemail_list', page=pagination.next_num, q=q, category=category_id, urgency=urgency, date_from=date_from, date_to=date_to) }}" class="page-btn">
+      <i class="fa-solid fa-chevron-right"></i>
+    </a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+  <div class="card">
+    <div class="empty-state">
+      <i class="fa-solid fa-inbox"></i>
+      <h3>{{ 'No results found' if q else 'No voicemails yet' }}</h3>
+      <p>
+        {% if q %}
+          Try a different search term or clear your filters.
+        {% else %}
+          Click <strong>Poll Inbox</strong> in the sidebar to check your email for voicemails.
+        {% endif %}
+      </p>
+      {% if q %}
+        <a href="{{ url_for('main.voicemail_list') }}" class="btn btn-primary">Clear filters</a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

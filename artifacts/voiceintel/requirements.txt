@@ -1,0 +1,16 @@
+flask==3.0.3
+flask-sqlalchemy==3.1.1
+flask-migrate==4.0.7
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.36
+python-dotenv==1.0.1
+apscheduler==3.10.4
+faster-whisper==1.0.3
+ffmpeg-python==0.2.0
+textblob==0.18.0
+scikit-learn==1.5.2
+numpy==1.26.4
+requests==2.32.3
+python-dateutil==2.9.0
+Werkzeug==3.0.6
+gunicorn==23.0.0

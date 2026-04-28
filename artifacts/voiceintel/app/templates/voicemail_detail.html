@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}{{ vm.subject or 'Voicemail' }} — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+  <span class="breadcrumb-label">
+    <a href="{{ url_for('main.voicemail_list') }}">Voicemails</a>
+    <i class="fa-solid fa-chevron-right" style="font-size:10px;margin:0 6px;"></i>
+    {{ vm.subject or 'Detail' }}
+  </span>
+{% endblock %}
+
+{% block content %}
+<div class="detail-layout">
+  <!-- Main column -->
+  <div class="detail-main">
+
+    <!-- Header card -->
+    <div class="card detail-header-card">
+      <div class="detail-top">
+        <div class="detail-title-block">
+          <h1>{{ vm.subject or '(No subject)' }}</h1>
+          <div class="detail-meta-row">
+            <span><i class="fa-solid fa-user"></i> {{ vm.sender or 'Unknown' }}</span>
+            {% if vm.received_at %}
+              <span><i class="fa-solid fa-clock"></i> {{ vm.received_at.strftime('%B %d, %Y at %I:%M %p') }}</span>
+            {% endif %}
+            {% if vm.duration %}
+              <span><i class="fa-solid fa-timer"></i> {{ '%d:%02d'|format(vm.duration|int // 60, vm.duration|int % 60) }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="detail-badges">
+          {% if vm.is_urgent %}
+            <span class="badge badge-urgent lg"><i class="fa-solid fa-triangle-exclamation"></i> Urgent</span>
+          {% endif %}
+          {% if vm.category_obj %}
+            <span class="badge badge-cat lg">{{ vm.category_obj.name }}</span>
+          {% endif %}
+          <span class="status-pill status-{{ vm.processing_status }}">{{ vm.processing_status }}</span>
+        </div>
+      </div>
+
+      <!-- Audio player -->
+      {% if vm.converted_path or vm.original_path %}
+        <div class="audio-player-wrap">
+          <audio controls class="audio-player" preload="metadata">
+            <source src="{{ url_for('main.serve_audio', vm_id=vm.id) }}" />
+            Your browser does not support audio playback.
+          </audio>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Transcript card -->
+    <div class="card">
+      <div class="card-header">
+        <h2><i class="fa-solid fa-file-lines"></i> Transcript</h2>
+        {% if vm.transcript and vm.transcript.language %}
+          <span class="lang-badge">{{ vm.transcript.language | upper }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if vm.transcript and vm.transcript.text %}
+          {% if vm.transcript.error %}
+            <div class="alert alert-warning"><i class="fa-solid fa-circle-exclamation"></i> {{ vm.transcript.error }}</div>
+          {% endif %}
+          <div class="transcript-body" id="transcript-text">
+            {% if q %}
+              {% set text = vm.transcript.text %}
+              {% set parts = text.split(q) %}
+              {% for part in parts %}
+                {{ part }}{% if not loop.last %}<mark class="highlight">{{ q }}</mark>{% endif %}
+              {% endfor %}
+            {% else %}
+              {{ vm.transcript.text }}
+            {% endif %}
+          </div>
+          {% if vm.transcript.processing_time %}
+            <div class="transcript-meta">Transcribed in {{ vm.transcript.processing_time }}s</div>
+          {% endif %}
+        {% elif vm.transcript and vm.transcript.error %}
+          <div class="alert alert-danger">
+            <i class="fa-solid fa-circle-xmark"></i> Transcription error: {{ vm.transcript.error }}
+          </div>
+        {% else %}
+          <div class="empty-state small">
+            <i class="fa-solid fa-hourglass-half"></i>
+            <p>{{ 'Transcription in progress...' if vm.processing_status == 'processing' else 'No transcript available.' }}</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Segments timeline -->
+    {% if vm.transcript and vm.transcript.segments and vm.transcript.segments|length > 0 %}
+    <div class="card">
+      <div class="card-header">
+        <h2><i class="fa-solid fa-list-timeline"></i> Segments</h2>
+      </div>
+      <div class="card-body segments-body">
+        {% for seg in vm.transcript.segments %}
+          <div class="segment">
+            <span class="seg-time">{{ '%d:%02d'|format(seg.start|int // 60, seg.start|int % 60) }}</span>
+            <span class="seg-text">{{ seg.text }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Sidebar column -->
+  <div class="detail-sidebar">
+
+    <!-- Insights -->
+    {% if vm.insights %}
+    <div class="card">
+      <div class="card-header"><h2><i class="fa-solid fa-brain"></i> NLP Insights</h2></div>
+      <div class="card-body">
+        <div class="insight-row">
+          <span class="insight-label">Sentiment</span>
+          <span class="badge badge-sentiment-{{ vm.insights.sentiment }}">
+            {% if vm.insights.sentiment == 'positive' %}<i class="fa-solid fa-face-smile"></i>
+            {% elif vm.insights.sentiment == 'negative' %}<i class="fa-solid fa-face-frown"></i>
+            {% else %}<i class="fa-solid fa-face-meh"></i>{% endif %}
+            {{ vm.insights.sentiment|capitalize }}
+          </span>
+        </div>
+        {% if vm.insights.sentiment_score is not none %}
+          <div class="insight-row">
+            <span class="insight-label">Score</span>
+            <span>{{ vm.insights.sentiment_score }}</span>
+          </div>
+        {% endif %}
+        {% if vm.insights.urgency_keywords %}
+          <div class="insight-row">
+            <span class="insight-label">Urgency flags</span>
+            <div class="keyword-cloud sm">
+              {% for kw in vm.insights.urgency_keywords %}
+                <span class="keyword-tag urgent">{{ kw }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+        {% if vm.insights.keywords %}
+          <div class="insight-row">
+            <span class="insight-label">Keywords</span>
+            <div class="keyword-cloud sm">
+              {% for kw in vm.insights.keywords %}
+                <a href="{{ url_for('main.voicemail_list') }}?q={{ kw }}" class="keyword-tag">{{ kw }}</a>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Email metadata -->
+    <div class="card">
+      <div class="card-header"><h2><i class="fa-solid fa-envelope"></i> Email Metadata</h2></div>
+      <div class="card-body">
+        <div class="meta-list">
+          <div class="meta-row"><span class="meta-key">Message ID</span><span class="meta-val mono">{{ vm.message_id[:40] }}{% if vm.message_id|length > 40 %}…{% endif %}</span></div>
+          <div class="meta-row"><span class="meta-key">Filename</span><span class="meta-val">{{ vm.filename }}</span></div>
+          {% if vm.file_size %}
+            <div class="meta-row"><span class="meta-key">File size</span><span class="meta-val">{{ (vm.file_size / 1024)|round(1) }} KB</span></div>
+          {% endif %}
+          {% if vm.duration %}
+            <div class="meta-row"><span class="meta-key">Duration</span><span class="meta-val">{{ '%d:%02d'|format(vm.duration|int // 60, vm.duration|int % 60) }}</span></div>
+          {% endif %}
+          <div class="meta-row"><span class="meta-key">Status</span><span class="meta-val"><span class="status-pill status-{{ vm.processing_status }}">{{ vm.processing_status }}</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="card">
+      <div class="card-header"><h2><i class="fa-solid fa-wrench"></i> Actions</h2></div>
+      <div class="card-body">
+        <button onclick="reprocessVoicemail({{ vm.id }})" class="btn btn-primary btn-block" id="reprocess-btn">
+          <i class="fa-solid fa-rotate"></i> Reprocess
+        </button>
+        <div id="reprocess-status" class="reprocess-status hidden"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function reprocessVoicemail(id) {
+    const btn = document.getElementById('reprocess-btn');
+    const status = document.getElementById('reprocess-status');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+    status.textContent = '';
+    status.classList.remove('hidden');
+
+    fetch(`/api/voicemails/${id}/reprocess`, { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        status.textContent = 'Reprocessing started. Reload the page in a moment.';
+        status.classList.add('visible');
+        setTimeout(() => window.location.reload(), 4000);
+      })
+      .catch(e => {
+        status.textContent = 'Error: ' + e.message;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Reprocess';
+      });
+  }
+</script>
+{% endblock %}

@@ -1,8 +1,16 @@
 kind = "api"
-previewPath = "/api" # TODO - should be excluded from preview in the first place
-title = "API Server"
+previewPath = "/"
+title = "VoiceIntel"
 version = "1.0.0"
 id = "3B4_FFSkEVBkAeYMFRJ2e"
+
+[[services]]
+localPort = 5000
+name = "VoiceIntel"
+paths = ["/"]
+
+[services.development]
+run = "cd artifacts/voiceintel && python main.py"
 
 [[services]]
 localPort = 8080
@@ -21,7 +29,6 @@ args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
 NODE_ENV = "production"
 
 [services.production.run]
-# we don't run through pnpm to make startup faster in production
 args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 
 [services.production.run.env]

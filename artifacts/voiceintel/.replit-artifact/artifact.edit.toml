@@ -1,0 +1,12 @@
+kind = "web"
+previewPath = "/"
+title = "VoiceIntel"
+version = "1.0.0"
+
+[[services]]
+localPort = 5000
+name = "VoiceIntel"
+paths = ["/"]
+
+[services.development]
+run = "cd artifacts/voiceintel && python main.py"

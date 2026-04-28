@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}VoiceIntel{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+</head>
+<body>
+  <div class="layout">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <i class="fa-solid fa-microphone-lines"></i>
+          <span>VoiceIntel</span>
+        </div>
+      </div>
+
+      <ul class="nav-links">
+        <li>
+          <a href="{{ url_for('main.dashboard') }}" class="{{ 'active' if request.endpoint == 'main.dashboard' else '' }}">
+            <i class="fa-solid fa-gauge-high"></i>
+            <span>Dashboard</span>
+          </a>
+        </li>
+        <li>
+          <a href="{{ url_for('main.voicemail_list') }}" class="{{ 'active' if request.endpoint in ['main.voicemail_list', 'main.voicemail_detail'] else '' }}">
+            <i class="fa-solid fa-inbox"></i>
+            <span>Voicemails</span>
+          </a>
+        </li>
+        <li>
+          <a href="{{ url_for('main.voicemail_list') }}?urgency=urgent" class="{{ 'active' if request.args.get('urgency') == 'urgent' else '' }}">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Urgent</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" onclick="triggerPoll(event)">
+            <i class="fa-solid fa-rotate"></i>
+            <span>Poll Inbox</span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="model-badge">
+          <i class="fa-solid fa-microchip"></i>
+          <span>Whisper</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          {% block breadcrumb %}{% endblock %}
+        </div>
+        <div class="topbar-right">
+          <div class="search-wrapper">
+            <form action="{{ url_for('main.voicemail_list') }}" method="GET">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input
+                type="text"
+                name="q"
+                class="search-input"
+                placeholder="Search transcripts..."
+                value="{{ request.args.get('q', '') }}"
+              />
+            </form>
+          </div>
+          <div id="poll-status" class="poll-status hidden">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Polling...
+          </div>
+        </div>
+      </header>
+
+      <div class="content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+
+  <script>
+    function triggerPoll(e) {
+      e.preventDefault();
+      const status = document.getElementById('poll-status');
+      status.classList.remove('hidden');
+      fetch('/api/poll', { method: 'POST' })
+        .then(r => r.json())
+        .then(() => {
+          setTimeout(() => {
+            status.classList.add('hidden');
+            window.location.reload();
+          }, 3000);
+        })
+        .catch(() => status.classList.add('hidden'));
+    }
+  </script>
+</body>
+</html>
