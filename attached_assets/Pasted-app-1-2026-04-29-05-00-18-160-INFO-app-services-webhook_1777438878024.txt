@@ -1,0 +1,32 @@
+app-1  | 2026-04-29 05:00:18,160 [INFO] app.services.webhook_service: SendGrid webhook: from='DonorService Voicemail <dsvm@tbn.tv>', subject='Fw: New Voice Message from FAULKNER R.     (262) 968-2401 on 04/24/2026 11:25 AM', attachments=0
+app-1  | 2026-04-29 05:00:18,204 [INFO] app.services.webhook_service: Raw email parse: found 1 nested audio part(s)
+app-1  | 2026-04-29 05:00:18,206 [INFO] app.services.webhook_service: Saved nested audio part: /data/storage/voicemails/_sg_20260429050018159699_DonorServiceVoicemai_voic_12629682401-0424-112552.mp3 (365805 bytes)
+app-1  | 192.168.200.193 - - [29/Apr/2026:05:00:18 +0000] "POST /api/webhook/inbound HTTP/1.1" 200 77 "-" "Sendlib/1.0"
+app-1  | 2026-04-29 05:00:18,546 [INFO] app.services.audio_service: Converted /data/storage/voicemails/_sg_20260429050018159699_DonorServiceVoicemai_voic_12629682401-0424-112552.mp3 -> /data/storage/processed/_sg_20260429050018159699_DonorServiceVoicemai_voic_12629682401-0424-112552_converted.wav
+app-1  | 2026-04-29 05:00:19,430 [INFO] app.services.transcription_service: No CUDA — using CPU for transcription
+app-1  | 2026-04-29 05:00:19,430 [INFO] app.services.transcription_service: Loading Whisper model 'small' on cpu (int8)
+app-1  | 2026-04-29 05:00:19,829 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-small/revision/main "HTTP/1.1 200 OK"
+app-1  | 2026-04-29 05:00:19,931 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/model.bin "HTTP/1.1 302 Found"
+app-1  | 2026-04-29 05:00:19,953 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/config.json "HTTP/1.1 307 Temporary Redirect"
+app-1  | Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+app-1  | 2026-04-29 05:00:19,954 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+app-1  | 2026-04-29 05:00:19,957 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/tokenizer.json "HTTP/1.1 307 Temporary Redirect"
+app-1  | 2026-04-29 05:00:19,961 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/vocabulary.txt "HTTP/1.1 307 Temporary Redirect"
+app-1  | 2026-04-29 05:00:19,965 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Systran/faster-whisper-small/536b0662742c02347bc0e980a01041f333bce120/config.json "HTTP/1.1 200 OK"
+app-1  | 2026-04-29 05:00:19,967 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Systran/faster-whisper-small/536b0662742c02347bc0e980a01041f333bce120/tokenizer.json "HTTP/1.1 200 OK"
+app-1  | 2026-04-29 05:00:19,971 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Systran/faster-whisper-small/536b0662742c02347bc0e980a01041f333bce120/vocabulary.txt "HTTP/1.1 200 OK"
+app-1  | 2026-04-29 05:00:19,985 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/resolve-cache/models/Systran/faster-whisper-small/536b0662742c02347bc0e980a01041f333bce120/tokenizer.json "HTTP/1.1 200 OK"
+app-1  | 2026-04-29 05:00:19,987 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/resolve-cache/models/Systran/faster-whisper-small/536b0662742c02347bc0e980a01041f333bce120/config.json "HTTP/1.1 200 OK"
+app-1  | 2026-04-29 05:00:19,990 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/resolve-cache/models/Systran/faster-whisper-small/536b0662742c02347bc0e980a01041f333bce120/vocabulary.txt "HTTP/1.1 200 OK"
+app-1  | 2026-04-29 05:00:20,034 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-small/xet-read-token/536b0662742c02347bc0e980a01041f333bce120 "HTTP/1.1 200 OK"
+app-1  | 192.168.200.193 - - [29/Apr/2026:05:00:29 +0000] "GET /voicemails HTTP/1.1" 200 20949 "https://voice-ai.obtv.io/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1  | 192.168.200.193 - - [29/Apr/2026:05:00:30 +0000] "GET / HTTP/1.1" 200 25415 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1  | 2026-04-29 05:00:32,659 [INFO] app.services.transcription_service: Whisper model loaded successfully
+app-1  | 2026-04-29 05:00:32,726 [INFO] faster_whisper: Processing audio with duration 01:31.230
+app-1  | 2026-04-29 05:00:34,008 [INFO] faster_whisper: VAD filter removed 00:04.510 of audio
+app-1  | 2026-04-29 05:00:51,873 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+app-1  | 192.168.200.193 - - [29/Apr/2026:05:00:57 +0000] "GET /voicemails HTTP/1.1" 200 20949 "https://voice-ai.obtv.io/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1  | 192.168.200.193 - - [29/Apr/2026:05:00:58 +0000] "GET / HTTP/1.1" 200 25415 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1  | 192.168.200.193 - - [29/Apr/2026:05:00:58 +0000] "GET /robots.txt HTTP/1.1" 404 207 "-" "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)"
+app-1  | 192.168.200.193 - - [29/Apr/2026:05:00:58 +0000] "GET / HTTP/1.1" 302 217 "-" "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)"
+app-1  | 192.168.200.193 - - [29/Apr/2026:05:00:58 +0000] "GET /login?next=%2F HTTP/1.1" 200 4411 "https://voice-ai.obtv.io/" "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)"
