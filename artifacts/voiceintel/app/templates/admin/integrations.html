@@ -16,17 +16,10 @@
   <!-- Left: settings form -->
   <div style="display:flex;flex-direction:column;gap:16px;">
 
-    {% if success %}
-    <div style="background:rgba(175,155,70,0.1);border:1px solid rgba(175,155,70,0.2);color:var(--gold);font-size:12px;padding:10px 14px;border-radius:6px;">{{ success }}</div>
-    {% endif %}
-    {% if error %}
-    <div style="background:rgba(224,92,58,0.1);border:1px solid rgba(224,92,58,0.25);color:var(--urgent);font-size:12px;padding:10px 14px;border-radius:6px;">{{ error }}</div>
-    {% endif %}
-    {% if test_result %}
-    <div style="background:{{ 'rgba(175,155,70,0.1)' if test_result.ok else 'rgba(224,92,58,0.1)' }};border:1px solid {{ 'rgba(175,155,70,0.2)' if test_result.ok else 'rgba(224,92,58,0.25)' }};color:{{ 'var(--gold)' if test_result.ok else 'var(--urgent)' }};font-size:12px;padding:10px 14px;border-radius:6px;">
-      <strong>{{ '✓ Connected' if test_result.ok else '✗ Failed' }}:</strong> {{ test_result.msg }}
-    </div>
-    {% endif %}
+    {% with messages = get_flashed_messages() %}{% if messages %}
+    {% for msg in messages %}
+    <div style="background:rgba(175,155,70,0.1);border:1px solid rgba(175,155,70,0.2);color:var(--gold);font-size:12px;padding:10px 14px;border-radius:6px;">{{ msg }}</div>
+    {% endfor %}{% endif %}{% endwith %}
 
     <div class="card">
       <div class="card-head">
@@ -86,9 +79,10 @@
             <div style="font-size:11px;color:var(--muted);margin-top:4px;">Appended to your webhook URL as <code style="font-size:11px;">?token=…</code>. Leave blank to accept all incoming requests (not recommended for production).</div>
           </div>
 
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <button type="submit" name="action" value="save" class="btn btn-primary">Save Settings</button>
-            <button type="submit" name="action" value="test" class="btn btn-ghost">Test API Connection</button>
+            <button type="button" id="test-btn" class="btn btn-ghost" onclick="testConnection()">Test API Connection</button>
+            <span id="test-result" style="font-size:12px;display:none;"></span>
           </div>
         </form>
       </div>
@@ -165,6 +159,38 @@ function copyWebhook() {
     btn.style.color = 'var(--gold)';
     setTimeout(() => btn.style.color = '', 1500);
   });
+}
+
+function testConnection() {
+  const btn = document.getElementById('test-btn');
+  const result = document.getElementById('test-result');
+  const keyInput = document.querySelector('input[name="sendgrid_api_key"]');
+
+  btn.disabled = true;
+  btn.textContent = 'Testing…';
+  result.style.display = 'none';
+
+  const body = new FormData();
+  if (keyInput && keyInput.value.trim()) {
+    body.append('sendgrid_api_key', keyInput.value.trim());
+  }
+
+  fetch('{{ url_for("admin.integrations_test") }}', { method: 'POST', body })
+    .then(r => r.json())
+    .then(data => {
+      result.style.display = 'inline';
+      result.style.color = data.ok ? 'var(--gold)' : 'var(--urgent)';
+      result.textContent = (data.ok ? '✓ ' : '✗ ') + data.msg;
+    })
+    .catch(() => {
+      result.style.display = 'inline';
+      result.style.color = 'var(--urgent)';
+      result.textContent = '✗ Request failed — check server logs.';
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = 'Test API Connection';
+    });
 }
 </script>
 {% endblock %}

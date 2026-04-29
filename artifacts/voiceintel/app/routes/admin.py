@@ -371,23 +371,28 @@ _SENDGRID_SETTINGS = [
 ]
 
 
+@admin_bp.route("/integrations/test", methods=["POST"])
+@login_required
+def integrations_test():
+    """AJAX endpoint — returns JSON result of SendGrid API key validation."""
+    _admin_required()
+    from app.services.email_service import test_sendgrid_connection
+    from flask import jsonify
+    key = request.form.get("sendgrid_api_key", "").strip()
+    ok, msg = test_sendgrid_connection(key or None)
+    return jsonify({"ok": ok, "msg": msg})
+
+
 @admin_bp.route("/integrations", methods=["GET", "POST"])
 @login_required
 def integrations():
     _admin_required()
     error = None
     success = None
-    test_result = None
 
     if request.method == "POST":
         action = request.form.get("action", "save")
-
-        if action == "test":
-            from app.services.email_service import test_sendgrid_connection
-            key = request.form.get("sendgrid_api_key", "").strip()
-            ok, msg = test_sendgrid_connection(key or None)
-            test_result = {"ok": ok, "msg": msg}
-        else:
+        if action == "save":
             # Save all settings
             for key, *_ in _SENDGRID_SETTINGS:
                 val = request.form.get(key, "").strip()
@@ -395,7 +400,8 @@ def integrations():
                 if key == "sendgrid_api_key" and not val:
                     continue
                 Setting.set(key, val)
-            success = "Integration settings saved."
+            flash("Integration settings saved.")
+            return redirect(url_for("admin.integrations"))
 
     current = {key: Setting.get(key, "") for key, *_ in _SENDGRID_SETTINGS}
     # Mask stored API key for display
