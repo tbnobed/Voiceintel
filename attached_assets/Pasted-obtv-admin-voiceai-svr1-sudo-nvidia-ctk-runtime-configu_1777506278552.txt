@@ -1,0 +1,36 @@
+obtv-admin@voiceai-svr1:~$ sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+INFO[0000] Config file does not exist; using empty config
+INFO[0000] Wrote updated config to /etc/docker/daemon.json
+INFO[0000] It is recommended that docker daemon be restarted.
+obtv-admin@voiceai-svr1:~$ docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi
+Unable to find image 'nvidia/cuda:12.2.0-base-ubuntu22.04' locally
+12.2.0-base-ubuntu22.04: Pulling from nvidia/cuda
+5324914b4472: Pull complete
+9fe5ccccae45: Pull complete
+bdddd5cb92f6: Pull complete
+8054e9d6e8d6: Pull complete
+aece8493d397: Pull complete
+Digest: sha256:ecdf8549dd5f12609e365217a64dedde26ecda26da8f3ff3f82def6749f53051
+Status: Downloaded newer image for nvidia/cuda:12.2.0-base-ubuntu22.04
+Wed Apr 29 23:44:30 2026
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 535.288.01             Driver Version: 535.288.01   CUDA Version: 12.2     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA GeForce RTX 4070        Off | 00000000:01:00.0 Off |                  N/A |
+|  0%   38C    P8               4W / 200W |      1MiB / 12282MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|  No running processes found                                                           |
++---------------------------------------------------------------------------------------+
+obtv-admin@voiceai-svr1:~$
