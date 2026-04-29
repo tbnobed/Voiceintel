@@ -42,14 +42,6 @@ services:
       TRANSFORMERS_CACHE:   /data/model_cache
       HF_HOME:              /data/model_cache
 
-      # ── IMAP (optional) ─────────────────────────────────────────────────────
-      IMAP_HOST:            ${IMAP_HOST:-}
-      IMAP_PORT:            ${IMAP_PORT:-993}
-      IMAP_USERNAME:        ${IMAP_USERNAME:-}
-      IMAP_PASSWORD:        ${IMAP_PASSWORD:-}
-      IMAP_FOLDER:          ${IMAP_FOLDER:-INBOX}
-      POLL_INTERVAL:        ${POLL_INTERVAL:-60}
-
       # ── SendGrid ────────────────────────────────────────────────────────────
       SENDGRID_API_KEY:     ${SENDGRID_API_KEY:-}
       SENDGRID_FROM_EMAIL:  ${SENDGRID_FROM_EMAIL:-}

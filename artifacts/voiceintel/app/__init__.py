@@ -3,11 +3,9 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
-from apscheduler.schedulers.background import BackgroundScheduler
 
 db = SQLAlchemy()
 migrate = Migrate()
-scheduler = BackgroundScheduler()
 login_manager = LoginManager()
 
 
@@ -19,8 +17,6 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["WHISPER_MODEL"] = os.environ.get("WHISPER_MODEL", "base")
     app.config["STORAGE_DIR"] = os.environ.get("STORAGE_DIR", "storage")
-    app.config["POLL_INTERVAL"] = int(os.environ.get("POLL_INTERVAL", "60"))
-
     storage_dir = app.config["STORAGE_DIR"]
     os.makedirs(os.path.join(storage_dir, "voicemails"), exist_ok=True)
     os.makedirs(os.path.join(storage_dir, "processed"), exist_ok=True)

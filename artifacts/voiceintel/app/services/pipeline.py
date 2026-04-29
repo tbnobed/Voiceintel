@@ -44,7 +44,7 @@ def _load_urgency_keywords() -> list:
 def process_email_items(app, items: list):
     """
     Core pipeline: convert audio → transcribe → NLP → persist → run triggers.
-    Accepts a list of item dicts (from IMAP fetch or SendGrid webhook).
+    Accepts a list of item dicts (from the SendGrid webhook).
     Each item must have: message_id, filename, saved_path, sender, subject, received_at.
     """
     from app import db
@@ -126,7 +126,7 @@ def process_email_items(app, items: list):
 
                 voicemail.processing_status = "error" if transcription.get("error") else "completed"
                 db.session.commit()
-                logger.info(f"Processed voicemail id={voicemail.id}: {item['filename']} (source={item.get('source','imap')})")
+                logger.info(f"Processed voicemail id={voicemail.id}: {item['filename']}")
 
                 # Run automation triggers
                 try:
@@ -141,30 +141,6 @@ def process_email_items(app, items: list):
                 except Exception:
                     pass
 
-
-def run_ingestion_pipeline(app):
-    """IMAP polling pipeline: fetch emails → process_email_items."""
-    from app.services import email_service
-
-    with app.app_context():
-        storage_dir = app.config["STORAGE_DIR"]
-        logger.info("Starting IMAP ingestion pipeline...")
-        try:
-            emails = email_service.fetch_voicemail_emails(storage_dir)
-        except Exception as e:
-            logger.error(f"IMAP ingestion failed: {e}")
-            emails = []
-
-        if emails:
-            process_email_items(app, emails)
-
-            from app.services import email_service as es
-            for item in emails:
-                if item.get("uid"):
-                    try:
-                        es.mark_email_read(item["uid"])
-                    except Exception:
-                        pass
 
 
 def reprocess_voicemail(app, voicemail_id):
