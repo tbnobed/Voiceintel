@@ -6,6 +6,7 @@ The route layer just reads the most recent row; no model calls happen on a
 user request, so the page loads instantly regardless of Ollama state.
 """
 import os
+import re
 import time
 import logging
 from collections import Counter
@@ -99,6 +100,45 @@ def _build_prompt() -> tuple[str | None, str | None]:
     return prompt, None
 
 
+# Headings the model is instructed to use, in order. Used by _trim_repeats()
+# below to detect when the model has restarted the analysis and looped.
+_SECTION_HEADINGS = (
+    "Volume & Trends",
+    "Caller Sentiment & Urgency",
+    "Key Themes",
+    "Recommendations",
+)
+
+
+def _trim_repeats(text: str) -> str:
+    """
+    Phi-3 mini sometimes ignores its 4-paragraph instruction and just keeps
+    writing — repeating the entire analysis 2-3 times until it hits max_tokens.
+    Detect that by finding the SECOND occurrence of the first heading
+    ("Volume & Trends") and chopping everything from there onward.
+
+    Matches the heading whether the model renders it as **Volume & Trends**,
+    Volume & Trends:, or plain Volume & Trends.
+    """
+    if not text:
+        return text
+
+    # Find every occurrence of the first heading. Use a tolerant regex so we
+    # catch optional bold markers and trailing punctuation/colons.
+    first_heading = re.escape(_SECTION_HEADINGS[0])
+    pattern = re.compile(
+        r"(?:\*\*\s*)?" + first_heading + r"\s*(?:\*\*)?\s*[:\-—]?",
+        re.IGNORECASE,
+    )
+    matches = list(pattern.finditer(text))
+    if len(matches) < 2:
+        return text.strip()
+
+    # Cut just before the second occurrence and strip trailing whitespace.
+    cutoff = matches[1].start()
+    return text[:cutoff].rstrip()
+
+
 def _trim_history(keep: int = 24) -> None:
     """Delete all but the most recent `keep` rows so the table doesn't grow forever."""
     ids_to_keep = [
@@ -150,6 +190,9 @@ def generate_and_store_insight() -> AnalyticsInsight:
         text = (resp.choices[0].message.content or "").strip()
         if not text:
             raise RuntimeError("Empty response from model")
+
+        # Defensive: drop any duplicated re-runs the model appended.
+        text = _trim_repeats(text)
 
         row = AnalyticsInsight(
             text=text,
