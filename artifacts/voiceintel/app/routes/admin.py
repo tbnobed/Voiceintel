@@ -387,8 +387,6 @@ def integrations_test():
 @login_required
 def integrations():
     _admin_required()
-    error = None
-    success = None
 
     if request.method == "POST":
         action = request.form.get("action", "save")
@@ -429,8 +427,5 @@ def integrations():
         "admin/integrations.html",
         settings=_SENDGRID_SETTINGS,
         current=current,
-        error=error,
-        success=success,
-        test_result=test_result,
         webhook_url=webhook_url,
     )
