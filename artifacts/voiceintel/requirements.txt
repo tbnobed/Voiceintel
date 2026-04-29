@@ -1,10 +1,10 @@
 flask==3.0.3
 flask-sqlalchemy==3.1.1
 flask-migrate==4.0.7
+flask-login==0.6.3
 psycopg2-binary==2.9.9
 sqlalchemy==2.0.36
 python-dotenv==1.0.1
-apscheduler==3.10.4
 faster-whisper==1.0.3
 ffmpeg-python==0.2.0
 textblob==0.18.0
