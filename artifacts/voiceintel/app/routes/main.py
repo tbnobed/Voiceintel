@@ -109,6 +109,11 @@ def voicemail_list():
     date_to = request.args.get("date_to")
     # Team filter: numeric team_id, or the literal string "unrouted"
     team_filter = request.args.get("team", "").strip()
+    # Sentiment filter — drives drill-down from the Analytics doughnut chart.
+    # Whitelist to the values the NLP service emits.
+    sentiment = request.args.get("sentiment", "").strip().lower()
+    if sentiment not in ("positive", "negative", "neutral"):
+        sentiment = ""
 
     # Sorting — whitelist of allowed sort keys mapped to ORDER BY expressions.
     # Each tuple is (asc_expr, desc_expr) so we can apply NULLS-LAST consistently
@@ -140,6 +145,19 @@ def voicemail_list():
 
     if category_id:
         query = query.filter(Voicemail.category_id == category_id)
+
+    if sentiment:
+        # Insight rows are 1:1 with voicemails. Use an inner join so we only
+        # match VMs that actually have the requested sentiment recorded.
+        # 'neutral' also matches rows where sentiment is NULL, since the
+        # analytics chart bucket-counts NULL → "neutral".
+        query = query.join(Insight, Insight.voicemail_id == Voicemail.id, isouter=True)
+        if sentiment == "neutral":
+            query = query.filter(
+                (Insight.sentiment == "neutral") | (Insight.sentiment.is_(None))
+            )
+        else:
+            query = query.filter(Insight.sentiment == sentiment)
 
     if urgency == "urgent":
         query = query.filter(Voicemail.is_urgent == True)
@@ -216,6 +234,7 @@ def voicemail_list():
         q=q,
         category_id=category_id,
         urgency=urgency,
+        sentiment=sentiment,
         date_from=date_from,
         date_to=date_to,
         sort=sort,
@@ -418,15 +437,18 @@ def analytics():
     )
     sentiment_dist = {s or "neutral": c for s, c in sentiment_rows}
 
-    # Category distribution
+    # Category distribution — include the id so the analytics page can link
+    # each row to /voicemails?category=<id> for drill-down.
     cat_rows = (
-        db.session.query(Category.name, func.count(Voicemail.id))
+        db.session.query(Category.id, Category.name, func.count(Voicemail.id))
         .join(Voicemail, Voicemail.category_id == Category.id, isouter=True)
-        .group_by(Category.name)
+        .group_by(Category.id, Category.name)
         .order_by(func.count(Voicemail.id).desc())
         .all()
     )
-    category_dist = [{"name": n, "count": c} for n, c in cat_rows if c > 0]
+    category_dist = [
+        {"id": cid, "name": n, "count": c} for cid, n, c in cat_rows if c > 0
+    ]
 
     # Top 20 keywords with frequency
     all_kw: list = []

@@ -60,6 +60,15 @@
           <option value="normal"  {{ 'selected' if urgency == 'normal'  }}>Normal only</option>
         </select>
       </div>
+      <div class="filter-group" style="min-width: 140px;">
+        <label>Sentiment</label>
+        <select name="sentiment" class="filter-select">
+          <option value="">All</option>
+          <option value="positive" {{ 'selected' if sentiment == 'positive' }}>Positive</option>
+          <option value="neutral"  {{ 'selected' if sentiment == 'neutral'  }}>Neutral</option>
+          <option value="negative" {{ 'selected' if sentiment == 'negative' }}>Negative</option>
+        </select>
+      </div>
       <div class="filter-group" style="min-width: 130px;">
         <label>From</label>
         <input type="date" name="date_from" class="filter-input" value="{{ date_from or '' }}" />

@@ -117,7 +117,9 @@
       {% if category_dist %}
         {% set cat_max = category_dist[0].count if category_dist else 1 %}
         {% for item in category_dist %}
-          <div class="cat-row">
+          <a class="cat-row" href="/voicemails?category={{ item.id }}"
+             title="View the {{ item.count }} voicemail{{ '' if item.count == 1 else 's' }} in “{{ item.name }}”"
+             style="display:block; text-decoration:none; color:inherit; cursor:pointer;">
             <div class="cat-meta">
               <span class="cat-name">{{ item.name }}</span>
               <span class="cat-count">{{ item.count }}</span>
@@ -125,7 +127,7 @@
             <div class="bar-track">
               <div class="bar-fill" style="width:{{ ((item.count / cat_max) * 100) | round(1) }}%"></div>
             </div>
-          </div>
+          </a>
         {% endfor %}
       {% else %}
         <div class="empty" style="padding:28px 0;"><p class="empty-sub">No data yet</p></div>
@@ -245,6 +247,7 @@ if (trend.length && document.getElementById('trendChart')) {
 /* ── Sentiment donut ───────────────────────────────────────────────────── */
 const sentData = {{ sentiment_dist | tojson }};
 if (Object.keys(sentData).length && document.getElementById('sentimentChart')) {
+  const sentCanvas = document.getElementById('sentimentChart');
   const labels = Object.keys(sentData);
   const values = Object.values(sentData);
   const colors = labels.map(l =>
@@ -252,14 +255,24 @@ if (Object.keys(sentData).length && document.getElementById('sentimentChart')) {
     l === 'negative' ? URGENT + '0.75)' :
                        'rgba(175,155,70,0.35)'
   );
-  new Chart(document.getElementById('sentimentChart').getContext('2d'), {
+  // Drill-down: clicking a slice navigates to the filtered voicemails list.
+  // The sentiment filter is whitelisted server-side so unknown labels are
+  // ignored safely.
+  sentCanvas.style.cursor = 'pointer';
+  sentCanvas.title = 'Click a slice to see the messages';
+  const sentChart = new Chart(sentCanvas.getContext('2d'), {
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
     options: {
       cutout: '65%',
       plugins: {
         legend: { position: 'bottom', labels: { padding: 14, boxWidth: 10, font: { size: 11 } } },
-        tooltip: tooltipDefaults,
+        tooltip: { ...tooltipDefaults, callbacks: { afterLabel: () => 'Click to view messages' } },
+      },
+      onClick: (_evt, elements) => {
+        if (!elements.length) return;
+        const label = labels[elements[0].index];
+        if (label) window.location.href = '/voicemails?sentiment=' + encodeURIComponent(label);
       },
     },
   });
