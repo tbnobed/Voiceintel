@@ -318,41 +318,95 @@ if (urgData.length && document.getElementById('urgKwChart')) {
   });
 }
 
-/* ── AI Insights ───────────────────────────────────────────────────────── */
-function loadInsights() {
+/* ── AI Insights (streaming) ───────────────────────────────────────────── */
+function renderInsightHTML(text) {
+  // Render markdown-style bold headers + paragraph breaks.
+  // Escape <, >, & first to keep streamed content safe.
+  const safe = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return '<p>' + safe
+    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--accent)">$1</strong>')
+    .replace(/\n\n/g, '</p><p style="margin-top:12px;">')
+    .replace(/\n/g, '<br>') + '</p>';
+}
+
+async function loadInsights() {
   const btn  = document.getElementById('ai-btn');
   const card = document.getElementById('ai-card');
   const body = document.getElementById('ai-body');
-  const load = document.getElementById('ai-loading');
 
   btn.disabled = true;
   btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M8 2a6 6 0 1 0 6 6"/></svg> Analysing…';
   card.style.display = 'block';
   card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  body.innerHTML = '<div id="ai-loading" style="color:var(--muted); font-style:italic;">Running Phi-3 mini locally — this may take 20–40 seconds…</div>';
+  body.innerHTML = '<div style="color:var(--muted); font-style:italic;">Connecting to local model…</div>';
 
-  fetch('/analytics/insights', { credentials: 'same-origin' })
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) {
-        load.textContent = 'Error: ' + data.error;
-        load.style.color = 'var(--urgent)';
-      } else {
-        // Render markdown-style bold headers
-        const html = data.insights
-          .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--accent)">$1</strong>')
-          .replace(/\n\n/g, '</p><p style="margin-top:12px;">')
-          .replace(/\n/g, '<br>');
-        body.innerHTML = '<p>' + html + '</p>';
+  let fullText = '';
+  let started  = false;
+
+  try {
+    const res = await fetch('/analytics/insights', { credentials: 'same-origin' });
+    if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer    = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Split on SSE message boundary
+      let idx;
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const frame = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+
+        for (const line of frame.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          let msg;
+          try { msg = JSON.parse(line.slice(6)); } catch (_) { continue; }
+
+          if (msg.error) {
+            body.innerHTML = '<div style="color:var(--urgent);">' + msg.error + '</div>';
+            btn.innerHTML = 'Try Again';
+            btn.disabled = false;
+            return;
+          }
+          if (msg.status === 'connecting') {
+            body.innerHTML = '<div style="color:var(--muted); font-style:italic;">Loading Phi-3 mini into memory… (first run can take ~2 min)</div>';
+          }
+          if (msg.status === 'generating' && !started) {
+            started = true;
+            body.innerHTML = '<p style="color:var(--muted); font-style:italic;">Generating…</p>';
+          }
+          if (msg.delta) {
+            if (!started) {
+              started = true;
+              body.innerHTML = '';
+            }
+            fullText += msg.delta;
+            body.innerHTML = renderInsightHTML(fullText);
+          }
+          if (msg.done) {
+            btn.innerHTML = 'Refresh Insights';
+            btn.disabled = false;
+            return;
+          }
+        }
       }
-      btn.innerHTML = 'Refresh Insights';
-      btn.disabled = false;
-    })
-    .catch(e => {
-      body.innerHTML = '<div style="color:var(--urgent);">Network error — please try again.</div>';
-      btn.innerHTML = 'Generate Insights';
-      btn.disabled = false;
-    });
+    }
+
+    btn.innerHTML = 'Refresh Insights';
+    btn.disabled = false;
+  } catch (e) {
+    body.innerHTML = '<div style="color:var(--urgent);">Connection error — please try again.</div>';
+    btn.innerHTML = 'Generate Insights';
+    btn.disabled = false;
+  }
 }
 </script>
 {% endblock %}

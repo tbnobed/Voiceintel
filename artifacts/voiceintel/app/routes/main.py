@@ -1,5 +1,6 @@
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app, jsonify
+import json
+from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app, jsonify, Response, stream_with_context
 from flask_login import login_required
 from sqlalchemy import func, desc, or_
 from datetime import datetime, timedelta
@@ -243,29 +244,33 @@ def analytics():
     )
 
 
+def _sse(payload: dict) -> str:
+    """Format a Server-Sent Events data frame."""
+    return f"data: {json.dumps(payload)}\n\n"
+
+
 @main_bp.route("/analytics/insights")
 @login_required
 def analytics_insights():
     """
-    Generate a narrative summary of voicemail analytics using Phi-3 mini via Ollama.
-    Entirely local — no external API calls. Called via AJAX from the analytics page.
+    Stream a narrative summary of voicemail analytics from Phi-3 mini (local, via
+    Ollama) as Server-Sent Events. Streaming keeps the connection alive past
+    cold-start delays and lets the UI render tokens as they arrive.
     """
     ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 
-    try:
-        from openai import OpenAI
-        client = OpenAI(base_url=ollama_url, api_key="ollama")
-    except Exception as e:
-        return jsonify({"error": f"Could not connect to local model: {e}"}), 500
-
-    # Gather analytics data
+    # Gather all analytics data inside the request context (before the generator
+    # starts), so the stream itself doesn't need DB access.
     now       = datetime.utcnow()
     week_ago  = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
 
-    total        = Voicemail.query.count()
+    total = Voicemail.query.count()
     if total == 0:
-        return jsonify({"error": "No voicemail data to analyse yet."}), 422
+        return Response(
+            _sse({"error": "No voicemail data to analyse yet."}) + _sse({"done": True}),
+            mimetype="text/event-stream",
+        )
 
     urgent_count = Voicemail.query.filter_by(is_urgent=True).count()
     week_count   = Voicemail.query.filter(Voicemail.received_at >= week_ago).count()
@@ -322,18 +327,50 @@ def analytics_insights():
         f"{data_block}\n<|end|>\n<|assistant|>"
     )
 
-    try:
-        response = client.chat.completions.create(
-            model="phi3:mini",
-            max_tokens=600,
-            temperature=0.4,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text = (response.choices[0].message.content or "").strip()
-        return jsonify({"insights": text})
-    except Exception as e:
-        current_app.logger.error(f"Ollama insights error: {e}", exc_info=True)
-        return jsonify({"error": "Local model unavailable — ensure Ollama is running with phi3:mini pulled."}), 503
+    def generate():
+        # Send an initial "connected" frame straight away so the browser knows
+        # we're alive even while Phi-3 is still loading into memory.
+        yield _sse({"status": "connecting"})
+
+        try:
+            from openai import OpenAI
+            # Generous timeout to accommodate cold-start model loading.
+            client = OpenAI(base_url=ollama_url, api_key="ollama", timeout=300.0)
+
+            stream = client.chat.completions.create(
+                model="phi3:mini",
+                max_tokens=600,
+                temperature=0.4,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True,
+            )
+
+            yield _sse({"status": "generating"})
+
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield _sse({"delta": delta})
+
+            yield _sse({"done": True})
+        except Exception as e:
+            current_app.logger.error(f"Ollama insights stream error: {e}", exc_info=True)
+            yield _sse({
+                "error": "Local model unavailable — ensure Ollama is running with phi3:mini pulled."
+            })
+            yield _sse({"done": True})
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @main_bp.route("/voicemails/poll")
