@@ -234,35 +234,33 @@ def analytics():
     )
 
 
-@main_bp.route("/analytics/ai-insights")
+@main_bp.route("/analytics/insights")
 @login_required
-def analytics_ai_insights():
+def analytics_insights():
     """
-    Generate an AI narrative summary of voicemail analytics.
-    Called via AJAX from the analytics page.
+    Generate a narrative summary of voicemail analytics using Phi-3 mini via Ollama.
+    Entirely local — no external API calls. Called via AJAX from the analytics page.
     """
-    import os
-
-    base_url = os.environ.get("AI_INTEGRATIONS_OPENAI_BASE_URL", "")
-    api_key  = os.environ.get("AI_INTEGRATIONS_OPENAI_API_KEY", "")
-    if not base_url or not api_key:
-        return jsonify({"error": "AI integration not configured"}), 503
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 
     try:
         from openai import OpenAI
-        client = OpenAI(base_url=base_url, api_key=api_key)
+        client = OpenAI(base_url=ollama_url, api_key="ollama")
     except Exception as e:
-        return jsonify({"error": f"OpenAI client error: {e}"}), 500
+        return jsonify({"error": f"Could not connect to local model: {e}"}), 500
 
-    # Gather data to feed the model
+    # Gather analytics data
     now       = datetime.utcnow()
     week_ago  = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
 
-    total         = Voicemail.query.count()
-    urgent_count  = Voicemail.query.filter_by(is_urgent=True).count()
-    week_count    = Voicemail.query.filter(Voicemail.received_at >= week_ago).count()
-    month_count   = Voicemail.query.filter(Voicemail.received_at >= month_ago).count()
+    total        = Voicemail.query.count()
+    if total == 0:
+        return jsonify({"error": "No voicemail data to analyse yet."}), 422
+
+    urgent_count = Voicemail.query.filter_by(is_urgent=True).count()
+    week_count   = Voicemail.query.filter(Voicemail.received_at >= week_ago).count()
+    month_count  = Voicemail.query.filter(Voicemail.received_at >= month_ago).count()
 
     sentiment_rows = db.session.query(Insight.sentiment, func.count(Insight.id)).group_by(Insight.sentiment).all()
     sentiment_dist = {s or "neutral": c for s, c in sentiment_rows}
@@ -279,58 +277,54 @@ def analytics_ai_insights():
             all_kw.extend(ins.keywords)
     top_kw = [w for w, _ in Counter(all_kw).most_common(15)]
 
-    # Sample up to 15 recent transcripts for context
     recent_vms = (
         Voicemail.query
         .join(Transcript, Voicemail.id == Transcript.voicemail_id)
         .filter(Transcript.text.isnot(None))
         .order_by(desc(Voicemail.received_at))
-        .limit(15)
+        .limit(12)
         .all()
     )
-    transcript_snippets = []
+    snippets = []
     for vm in recent_vms:
         if vm.transcript and vm.transcript.text:
-            name = vm.caller_info.get("caller_name") or "Unknown"
-            snippet = vm.transcript.text[:300]
-            transcript_snippets.append(f"- {name}: \"{snippet}\"")
+            snippets.append(f'- "{vm.transcript.text[:250]}"')
 
-    data_summary = f"""
-Voicemail Analytics Summary:
-- Total voicemails: {total}
-- Last 7 days: {week_count}
-- Last 30 days: {month_count}
-- Urgent: {urgent_count} ({round(urgent_count/total*100) if total else 0}%)
-- Sentiment: {dict(sentiment_dist)}
-- Top categories: {[f"{n} ({c})" for n, c in cat_rows]}
-- Top keywords: {top_kw}
-
-Recent voicemail excerpts:
-{chr(10).join(transcript_snippets[:12])}
-""".strip()
+    data_block = (
+        f"Total voicemails: {total}\n"
+        f"Last 7 days: {week_count} | Last 30 days: {month_count}\n"
+        f"Urgent: {urgent_count} ({round(urgent_count / total * 100)}%)\n"
+        f"Sentiment breakdown: {dict(sentiment_dist)}\n"
+        f"Top categories: {[f'{n} ({c})' for n, c in cat_rows]}\n"
+        f"Top keywords: {top_kw}\n\n"
+        f"Recent transcript excerpts (themes only — do not quote):\n"
+        + "\n".join(snippets)
+    )
 
     prompt = (
-        "You are an AI analyst for a voicemail intelligence platform used by a donor services team. "
-        "Based on the analytics data below, provide a concise but insightful analysis in 4 short paragraphs:\n\n"
-        "1. **Volume & Trends**: Summarize call volume patterns and any notable changes.\n"
-        "2. **Caller Sentiment & Urgency**: Describe the overall emotional tone and urgency level.\n"
-        "3. **Key Themes**: Identify the most common topics or needs callers are expressing.\n"
-        "4. **Recommendations**: Give 2-3 actionable recommendations based on the data.\n\n"
-        "Be specific, data-driven, and concise. Use the caller excerpts only to identify themes — do not quote or identify callers.\n\n"
-        f"Data:\n{data_summary}"
+        "<|user|>\n"
+        "You are a voicemail analyst. Based on the data below, write a concise analysis "
+        "in exactly 4 short paragraphs with these headings:\n\n"
+        "**Volume & Trends** — summarise call volume and any notable patterns.\n"
+        "**Caller Sentiment & Urgency** — describe the emotional tone and urgency level.\n"
+        "**Key Themes** — identify the most common topics callers raise.\n"
+        "**Recommendations** — give 2-3 concrete, actionable suggestions.\n\n"
+        "Be specific and data-driven. Keep each paragraph to 2-3 sentences.\n\n"
+        f"{data_block}\n<|end|>\n<|assistant|>"
     )
 
     try:
         response = client.chat.completions.create(
-            model="gpt-5-mini",
-            max_completion_tokens=600,
+            model="phi3:mini",
+            max_tokens=600,
+            temperature=0.4,
             messages=[{"role": "user", "content": prompt}],
         )
-        text = response.choices[0].message.content or ""
+        text = (response.choices[0].message.content or "").strip()
         return jsonify({"insights": text})
     except Exception as e:
-        current_app.logger.error(f"AI insights error: {e}")
-        return jsonify({"error": str(e)}), 500
+        current_app.logger.error(f"Ollama insights error: {e}", exc_info=True)
+        return jsonify({"error": "Local model unavailable — ensure Ollama is running with phi3:mini pulled."}), 503
 
 
 @main_bp.route("/voicemails/poll")

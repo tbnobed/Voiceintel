@@ -11,9 +11,9 @@
     <h1 class="page-title">Analytics</h1>
     <p class="page-sub">Trends, insights, and patterns across all voicemails</p>
   </div>
-  <button id="ai-btn" onclick="loadAIInsights()" class="btn btn-primary" style="gap:7px; display:inline-flex; align-items:center;">
+  <button id="ai-btn" onclick="loadInsights()" class="btn btn-primary" style="gap:7px; display:inline-flex; align-items:center;">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
-    Generate AI Insights
+    Generate Insights
   </button>
 </div>
 
@@ -22,9 +22,9 @@
   <div class="card-head">
     <span class="card-head-title" style="color:var(--accent);">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:-1px; margin-right:5px;"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3v4l3 3"/></svg>
-      AI Analysis
+      Insights
     </span>
-    <span style="font-size:10px; color:var(--muted);">Powered by GPT · Based on all voicemail data</span>
+    <span style="font-size:10px; color:var(--muted);">Phi-3 mini · Runs locally via Ollama</span>
   </div>
   <div id="ai-body" class="card-body" style="padding:20px 28px; font-size:13px; line-height:1.75; color:var(--vanilla);">
     <div id="ai-loading" style="color:var(--muted); font-style:italic;">Analysing voicemail data…</div>
@@ -319,18 +319,19 @@ if (urgData.length && document.getElementById('urgKwChart')) {
 }
 
 /* ── AI Insights ───────────────────────────────────────────────────────── */
-function loadAIInsights() {
+function loadInsights() {
   const btn  = document.getElementById('ai-btn');
   const card = document.getElementById('ai-card');
   const body = document.getElementById('ai-body');
   const load = document.getElementById('ai-loading');
 
   btn.disabled = true;
-  btn.textContent = 'Analysing…';
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M8 2a6 6 0 1 0 6 6"/></svg> Analysing…';
   card.style.display = 'block';
   card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  body.innerHTML = '<div id="ai-loading" style="color:var(--muted); font-style:italic;">Running Phi-3 mini locally — this may take 20–40 seconds…</div>';
 
-  fetch('/analytics/ai-insights', { credentials: 'same-origin' })
+  fetch('/analytics/insights', { credentials: 'same-origin' })
     .then(r => r.json())
     .then(data => {
       if (data.error) {
@@ -344,13 +345,12 @@ function loadAIInsights() {
           .replace(/\n/g, '<br>');
         body.innerHTML = '<p>' + html + '</p>';
       }
-      btn.textContent = 'Refresh AI Insights';
+      btn.innerHTML = 'Refresh Insights';
       btn.disabled = false;
     })
     .catch(e => {
-      load.textContent = 'Network error — please try again.';
-      load.style.color = 'var(--urgent)';
-      btn.textContent = 'Generate AI Insights';
+      body.innerHTML = '<div style="color:var(--urgent);">Network error — please try again.</div>';
+      btn.innerHTML = 'Generate Insights';
       btn.disabled = false;
     });
 }

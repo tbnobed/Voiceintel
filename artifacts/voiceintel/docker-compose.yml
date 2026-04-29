@@ -2,6 +2,26 @@ version: "3.9"
 
 services:
 
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        ollama serve &
+        until curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; do sleep 2; done
+        ollama pull phi3:mini
+        wait
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -23,6 +43,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      ollama:
+        condition: service_started
     ports:
       - "${PORT:-5000}:5000"
     environment:
@@ -49,10 +71,8 @@ services:
       SENDGRID_ADMIN_EMAIL: ${SENDGRID_ADMIN_EMAIL:-}
       SENDGRID_WEBHOOK_KEY: ${SENDGRID_WEBHOOK_KEY:-}
 
-      # ── OpenAI (for Analytics AI Insights) ──────────────────────────────────
-      OPENAI_API_KEY:                          ${OPENAI_API_KEY:-}
-      AI_INTEGRATIONS_OPENAI_BASE_URL:         ${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}
-      AI_INTEGRATIONS_OPENAI_API_KEY:          ${AI_INTEGRATIONS_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}
+      # ── Ollama (local AI — Analytics Insights) ───────────────────────────────
+      OLLAMA_BASE_URL:      http://ollama:11434/v1
 
     volumes:
       # Audio files — persisted across container restarts
@@ -64,3 +84,4 @@ volumes:
   db_data:
   app_storage:
   model_cache:
+  ollama_data:
