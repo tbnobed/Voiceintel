@@ -4,6 +4,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Use all available CPU cores for transcription. ctranslate2's default is
+# conservative (often 4). Explicitly setting this to the full core count
+# gives a proportional speedup on multi-core servers.
+_CPU_THREADS = os.cpu_count() or 4
+
 _model = None
 _model_size = None
 
@@ -32,8 +37,14 @@ def _get_model(model_size="base"):
         logger.info("No CUDA — using CPU for transcription")
 
     try:
-        logger.info(f"Loading Whisper model '{model_size}' on {device} ({compute_type})")
-        _model = WhisperModel(model_size, device=device, compute_type=compute_type)
+        logger.info(
+            f"Loading Whisper model '{model_size}' on {device} ({compute_type}) "
+            f"with {_CPU_THREADS} CPU threads"
+        )
+        model_kwargs = dict(device=device, compute_type=compute_type)
+        if device == "cpu":
+            model_kwargs["cpu_threads"] = _CPU_THREADS
+        _model = WhisperModel(model_size, **model_kwargs)
         _model_size = model_size
         logger.info("Whisper model loaded successfully")
         return _model
