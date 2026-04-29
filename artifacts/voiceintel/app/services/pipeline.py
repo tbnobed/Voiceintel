@@ -62,6 +62,7 @@ def process_email_items(app, items: list):
         custom_kw = _load_urgency_keywords()
 
         for item in items:
+            voicemail = None
             try:
                 existing = Voicemail.query.filter_by(
                     message_id=item["message_id"],
@@ -80,6 +81,9 @@ def process_email_items(app, items: list):
                 duration = audio_service.get_audio_duration(converted_path or item["saved_path"])
                 file_size = audio_service.get_file_size(item["saved_path"])
 
+                # ── Commit the record immediately so it appears in the UI ──────
+                # The voicemail shows as "processing" while transcription runs.
+                # If transcription crashes, it stays visible with status "error".
                 voicemail = Voicemail(
                     message_id=item["message_id"],
                     filename=item["filename"],
@@ -93,8 +97,10 @@ def process_email_items(app, items: list):
                     processing_status="processing",
                 )
                 db.session.add(voicemail)
-                db.session.flush()
+                db.session.commit()
+                logger.info(f"Voicemail record created id={voicemail.id}: {item['filename']}")
 
+                # ── Transcription (slow — runs after first commit) ────────────
                 transcription = transcriber.transcribe(converted_path or item["saved_path"])
 
                 transcript = Transcript(
@@ -135,9 +141,12 @@ def process_email_items(app, items: list):
                     logger.error(f"Trigger engine error for voicemail {voicemail.id}: {te}")
 
             except Exception as e:
-                logger.error(f"Pipeline error for {item.get('filename')}: {e}")
+                logger.error(f"Pipeline error for {item.get('filename')}: {e}", exc_info=True)
                 try:
                     db.session.rollback()
+                    if voicemail and voicemail.id:
+                        voicemail.processing_status = "error"
+                        db.session.commit()
                 except Exception:
                     pass
 
