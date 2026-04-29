@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Teams — Admin — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span><span>Teams</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="page-title">Teams</div>
+    <div class="page-sub">Group agents into teams. Incoming voicemails are auto-routed to a team based on rules you configure.</div>
+  </div>
+  <a href="/admin/teams/new" class="btn btn-primary" style="flex-shrink:0;">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v14M1 8h14"/></svg>
+    New Team
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <span class="card-head-title">All Teams</span>
+    <span style="font-size:12px;color:var(--muted);margin-left:auto;">{{ teams|length }} total</span>
+  </div>
+  <div style="overflow:hidden;">
+    {% if teams %}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border-m);">
+          <th style="text-align:left;padding:10px 20px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Team</th>
+          <th style="text-align:left;padding:10px 20px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Description</th>
+          <th style="text-align:center;padding:10px 20px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Members</th>
+          <th style="text-align:center;padding:10px 20px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Rules</th>
+          <th style="padding:10px 20px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for team in teams %}
+        <tr style="border-bottom:1px solid var(--border-s);" class="table-row">
+          <td style="padding:13px 20px;">
+            <a href="/admin/teams/{{ team.id }}" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ team.color }};"></span>
+              <span style="font-size:13px;font-weight:500;color:var(--vanilla);">{{ team.name }}</span>
+            </a>
+          </td>
+          <td style="padding:13px 20px;">
+            <span style="font-size:12px;color:var(--sub);">{{ team.description or '—' }}</span>
+          </td>
+          <td style="padding:13px 20px;text-align:center;">
+            <span style="font-size:13px;color:var(--vanilla);">{{ team.members|length }}</span>
+          </td>
+          <td style="padding:13px 20px;text-align:center;">
+            <span style="font-size:13px;color:var(--vanilla);">{{ team.rules|length }}</span>
+          </td>
+          <td style="padding:13px 20px;text-align:right;white-space:nowrap;">
+            <a href="/admin/teams/{{ team.id }}" class="btn btn-ghost" style="padding:5px 12px;font-size:12px;margin-right:6px;">Manage</a>
+            <a href="/admin/teams/{{ team.id }}/edit" class="btn btn-ghost" style="padding:5px 12px;font-size:12px;margin-right:6px;">Edit</a>
+            <form method="POST" action="/admin/teams/{{ team.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete team &quot;{{ team.name }}&quot;? Members will be removed and any voicemails routed to this team will become unrouted.');">
+              <button type="submit" class="btn btn-ghost" style="padding:5px 12px;font-size:12px;color:var(--urgent);border-color:rgba(224,92,58,0.25);">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">
+      No teams yet. <a href="/admin/teams/new" style="color:var(--gold);">Create your first team →</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <div class="card-head"><span class="card-head-title">How auto-routing works</span></div>
+  <div class="card-body" style="font-size:13px;color:var(--sub);line-height:1.8;">
+    <p style="margin-bottom:10px;">When a voicemail arrives, VoiceIntel evaluates each team's <strong style="color:var(--vanilla);">routing rules</strong> in priority order (lowest number first). The first rule that matches wins, and the voicemail is assigned to that team.</p>
+    <p style="margin-bottom:10px;">The simplest setup is a unique forwarding address per team — e.g. forward to <code style="color:var(--gold);">team1@mail3.opscal.io</code> for the Sales team, then add a <strong style="color:var(--vanilla);">Recipient address</strong> rule with that value.</p>
+    <p>Rules also work on the sender, sender domain, transcript keywords, or caller phone number. Agents can only see voicemails routed to teams they belong to (plus unrouted ones); supervisors and admins always see everything.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.table-row:hover { background: rgba(247,206,91,0.03); }
+</style>
+{% endblock %}

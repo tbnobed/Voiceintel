@@ -21,6 +21,13 @@
         <!-- Meta row -->
         <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:16px;">
           {% if vm.is_urgent %}<span class="pill pill-urg">Urgent</span>{% endif %}
+          {% if vm.team %}
+            <span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:2px 8px; border-radius:10px; background:rgba(247,206,91,0.06); color:var(--vanilla); border:1px solid var(--border-m);"
+                  title="Routed to team{% if vm.team_locked %} (manually locked){% endif %}">
+              <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:{{ vm.team.color }};"></span>
+              {{ vm.team.name }}{% if vm.team_locked %} <span style="opacity:.6;">·</span> <span style="font-size:10px; opacity:.7;">locked</span>{% endif %}
+            </span>
+          {% endif %}
           {% if vm.category_obj %}<span class="pill pill-cat">{{ vm.category_obj.name }}</span>{% endif %}
           {% if vm.processing_status == 'completed' %}<span class="pill pill-done">Transcribed</span>
           {% elif vm.processing_status == 'processing' %}<span class="pill pill-proc">Processing</span>
@@ -30,6 +37,22 @@
             {% if vm.received_at %}{{ vm.received_at.strftime('%B %d, %Y at %I:%M %p') }}{% endif %}
           </span>
         </div>
+
+        {% if all_teams %}
+        <!-- Manual team override (admin/supervisor only) -->
+        <form method="POST" action="/voicemails/{{ vm.id }}/team"
+              style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid var(--border-m); border-radius:6px; background:rgba(247,206,91,0.02); margin-bottom:12px; flex-wrap:wrap;">
+          <span style="font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em;">Team:</span>
+          <select name="team_id" class="filter-select" style="flex:1; min-width:160px; padding:5px 8px; font-size:12px;">
+            <option value="none" {{ 'selected' if not vm.team_id }}>— No team (auto-route) —</option>
+            {% for t in all_teams %}
+              <option value="{{ t.id }}" {{ 'selected' if vm.team_id == t.id }}>{{ t.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-ghost" style="padding:5px 12px; font-size:11px;">Update</button>
+          <span style="font-size:10.5px; color:var(--muted);">Manual changes lock this voicemail from auto-routing.</span>
+        </form>
+        {% endif %}
 
         {% if ci.caller_name %}
           <h1 style="font-family:'DM Serif Display',Georgia,serif; font-size:22px; font-weight:400; color:var(--vanilla); letter-spacing:-.3px; margin-bottom:6px; line-height:1.3;">

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}{{ team.name }} — Teams — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span><a href="/admin/teams/" style="color:var(--sub);text-decoration:none;">Teams</a><span class="sep">/</span><span>{{ team.name }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="page-title" style="display:flex;align-items:center;gap:10px;">
+      <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:{{ team.color }};"></span>
+      {{ team.name }}
+    </div>
+    <div class="page-sub">{{ team.description or 'No description.' }}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-shrink:0;">
+    <a href="/admin/teams/{{ team.id }}/edit" class="btn btn-ghost">Edit Team</a>
+    <a href="/voicemails?team={{ team.id }}" class="btn btn-ghost">View Voicemails →</a>
+  </div>
+</div>
+
+<div class="grid-2-1" style="gap:16px;">
+
+  <!-- ── Members ──────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <span class="card-head-title">Members</span>
+      <span style="font-size:12px;color:var(--muted);margin-left:auto;">{{ team.members|length }}</span>
+    </div>
+    <div>
+      {% if team.members %}
+      <table style="width:100%;border-collapse:collapse;">
+        <tbody>
+          {% for u in team.members %}
+          <tr style="border-bottom:1px solid var(--border-s);">
+            <td style="padding:11px 20px;">
+              <div style="font-size:13px;font-weight:500;color:var(--vanilla);">{{ u.name }}</div>
+              <div style="font-size:11px;color:var(--muted);">{{ u.email }} · {{ u.role_label }}</div>
+            </td>
+            <td style="padding:11px 20px;text-align:right;white-space:nowrap;">
+              <form method="POST" action="/admin/teams/{{ team.id }}/members/{{ u.id }}/remove" style="display:inline;"
+                    onsubmit="return confirm('Remove {{ u.name }} from {{ team.name }}?');">
+                <button type="submit" class="btn btn-ghost" style="padding:4px 10px;font-size:11px;color:var(--urgent);border-color:rgba(224,92,58,0.25);">Remove</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="padding:24px 20px;text-align:center;color:var(--muted);font-size:12px;">
+        No members yet.
+      </div>
+      {% endif %}
+
+      <form method="POST" action="/admin/teams/{{ team.id }}/members/add"
+            style="border-top:1px solid var(--border-m);padding:14px 20px;display:flex;gap:8px;align-items:center;background:rgba(247,206,91,0.02);">
+        {% if available_users %}
+        <select name="user_id" required class="form-input" style="flex:1;">
+          <option value="">Add a member…</option>
+          {% for u in available_users %}
+          <option value="{{ u.id }}">{{ u.name }} ({{ u.role_label }})</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary" style="padding:6px 14px;font-size:12px;">Add</button>
+        {% else %}
+        <span style="font-size:12px;color:var(--muted);">All active users are already on this team.</span>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Quick reference ──────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head"><span class="card-head-title">Quick Reference</span></div>
+    <div class="card-body" style="font-size:12px;color:var(--sub);line-height:1.8;">
+      <strong style="color:var(--vanilla);">Team slug:</strong> <code style="color:var(--gold);">{{ team.slug }}</code><br>
+      <strong style="color:var(--vanilla);">Members:</strong> {{ team.members|length }}<br>
+      <strong style="color:var(--vanilla);">Active rules:</strong> {{ team.rules|selectattr('is_active')|list|length }} of {{ team.rules|length }}<br>
+      <hr style="border:0;border-top:1px solid var(--border-s);margin:12px 0;">
+      <p style="margin:0;">Members of this team see voicemails routed here. Add routing rules below to auto-assign incoming voicemails.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Routing rules ────────────────────────────────────────────────── -->
+<div class="card" id="rules" style="margin-top:16px;">
+  <div class="card-head">
+    <span class="card-head-title">Routing Rules</span>
+    <span style="font-size:12px;color:var(--muted);margin-left:auto;">First match wins · lowest priority first</span>
+  </div>
+  <div>
+    {% if team.rules %}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border-m);">
+          <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;width:60px;">Pri</th>
+          <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Type</th>
+          <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Pattern</th>
+          <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Active</th>
+          <th style="padding:10px 14px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in team.rules %}
+        <tr style="border-bottom:1px solid var(--border-s);{% if not r.is_active %}opacity:.5;{% endif %}">
+          <td style="padding:11px 14px;text-align:center;font-size:13px;color:var(--vanilla);">{{ r.priority }}</td>
+          <td style="padding:11px 14px;font-size:12px;color:var(--sub);">{{ r.kind_label }}</td>
+          <td style="padding:11px 14px;font-size:13px;color:var(--vanilla);"><code>{{ r.pattern }}</code></td>
+          <td style="padding:11px 14px;text-align:center;">
+            <form method="POST" action="/admin/teams/rules/{{ r.id }}/toggle" style="display:inline;">
+              <button type="submit" class="btn btn-ghost" style="padding:3px 10px;font-size:11px;{% if r.is_active %}color:var(--ok);{% else %}color:var(--muted);{% endif %}">
+                {{ 'On' if r.is_active else 'Off' }}
+              </button>
+            </form>
+          </td>
+          <td style="padding:11px 14px;text-align:right;white-space:nowrap;">
+            <form method="POST" action="/admin/teams/rules/{{ r.id }}/delete" style="display:inline;"
+                  onsubmit="return confirm('Delete this rule?');">
+              <button type="submit" class="btn btn-ghost" style="padding:4px 10px;font-size:11px;color:var(--urgent);border-color:rgba(224,92,58,0.25);">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:24px 20px;text-align:center;color:var(--muted);font-size:13px;">
+      No routing rules yet. Voicemails won't be auto-assigned to this team until you add at least one.
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/admin/teams/{{ team.id }}/rules/add"
+          style="border-top:1px solid var(--border-m);padding:16px 20px;background:rgba(247,206,91,0.02);">
+      <div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Add Rule</div>
+      <div style="display:grid;grid-template-columns:1fr 2fr 80px auto auto;gap:8px;align-items:center;">
+        <select name="kind" required class="form-input">
+          {% for k in rule_kinds %}
+          <option value="{{ k }}">{{ rule_kind_labels[k] }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="pattern" required placeholder="e.g. team1@mail3.opscal.io"
+               class="form-input" />
+        <input type="number" name="priority" value="100" min="1" max="9999" placeholder="100"
+               class="form-input" title="Lower = evaluated first" />
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);white-space:nowrap;">
+          <input type="checkbox" name="is_active" checked> Active
+        </label>
+        <button type="submit" class="btn btn-primary" style="padding:6px 14px;font-size:12px;">Add Rule</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;">
+        Rule types: recipient/sender (exact email or domain like <code>opscal.io</code>), keyword (substring of transcript or subject, case-insensitive), caller phone (digit substring, e.g. <code>262</code> matches all 262 area-code calls).
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

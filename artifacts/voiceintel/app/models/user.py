@@ -30,6 +30,14 @@ class User(db.Model, UserMixin):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
 
+    # Many-to-many — users can belong to one or many teams.
+    teams = db.relationship(
+        "Team",
+        secondary="team_members",
+        back_populates="members",
+        lazy="selectin",
+    )
+
     def set_password(self, password: str):
         self.password_hash = generate_password_hash(password)
 

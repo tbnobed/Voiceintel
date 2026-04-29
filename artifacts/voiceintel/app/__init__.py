@@ -40,12 +40,14 @@ def create_app():
     from app.routes.api import api_bp
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
+    from app.routes.teams_admin import teams_admin_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(tasks_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(teams_admin_bp, url_prefix="/admin/teams")
 
     # Expose open-callback count for the sidebar badge on every authenticated page.
     @app.context_processor
@@ -65,6 +67,7 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        _ensure_voicemails_columns()
         _seed_categories()
         _seed_admin_user()
 
@@ -122,6 +125,49 @@ def _start_insights_scheduler(app):
     # Kick off an initial run shortly after boot so the page has fresh data.
     # Delayed 60s so the model warmer container has time to load Phi-3 first.
     threading.Timer(60.0, _job).start()
+
+
+def _ensure_voicemails_columns():
+    """
+    Idempotent boot guard — `db.create_all()` only creates missing tables;
+    it doesn't add columns to existing ones. The Teams feature added three
+    new columns to `voicemails` (recipient, team_id, team_locked). This
+    function adds them on first boot after the upgrade and is a no-op
+    afterwards. Safe on both Postgres and SQLite.
+    """
+    import logging as _logging
+    from sqlalchemy import inspect, text
+    log = _logging.getLogger(__name__)
+
+    try:
+        insp = inspect(db.engine)
+        if "voicemails" not in insp.get_table_names():
+            return  # First boot — db.create_all() already made the columns.
+        cols = {c["name"] for c in insp.get_columns("voicemails")}
+    except Exception as e:
+        log.warning(f"Schema guard: could not inspect voicemails table: {e}")
+        return
+
+    statements = []
+    if "recipient" not in cols:
+        statements.append("ALTER TABLE voicemails ADD COLUMN recipient VARCHAR(512)")
+    if "team_id" not in cols:
+        statements.append("ALTER TABLE voicemails ADD COLUMN team_id INTEGER")
+    if "team_locked" not in cols:
+        statements.append(
+            "ALTER TABLE voicemails ADD COLUMN team_locked BOOLEAN NOT NULL DEFAULT FALSE"
+        )
+
+    if not statements:
+        return
+
+    with db.engine.begin() as conn:
+        for stmt in statements:
+            try:
+                conn.execute(text(stmt))
+                log.info(f"Schema guard: applied '{stmt}'")
+            except Exception as e:
+                log.warning(f"Schema guard: '{stmt}' failed: {e}")
 
 
 def _seed_categories():

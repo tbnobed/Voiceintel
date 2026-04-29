@@ -32,6 +32,7 @@ pnpm workspace monorepo using TypeScript for backend services, plus a Python Fla
 - **Full-text search** across all transcripts
 - **Voicemail detail** — audio player, full transcript, segments timeline, insights, callbacks, notes
 - **Roles** — `admin`, `supervisor`, `agent`, `viewer`. Admins have full access; supervisors manage non-admin users + assign callbacks; agents receive callback assignments + can add notes; viewers are read-only but can still add notes.
+- **Teams** — agents belong to one or many teams (M:N). Incoming voicemails are auto-routed to a team via per-team rules: `recipient_email`/`recipient_domain` (uses the SendGrid Inbound-Parse "to" field — e.g. `team1@mail3.opscal.io` → Sales), `sender_email`/`sender_domain`, `keyword` (substring of transcript or subject), or `caller_phone` (digit substring). Rules evaluate lowest-priority-number first, first match wins. Routing runs twice per voicemail: once on initial save (recipient/sender/phone) and again after transcription (gives keyword rules a chance). Agents/viewers see only voicemails routed to their teams **plus** unrouted voicemails; supervisors and admins always see everything. Supervisors/admins can manually override the team on the voicemail detail page — manual changes set `team_locked=True` so auto-routing won't overwrite them. Managed at `/admin/teams`.
 - **Callbacks** — supervisors/admins assign follow-up phone calls to agents. Each callback has status (pending/in_progress/completed/cancelled), priority (normal/urgent), optional due date and instructions. Visible on the voicemail detail page and in the per-user "My Tasks" inbox at `/tasks`.
 - **Notes & disposition** — anyone signed in can add free-form notes to any voicemail. Author or supervisor/admin can delete.
 - **Background scheduler** via APScheduler
@@ -52,15 +53,25 @@ pnpm workspace monorepo using TypeScript for backend services, plus a Python Fla
 ```
 artifacts/voiceintel/
   app/
-    routes/      # Flask blueprints (main.py, api.py)
-    models/      # SQLAlchemy models (voicemail, transcript, insight, category)
-    services/    # Pipeline services (email, audio, transcription, NLP, pipeline)
-    templates/   # Jinja2 templates (base, dashboard, voicemails, detail)
+    routes/      # Flask blueprints (main, api, auth, admin, teams_admin, tasks)
+    models/      # SQLAlchemy models (voicemail, transcript, insight, category, user, team, trigger)
+    services/    # Pipeline services (email, audio, transcription, NLP, pipeline, routing_service)
+    utils/       # Cross-cutting helpers (team_scope visibility helpers)
+    templates/   # Jinja2 templates (base, dashboard, voicemails, detail, admin/*)
     static/      # CSS + JS
   storage/       # Audio file storage (voicemails/, processed/)
   main.py        # App entry point + scheduler
   requirements.txt
 ```
+
+### Schema migrations
+The app uses `db.create_all()` for first-boot table creation. New columns added
+to existing tables are applied via an idempotent boot guard
+`_ensure_voicemails_columns()` in `app/__init__.py` (issues `ALTER TABLE ADD
+COLUMN` for the Teams feature: `recipient`, `team_id`, `team_locked`). Safe on
+both Postgres and SQLite. Add new columns to that helper when you extend the
+voicemails table again, or introduce a real Alembic migration if the schema
+keeps growing.
 
 ## Stack (Node.js/TypeScript monorepo)
 

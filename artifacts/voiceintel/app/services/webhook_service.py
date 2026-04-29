@@ -101,6 +101,10 @@ def parse_sendgrid_inbound(request, storage_dir: str) -> list[dict]:
     os.makedirs(voicemail_dir, exist_ok=True)
 
     sender = request.form.get("from", "")
+    # SendGrid Inbound Parse passes the original "to" header (the address the
+    # forwarded email was sent to). We use this to auto-route to a team —
+    # e.g. team1@mail3.opscal.io → Team "team1".
+    recipient = request.form.get("to", "")
     subject = request.form.get("subject", "")
     message_id = request.form.get("headers", "")
 
@@ -157,6 +161,7 @@ def parse_sendgrid_inbound(request, storage_dir: str) -> list[dict]:
             "filename": filename,
             "saved_path": save_path,
             "sender": sender,
+            "recipient": recipient,
             "subject": subject,
             "received_at": received_at,
             "uid": None,
@@ -175,7 +180,7 @@ def parse_sendgrid_inbound(request, storage_dir: str) -> list[dict]:
     if not results:
         results = _extract_from_raw_email(
             request.form.get("email", ""),
-            message_id, sender, subject, received_at, voicemail_dir,
+            message_id, sender, recipient, subject, received_at, voicemail_dir,
         )
 
     return results
@@ -185,6 +190,7 @@ def _extract_from_raw_email(
     raw: str,
     message_id: str,
     sender: str,
+    recipient: str,
     subject: str,
     received_at,
     voicemail_dir: str,
@@ -249,6 +255,7 @@ def _extract_from_raw_email(
             "filename": filename,
             "saved_path": save_path,
             "sender": sender,
+            "recipient": recipient,
             "subject": subject,
             "received_at": received_at,
             "uid": None,

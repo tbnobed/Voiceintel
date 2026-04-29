@@ -88,6 +88,7 @@ def process_email_items(app, items: list):
                     message_id=item["message_id"],
                     filename=item["filename"],
                     sender=item.get("sender"),
+                    recipient=item.get("recipient"),
                     subject=item.get("subject"),
                     received_at=item.get("received_at"),
                     original_path=item["saved_path"],
@@ -99,6 +100,13 @@ def process_email_items(app, items: list):
                 db.session.add(voicemail)
                 db.session.commit()
                 logger.info(f"Voicemail record created id={voicemail.id}: {item['filename']}")
+
+                # ── First-pass routing (recipient/sender/phone rules) ─────────
+                try:
+                    from app.services import routing_service
+                    routing_service.route_voicemail(voicemail, commit=True)
+                except Exception as routing_err:
+                    logger.warning(f"First-pass routing failed for vm {voicemail.id}: {routing_err}")
 
                 # ── Transcription (slow — runs after first commit) ────────────
                 transcription = transcriber.transcribe(converted_path or item["saved_path"])
@@ -133,6 +141,13 @@ def process_email_items(app, items: list):
                 voicemail.processing_status = "error" if transcription.get("error") else "completed"
                 db.session.commit()
                 logger.info(f"Processed voicemail id={voicemail.id}: {item['filename']}")
+
+                # ── Second-pass routing (gives keyword rules a chance) ───────
+                try:
+                    from app.services import routing_service
+                    routing_service.route_voicemail(voicemail, commit=True)
+                except Exception as routing_err:
+                    logger.warning(f"Second-pass routing failed for vm {voicemail.id}: {routing_err}")
 
                 # Run automation triggers
                 try:

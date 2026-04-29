@@ -40,6 +40,18 @@
           {% endfor %}
         </select>
       </div>
+      {% if available_teams %}
+      <div class="filter-group" style="min-width: 140px;">
+        <label>Team</label>
+        <select name="team" class="filter-select">
+          <option value="">All teams</option>
+          <option value="unrouted" {{ 'selected' if team_filter == 'unrouted' }}>Unrouted</option>
+          {% for t in available_teams %}
+            <option value="{{ t.id }}" {{ 'selected' if team_filter == t.id|string }}>{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div class="filter-group" style="min-width: 130px;">
         <label>Urgency</label>
         <select name="urgency" class="filter-select">
@@ -92,6 +104,7 @@
         {{ sort_th('received_at',       'Call Date') }}
         {{ sort_th('subject',           'Caller', default_dir='asc') }}
         <th>Phone</th>
+        <th>Team</th>
         {{ sort_th('category',          'Category', default_dir='asc') }}
         {{ sort_th('is_urgent',         'Flag') }}
         <th>Transcript</th>
@@ -127,6 +140,16 @@
               <a href="tel:+1{{ ci.phone|replace('(', '')|replace(')', '')|replace(' ', '')|replace('-', '') }}" style="color:var(--sub); text-decoration:none;">{{ ci.phone }}</a>
             {% else %}
               <span style="color:var(--muted);">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if vm.team %}
+              <span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:2px 7px; border-radius:10px; background:rgba(247,206,91,0.06); color:var(--vanilla); border:1px solid var(--border-m);">
+                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:{{ vm.team.color }};"></span>
+                {{ vm.team.name }}
+              </span>
+            {% else %}
+              <span style="color:var(--muted); font-size:11px;">—</span>
             {% endif %}
           </td>
           <td>{% if vm.category_obj %}<span class="pill pill-cat">{{ vm.category_obj.name }}</span>{% else %}<span style="color:var(--muted);">—</span>{% endif %}</td>

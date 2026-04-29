@@ -104,10 +104,19 @@ class Voicemail(db.Model):
     processing_status = db.Column(db.String(50), default="pending")
     category_id = db.Column(db.Integer, db.ForeignKey("categories.id"))
     is_urgent = db.Column(db.Boolean, default=False)
+    # Recipient address (the SendGrid Inbound-Parse "to" field). We use this
+    # to auto-route forwarded voicemails to a team — e.g. team1@mail3.opscal.io
+    # → Team "team1". Nullable because legacy rows don't have it.
+    recipient = db.Column(db.String(512))
+    # Auto-routed team. Nullable; an unrouted voicemail is visible to everyone.
+    team_id = db.Column(db.Integer, db.ForeignKey("teams.id", ondelete="SET NULL"), index=True)
+    # When True, the team was set manually and routing rules will not overwrite it.
+    team_locked = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     category_obj = db.relationship("Category", back_populates="voicemails")
+    team = db.relationship("Team", back_populates="voicemails")
     transcript = db.relationship("Transcript", back_populates="voicemail", uselist=False, cascade="all, delete-orphan")
     insights = db.relationship("Insight", back_populates="voicemail", uselist=False, cascade="all, delete-orphan")
     callbacks = db.relationship(

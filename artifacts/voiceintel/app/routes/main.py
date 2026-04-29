@@ -9,7 +9,9 @@ from collections import Counter
 from app import db
 from app.models.voicemail import Voicemail, Transcript, Insight, Category, VoicemailNote, Callback
 from app.models.user import User
+from app.models.team import Team
 from app.services.nlp_service import STOPWORDS
+from app.utils.team_scope import scope_voicemails, can_view_voicemail, is_unrestricted, user_team_ids
 
 
 def _filter_keywords(keywords):
@@ -28,41 +30,59 @@ def dashboard():
     today = datetime.utcnow().date()
     week_ago = datetime.utcnow() - timedelta(days=7)
 
-    total = Voicemail.query.count()
-    today_count = Voicemail.query.filter(
-        func.date(Voicemail.received_at) == today
-    ).count()
-    urgent_count = Voicemail.query.filter_by(is_urgent=True).count()
+    # Scope all dashboard queries to the voicemails this user is allowed to
+    # see — agents/viewers only see their teams (+ unrouted), supervisors and
+    # admins see everything.
+    base = scope_voicemails(Voicemail.query, current_user)
 
-    category_dist = (
+    total = base.count()
+    today_count = scope_voicemails(
+        Voicemail.query.filter(func.date(Voicemail.received_at) == today),
+        current_user,
+    ).count()
+    urgent_count = scope_voicemails(
+        Voicemail.query.filter_by(is_urgent=True), current_user,
+    ).count()
+
+    cat_dist_q = (
         db.session.query(Category.name, func.count(Voicemail.id))
         .join(Voicemail, Voicemail.category_id == Category.id, isouter=True)
-        .group_by(Category.name)
-        .all()
     )
+    cat_dist_q = scope_voicemails(cat_dist_q, current_user)
+    category_dist = cat_dist_q.group_by(Category.name).all()
 
+    trend_q = db.session.query(
+        func.date(Voicemail.received_at).label("day"),
+        func.count(Voicemail.id).label("count"),
+    ).filter(Voicemail.received_at >= week_ago)
+    trend_q = scope_voicemails(trend_q, current_user)
     daily_trend = [
         {"day": str(d), "count": c}
-        for d, c in db.session.query(
-            func.date(Voicemail.received_at).label("day"),
-            func.count(Voicemail.id).label("count"),
-        )
-        .filter(Voicemail.received_at >= week_ago)
-        .group_by(func.date(Voicemail.received_at))
-        .order_by("day")
-        .all()
+        for d, c in trend_q.group_by(func.date(Voicemail.received_at))
+                           .order_by("day").all()
     ]
 
+    # Keywords from insights — scope by joining to voicemails.
+    if is_unrestricted(current_user):
+        insights_with_kw = Insight.query.filter(Insight.keywords.isnot(None)).limit(100).all()
+    else:
+        ins_q = (
+            db.session.query(Insight)
+            .join(Voicemail, Voicemail.id == Insight.voicemail_id)
+            .filter(Insight.keywords.isnot(None))
+        )
+        ins_q = scope_voicemails(ins_q, current_user)
+        insights_with_kw = ins_q.limit(100).all()
     all_keywords = []
-    insights_with_kw = Insight.query.filter(Insight.keywords.isnot(None)).limit(100).all()
     for ins in insights_with_kw:
         if ins.keywords:
             all_keywords.extend(_filter_keywords(ins.keywords))
     top_keywords = [kw for kw, _ in Counter(all_keywords).most_common(15)]
 
-    recent = (
-        Voicemail.query.order_by(desc(Voicemail.created_at)).limit(5).all()
-    )
+    recent = scope_voicemails(
+        Voicemail.query.order_by(desc(Voicemail.created_at)),
+        current_user,
+    ).limit(5).all()
 
     return render_template(
         "dashboard.html",
@@ -87,6 +107,8 @@ def voicemail_list():
     urgency = request.args.get("urgency")
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
+    # Team filter: numeric team_id, or the literal string "unrouted"
+    team_filter = request.args.get("team", "").strip()
 
     # Sorting — whitelist of allowed sort keys mapped to ORDER BY expressions.
     # Each tuple is (asc_expr, desc_expr) so we can apply NULLS-LAST consistently
@@ -138,26 +160,48 @@ def voicemail_list():
         except ValueError:
             pass
 
+    # Team filter (manual selection from the UI)
+    if team_filter == "unrouted":
+        query = query.filter(Voicemail.team_id.is_(None))
+    elif team_filter.isdigit():
+        query = query.filter(Voicemail.team_id == int(team_filter))
+
+    # Visibility scoping — agents only see their team(s) + unrouted.
+    query = scope_voicemails(query, current_user)
+
     primary = sort_columns[sort]
     primary = primary.asc() if direction == "asc" else primary.desc()
     # Always tie-break on most recent first so the order is deterministic.
     query = query.order_by(primary, desc(Voicemail.received_at), desc(Voicemail.id))
 
-    # Eager-load callbacks (and their assignee users) so the new "Assigned"
-    # column doesn't trigger N+1 queries.
+    # Eager-load callbacks (and their assignee users) and team so the new
+    # columns don't trigger N+1 queries.
     query = query.options(
-        selectinload(Voicemail.callbacks).selectinload(Callback.assignee)
+        selectinload(Voicemail.callbacks).selectinload(Callback.assignee),
+        selectinload(Voicemail.team),
     )
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     categories = Category.query.order_by(Category.name).all()
 
+    # Teams the user can pick from in the filter dropdown.
+    if is_unrestricted(current_user):
+        available_teams = Team.query.order_by(Team.name).all()
+    else:
+        ids = user_team_ids(current_user)
+        available_teams = (
+            Team.query.filter(Team.id.in_(ids)).order_by(Team.name).all()
+            if ids else []
+        )
+
     return render_template(
         "voicemails.html",
         voicemails=pagination.items,
         pagination=pagination,
         categories=categories,
+        available_teams=available_teams,
+        team_filter=team_filter,
         q=q,
         category_id=category_id,
         urgency=urgency,
@@ -172,6 +216,8 @@ def voicemail_list():
 @login_required
 def voicemail_detail(vm_id):
     vm = Voicemail.query.get_or_404(vm_id)
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
     q = request.args.get("q", "").strip()
     # Active users who can be assigned a callback (admin/supervisor/agent),
     # for the assignment dropdown shown to admins/supervisors.
@@ -183,11 +229,48 @@ def voicemail_detail(vm_id):
             .order_by(User.name)
             .all()
         )
+    # All teams (admins/supervisors only) for the manual-override dropdown.
+    all_teams = []
+    if current_user.is_admin or current_user.is_supervisor:
+        all_teams = Team.query.order_by(Team.name).all()
     return render_template(
         "voicemail_detail.html",
         vm=vm, q=q,
         assignable_users=assignable_users,
+        all_teams=all_teams,
     )
+
+
+# ---------------------------------------------------------------------------
+# Manual team override (admin/supervisor only)
+# ---------------------------------------------------------------------------
+
+@main_bp.route("/voicemails/<int:vm_id>/team", methods=["POST"])
+@login_required
+def voicemail_set_team(vm_id):
+    if not (current_user.is_admin or current_user.is_supervisor):
+        abort(403)
+    vm = Voicemail.query.get_or_404(vm_id)
+    raw = request.form.get("team_id", "").strip()
+    if raw == "" or raw == "none":
+        vm.team_id = None
+        vm.team_locked = False  # release the lock so auto-routing can run
+        flash("Team cleared. Auto-routing rules will apply on the next change.", "success")
+    else:
+        try:
+            tid = int(raw)
+        except ValueError:
+            flash("Invalid team selection.", "error")
+            return redirect(url_for("main.voicemail_detail", vm_id=vm.id))
+        team = Team.query.get(tid)
+        if not team:
+            flash("Team not found.", "error")
+            return redirect(url_for("main.voicemail_detail", vm_id=vm.id))
+        vm.team_id = team.id
+        vm.team_locked = True
+        flash(f"Voicemail manually assigned to {team.name}.", "success")
+    db.session.commit()
+    return redirect(url_for("main.voicemail_detail", vm_id=vm.id))
 
 
 # ---------------------------------------------------------------------------
@@ -418,6 +501,8 @@ def voicemail_set_status(vm_id):
 def serve_audio(vm_id):
     import mimetypes
     vm = Voicemail.query.get_or_404(vm_id)
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
     # Prefer converted WAV; fall back to original
     audio_path = vm.converted_path or vm.original_path
     if not audio_path:

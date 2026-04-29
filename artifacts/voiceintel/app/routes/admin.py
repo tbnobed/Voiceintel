@@ -32,9 +32,11 @@ def _user_management_required():
 def index():
     _admin_required()
     from app.models.voicemail import Category
+    from app.models.team import Team
     user_count = User.query.count()
     trigger_count = AutomationTrigger.query.filter_by(is_active=True).count()
     cat_count = Category.query.count()
+    team_count = Team.query.count()
     custom_kw_raw = Setting.get("custom_urgency_keywords", "[]")
     try:
         custom_kw = json.loads(custom_kw_raw)
@@ -51,6 +53,7 @@ def index():
         trigger_count=trigger_count,
         custom_kw_count=len(custom_kw),
         cat_count=cat_count,
+        team_count=team_count,
         sg_configured=sg_configured,
     )
 
