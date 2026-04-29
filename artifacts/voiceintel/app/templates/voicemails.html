@@ -341,7 +341,19 @@
   var titleEl = document.querySelector(".page-title");
   if (titleEl) titleEl.appendChild(dot);
 
+  function hasSelection() {
+    // Don't blow away a bulk-edit selection mid-action just because new
+    // voicemails arrived. The refresh will happen on the next poll once the
+    // user has cleared (or applied) their selection.
+    var boxes = document.querySelectorAll(".bulk-vm-check");
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i].checked) return true;
+    }
+    return false;
+  }
+
   function check() {
+    if (hasSelection()) return;  // pause auto-reload while user is selecting
     fetch("/voicemails/poll", { credentials: "same-origin" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
