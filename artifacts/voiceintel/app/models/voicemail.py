@@ -58,6 +58,22 @@ def parse_voicemail_subject(subject: str) -> dict:
     return result
 
 
+class AnalyticsInsight(db.Model):
+    """
+    Cached output of the hourly background AI-insights job. We always read the
+    most recent row (`order_by(generated_at.desc()).first()`); old rows are
+    kept for history/debugging but trimmed periodically.
+    """
+    __tablename__ = "analytics_insights"
+
+    id            = db.Column(db.Integer, primary_key=True)
+    text          = db.Column(db.Text)              # markdown body, may be NULL on error
+    status        = db.Column(db.String(20), default="pending", nullable=False)  # pending|success|error
+    error_message = db.Column(db.Text)
+    duration_ms   = db.Column(db.Integer)           # how long generation took
+    generated_at  = db.Column(db.DateTime, default=datetime.utcnow, index=True, nullable=False)
+
+
 class Category(db.Model):
     __tablename__ = "categories"
 

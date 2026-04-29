@@ -6,28 +6,44 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
-  <div>
-    <h1 class="page-title">Analytics</h1>
-    <p class="page-sub">Trends, insights, and patterns across all voicemails</p>
-  </div>
-  <button id="ai-btn" onclick="loadInsights()" class="btn btn-primary" style="gap:7px; display:inline-flex; align-items:center;">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
-    Generate Insights
-  </button>
+<div class="page-header">
+  <h1 class="page-title">Analytics</h1>
+  <p class="page-sub">Trends, insights, and patterns across all voicemails</p>
 </div>
 
-<!-- ── AI Insights card (hidden until requested) ─────────────────────────── -->
-<div id="ai-card" class="card" style="display:none; margin-bottom:20px; border-color:rgba(247,206,91,0.25);">
+<!-- ── AI Insights card (auto-generated hourly by background scheduler) ──── -->
+<div class="card" style="margin-bottom:20px; border-color:rgba(247,206,91,0.25);">
   <div class="card-head">
     <span class="card-head-title" style="color:var(--accent);">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:-1px; margin-right:5px;"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3v4l3 3"/></svg>
       Insights
     </span>
-    <span style="font-size:10px; color:var(--muted);">Phi-3 mini · Runs locally via Ollama</span>
+    <span style="font-size:10px; color:var(--muted);">
+      Phi-3 mini · Updated hourly
+      {% if latest_insight and latest_insight.generated_at %}
+        · <span id="ai-timestamp" data-ts="{{ latest_insight.generated_at.isoformat() }}Z">
+            {{ latest_insight.generated_at.strftime('%Y-%m-%d %H:%M') }} UTC
+          </span>
+      {% endif %}
+    </span>
   </div>
-  <div id="ai-body" class="card-body" style="padding:20px 28px; font-size:13px; line-height:1.75; color:var(--vanilla);">
-    <div id="ai-loading" style="color:var(--muted); font-style:italic;">Analysing voicemail data…</div>
+  <div class="card-body" style="padding:20px 28px; font-size:13px; line-height:1.75; color:var(--vanilla);">
+    {% if latest_insight is none %}
+      <div style="color:var(--muted); font-style:italic;">
+        First analysis is being generated — check back in a minute.
+      </div>
+    {% elif latest_insight.status == 'success' and latest_insight.text %}
+      <div id="ai-body">{{ latest_insight.text }}</div>
+    {% elif latest_insight.status == 'error' %}
+      <div style="color:var(--urgent);">
+        Latest run failed: {{ latest_insight.error_message or 'Unknown error.' }}
+        <div style="color:var(--muted); font-style:italic; margin-top:6px; font-size:11px;">
+          The system will retry automatically on the next hourly cycle.
+        </div>
+      </div>
+    {% else %}
+      <div style="color:var(--muted); font-style:italic;">Awaiting first run…</div>
+    {% endif %}
   </div>
 </div>
 
@@ -318,95 +334,35 @@ if (urgData.length && document.getElementById('urgKwChart')) {
   });
 }
 
-/* ── AI Insights (streaming) ───────────────────────────────────────────── */
-function renderInsightHTML(text) {
-  // Render markdown-style bold headers + paragraph breaks.
-  // Escape <, >, & first to keep streamed content safe.
-  const safe = text
+/* ── AI Insights — render the server-side cached markdown ──────────────── */
+(function renderCachedInsight() {
+  const body = document.getElementById('ai-body');
+  if (!body) return;
+  const raw = body.textContent.trim();
+  if (!raw) return;
+  const safe = raw
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-  return '<p>' + safe
+  body.innerHTML = '<p>' + safe
     .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--accent)">$1</strong>')
     .replace(/\n\n/g, '</p><p style="margin-top:12px;">')
     .replace(/\n/g, '<br>') + '</p>';
-}
+})();
 
-async function loadInsights() {
-  const btn  = document.getElementById('ai-btn');
-  const card = document.getElementById('ai-card');
-  const body = document.getElementById('ai-body');
-
-  btn.disabled = true;
-  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M8 2a6 6 0 1 0 6 6"/></svg> Analysing…';
-  card.style.display = 'block';
-  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  body.innerHTML = '<div style="color:var(--muted); font-style:italic;">Connecting to local model…</div>';
-
-  let fullText = '';
-  let started  = false;
-
-  try {
-    const res = await fetch('/analytics/insights', { credentials: 'same-origin' });
-    if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
-
-    const reader  = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer    = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      // Split on SSE message boundary
-      let idx;
-      while ((idx = buffer.indexOf('\n\n')) !== -1) {
-        const frame = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
-
-        for (const line of frame.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          let msg;
-          try { msg = JSON.parse(line.slice(6)); } catch (_) { continue; }
-
-          if (msg.error) {
-            body.innerHTML = '<div style="color:var(--urgent);">' + msg.error + '</div>';
-            btn.innerHTML = 'Try Again';
-            btn.disabled = false;
-            return;
-          }
-          if (msg.status === 'connecting') {
-            body.innerHTML = '<div style="color:var(--muted); font-style:italic;">Loading Phi-3 mini into memory… (first run can take ~2 min)</div>';
-          }
-          if (msg.status === 'generating' && !started) {
-            started = true;
-            body.innerHTML = '<p style="color:var(--muted); font-style:italic;">Generating…</p>';
-          }
-          if (msg.delta) {
-            if (!started) {
-              started = true;
-              body.innerHTML = '';
-            }
-            fullText += msg.delta;
-            body.innerHTML = renderInsightHTML(fullText);
-          }
-          if (msg.done) {
-            btn.innerHTML = 'Refresh Insights';
-            btn.disabled = false;
-            return;
-          }
-        }
-      }
-    }
-
-    btn.innerHTML = 'Refresh Insights';
-    btn.disabled = false;
-  } catch (e) {
-    body.innerHTML = '<div style="color:var(--urgent);">Connection error — please try again.</div>';
-    btn.innerHTML = 'Generate Insights';
-    btn.disabled = false;
-  }
-}
+/* Show "X minutes ago" alongside the absolute timestamp. */
+(function relativeTimestamp() {
+  const el = document.getElementById('ai-timestamp');
+  if (!el) return;
+  const ts = Date.parse(el.dataset.ts);
+  if (isNaN(ts)) return;
+  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  let rel;
+  if (mins < 1)        rel = 'just now';
+  else if (mins < 60)  rel = mins + ' min ago';
+  else if (mins < 1440) rel = Math.round(mins / 60) + ' hr ago';
+  else                  rel = Math.round(mins / 1440) + ' d ago';
+  el.textContent += ' (' + rel + ')';
+})();
 </script>
 {% endblock %}

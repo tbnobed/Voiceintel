@@ -1,6 +1,5 @@
 import os
-import json
-from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app, jsonify, Response, stream_with_context
+from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app, jsonify
 from flask_login import login_required
 from sqlalchemy import func, desc, or_
 from datetime import datetime, timedelta
@@ -227,6 +226,10 @@ def analytics():
     )
     status_dist = {s: c for s, c in status_rows}
 
+    # Latest cached AI insight (generated hourly by the background scheduler).
+    from app.services.insights_service import get_latest_insight
+    latest_insight = get_latest_insight()
+
     return render_template(
         "analytics.html",
         total=total,
@@ -241,148 +244,33 @@ def analytics():
         hourly_dist=hourly_dist,
         top_urgency_kw=top_urgency_kw,
         status_dist=status_dist,
+        latest_insight=latest_insight,
     )
-
-
-def _sse(payload: dict) -> str:
-    """Format a Server-Sent Events data frame."""
-    return f"data: {json.dumps(payload)}\n\n"
 
 
 @main_bp.route("/analytics/insights")
 @login_required
 def analytics_insights():
     """
-    Stream a narrative summary of voicemail analytics from Phi-3 mini (local, via
-    Ollama) as Server-Sent Events. Streaming keeps the connection alive past
-    cold-start delays and lets the UI render tokens as they arrive.
+    Return the most recent cached AI insight as JSON. The actual generation
+    runs hourly in a background scheduler (see app.services.insights_service),
+    so this endpoint is instant and never blocks on Ollama.
     """
-    ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-
-    # Gather all analytics data inside the request context (before the generator
-    # starts), so the stream itself doesn't need DB access.
-    now       = datetime.utcnow()
-    week_ago  = now - timedelta(days=7)
-    month_ago = now - timedelta(days=30)
-
-    total = Voicemail.query.count()
-    if total == 0:
-        return Response(
-            _sse({"error": "No voicemail data to analyse yet."}) + _sse({"done": True}),
-            mimetype="text/event-stream",
-        )
-
-    urgent_count = Voicemail.query.filter_by(is_urgent=True).count()
-    week_count   = Voicemail.query.filter(Voicemail.received_at >= week_ago).count()
-    month_count  = Voicemail.query.filter(Voicemail.received_at >= month_ago).count()
-
-    sentiment_rows = db.session.query(Insight.sentiment, func.count(Insight.id)).group_by(Insight.sentiment).all()
-    sentiment_dist = {s or "neutral": c for s, c in sentiment_rows}
-
-    cat_rows = (
-        db.session.query(Category.name, func.count(Voicemail.id))
-        .join(Voicemail, Voicemail.category_id == Category.id, isouter=True)
-        .group_by(Category.name).order_by(func.count(Voicemail.id).desc()).limit(5).all()
-    )
-
-    all_kw: list = []
-    for ins in Insight.query.filter(Insight.keywords.isnot(None)).limit(200).all():
-        if ins.keywords:
-            all_kw.extend(_filter_keywords(ins.keywords))
-    top_kw = [w for w, _ in Counter(all_kw).most_common(15)]
-
-    recent_vms = (
-        Voicemail.query
-        .join(Transcript, Voicemail.id == Transcript.voicemail_id)
-        .filter(Transcript.text.isnot(None))
-        .order_by(desc(Voicemail.received_at))
-        .limit(12)
-        .all()
-    )
-    snippets = []
-    for vm in recent_vms:
-        if vm.transcript and vm.transcript.text:
-            snippets.append(f'- "{vm.transcript.text[:250]}"')
-
-    data_block = (
-        f"Total voicemails: {total}\n"
-        f"Last 7 days: {week_count} | Last 30 days: {month_count}\n"
-        f"Urgent: {urgent_count} ({round(urgent_count / total * 100)}%)\n"
-        f"Sentiment breakdown: {dict(sentiment_dist)}\n"
-        f"Top categories: {[f'{n} ({c})' for n, c in cat_rows]}\n"
-        f"Top keywords: {top_kw}\n\n"
-        f"Recent transcript excerpts (themes only — do not quote):\n"
-        + "\n".join(snippets)
-    )
-
-    prompt = (
-        "<|user|>\n"
-        "You are a voicemail analyst. Based on the data below, write a concise analysis "
-        "in exactly 4 short paragraphs with these headings:\n\n"
-        "**Volume & Trends** — summarise call volume and any notable patterns.\n"
-        "**Caller Sentiment & Urgency** — describe the emotional tone and urgency level.\n"
-        "**Key Themes** — identify the most common topics callers raise.\n"
-        "**Recommendations** — give 2-3 concrete, actionable suggestions.\n\n"
-        "Be specific and data-driven. Keep each paragraph to 2-3 sentences.\n\n"
-        f"{data_block}\n<|end|>\n<|assistant|>"
-    )
-
-    def generate():
-        # Send an initial "connected" frame straight away so the browser knows
-        # we're alive even while Phi-3 is still loading into memory. Padding
-        # with a 2 KB SSE comment forces any in-the-middle reverse proxy
-        # (nginx, Cloudflare, etc.) to flush its first buffer, so the browser
-        # actually starts reading the stream instead of waiting.
-        yield ":" + (" " * 2048) + "\n\n"
-        yield _sse({"status": "connecting"})
-
-        try:
-            from openai import OpenAI
-            # Generous timeout to accommodate cold-start model loading.
-            client = OpenAI(base_url=ollama_url, api_key="ollama", timeout=600.0)
-
-            stream = client.chat.completions.create(
-                model="phi3:mini",
-                max_tokens=600,
-                temperature=0.4,
-                messages=[{"role": "user", "content": prompt}],
-                stream=True,
-                # Ollama-specific: keep model resident in RAM forever so the
-                # next request is instant. Sent via extra_body because the
-                # standard OpenAI schema doesn't include this field.
-                extra_body={"keep_alive": -1},
-            )
-
-            yield _sse({"status": "generating"})
-
-            for chunk in stream:
-                if not chunk.choices:
-                    continue
-                delta = chunk.choices[0].delta.content
-                if delta:
-                    yield _sse({"delta": delta})
-
-            yield _sse({"done": True})
-        except Exception as e:
-            current_app.logger.error(f"Ollama insights stream error: {e}", exc_info=True)
-            # Surface the actual error class + first line so we can debug
-            # production failures instead of guessing.
-            err_type = type(e).__name__
-            err_msg  = str(e).splitlines()[0][:200] if str(e) else "unknown"
-            yield _sse({
-                "error": f"Local model failed ({err_type}): {err_msg}"
-            })
-            yield _sse({"done": True})
-
-    return Response(
-        stream_with_context(generate()),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
-    )
+    from app.services.insights_service import get_latest_insight
+    row = get_latest_insight()
+    if row is None:
+        return jsonify({
+            "status":       "pending",
+            "text":         None,
+            "generated_at": None,
+            "error":        None,
+        })
+    return jsonify({
+        "status":       row.status,
+        "text":         row.text,
+        "generated_at": row.generated_at.isoformat() + "Z" if row.generated_at else None,
+        "error":        row.error_message,
+    })
 
 
 @main_bp.route("/voicemails/poll")

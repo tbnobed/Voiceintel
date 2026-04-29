@@ -50,7 +50,60 @@ def create_app():
         _seed_categories()
         _seed_admin_user()
 
+    _start_insights_scheduler(app)
+
     return app
+
+
+def _start_insights_scheduler(app):
+    """
+    Run the AI analytics generator once an hour in the background. Single
+    gunicorn worker (see Dockerfile) means exactly one scheduler instance.
+    """
+    import os
+    import threading
+    import logging
+    from apscheduler.schedulers.background import BackgroundScheduler
+
+    log = logging.getLogger(__name__)
+
+    # Guard against the Werkzeug auto-reloader spawning the scheduler in BOTH
+    # the parent and child processes. When the reloader is active, only the
+    # child process has WERKZEUG_RUN_MAIN=true; we skip the parent. Also skip
+    # if another process in this app has already started the scheduler.
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "false":
+        return
+    if app.config.get("DEBUG") and not os.environ.get("WERKZEUG_RUN_MAIN"):
+        log.info("Skipping scheduler in reloader parent process")
+        return
+    if getattr(app, "_insights_scheduler_started", False):
+        return
+    app._insights_scheduler_started = True
+
+    def _job():
+        with app.app_context():
+            try:
+                from app.services.insights_service import generate_and_store_insight
+                generate_and_store_insight()
+            except Exception as e:
+                log.error(f"Hourly insights job crashed: {e}", exc_info=True)
+
+    scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
+    scheduler.add_job(
+        _job,
+        trigger="interval",
+        hours=1,
+        id="hourly_ai_insights",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
+    )
+    scheduler.start()
+    log.info("AI insights scheduler started — runs every 1 hour")
+
+    # Kick off an initial run shortly after boot so the page has fresh data.
+    # Delayed 60s so the model warmer container has time to load Phi-3 first.
+    threading.Timer(60.0, _job).start()
 
 
 def _seed_categories():
