@@ -115,7 +115,7 @@ def send_notification_email(to: str, subject: str, body: str, html_body: str = "
 
 def test_sendgrid_connection(api_key: str = "") -> tuple[bool, str]:
     """
-    Validate the SendGrid API key by calling /v3/user/profile.
+    Validate the SendGrid API key by calling /v3/user/account.
     Returns (success, message).
     """
     if not api_key:
@@ -124,13 +124,18 @@ def test_sendgrid_connection(api_key: str = "") -> tuple[bool, str]:
     if not api_key:
         return False, "No API key configured."
     try:
+        import json
         from sendgrid import SendGridAPIClient
         sg = SendGridAPIClient(api_key=api_key)
-        resp = sg.client.user.profile.get()
+        resp = sg.client.user.account.get()
         if resp.status_code == 200:
-            import json
-            profile = json.loads(resp.body)
-            return True, f"Connected as {profile.get('username', 'unknown')}."
+            account = json.loads(resp.body)
+            username = account.get("username") or account.get("email", "")
+            plan = account.get("type", "")
+            label = username or "API key valid"
+            if plan:
+                label += f" ({plan} plan)"
+            return True, f"Connected — {label}."
         return False, f"API returned status {resp.status_code}."
     except Exception as e:
         return False, str(e)
