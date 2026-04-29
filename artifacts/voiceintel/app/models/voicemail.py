@@ -130,6 +130,22 @@ class Voicemail(db.Model):
         """Parsed caller name, phone, call date/time from the subject line."""
         return parse_voicemail_subject(self.subject)
 
+    @property
+    def active_callback(self):
+        """The most relevant callback to surface in list views.
+
+        Prefers the most recent open callback (pending/in_progress); if none
+        exist, falls back to the most recent callback overall. Returns None if
+        no callbacks have ever been assigned.
+        """
+        if not self.callbacks:
+            return None
+        # `self.callbacks` is ordered by created_at desc (see relationship).
+        for cb in self.callbacks:
+            if cb.status in ("pending", "in_progress"):
+                return cb
+        return self.callbacks[0]
+
     def to_dict(self):
         return {
             "id": self.id,

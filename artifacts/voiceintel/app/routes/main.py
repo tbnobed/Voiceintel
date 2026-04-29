@@ -2,11 +2,12 @@ import os
 from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app, jsonify, flash
 from flask_login import login_required, current_user
 from sqlalchemy import func, desc, or_
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
 from collections import Counter
 
 from app import db
-from app.models.voicemail import Voicemail, Transcript, Insight, Category, VoicemailNote
+from app.models.voicemail import Voicemail, Transcript, Insight, Category, VoicemailNote, Callback
 from app.models.user import User
 from app.services.nlp_service import STOPWORDS
 
@@ -87,7 +88,30 @@ def voicemail_list():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
-    query = Voicemail.query.join(Transcript, Voicemail.id == Transcript.voicemail_id, isouter=True)
+    # Sorting — whitelist of allowed sort keys mapped to ORDER BY expressions.
+    # Each tuple is (asc_expr, desc_expr) so we can apply NULLS-LAST consistently
+    # by always tie-breaking on received_at desc.
+    sort = request.args.get("sort", "received_at")
+    direction = request.args.get("dir", "desc").lower()
+    if direction not in ("asc", "desc"):
+        direction = "desc"
+
+    sort_columns = {
+        "received_at":       Voicemail.received_at,
+        "subject":           Voicemail.subject,            # caller-name column
+        "category":          Category.name,                # via outer join below
+        "is_urgent":         Voicemail.is_urgent,
+        "processing_status": Voicemail.processing_status,
+    }
+    if sort not in sort_columns:
+        sort = "received_at"
+
+    query = Voicemail.query.join(
+        Transcript, Voicemail.id == Transcript.voicemail_id, isouter=True
+    )
+    # Outer join Category so we can sort by category name and still see
+    # voicemails that have no category assigned.
+    query = query.join(Category, Voicemail.category_id == Category.id, isouter=True)
 
     if q:
         query = query.filter(Transcript.text.ilike(f"%{q}%"))
@@ -114,9 +138,18 @@ def voicemail_list():
         except ValueError:
             pass
 
-    pagination = query.order_by(desc(Voicemail.received_at)).paginate(
-        page=page, per_page=per_page, error_out=False
+    primary = sort_columns[sort]
+    primary = primary.asc() if direction == "asc" else primary.desc()
+    # Always tie-break on most recent first so the order is deterministic.
+    query = query.order_by(primary, desc(Voicemail.received_at), desc(Voicemail.id))
+
+    # Eager-load callbacks (and their assignee users) so the new "Assigned"
+    # column doesn't trigger N+1 queries.
+    query = query.options(
+        selectinload(Voicemail.callbacks).selectinload(Callback.assignee)
     )
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     categories = Category.query.order_by(Category.name).all()
 
@@ -130,6 +163,8 @@ def voicemail_list():
         urgency=urgency,
         date_from=date_from,
         date_to=date_to,
+        sort=sort,
+        sort_dir=direction,
     )
 
 

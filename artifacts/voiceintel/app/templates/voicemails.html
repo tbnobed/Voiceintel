@@ -64,18 +64,39 @@
   </form>
 </div>
 
+{# ── Sortable column header macro ──────────────────────────────────────── #}
+{% macro sort_th(key, label, default_dir='desc', extra_style='') -%}
+  {%- set is_active = (sort == key) -%}
+  {%- set next_dir = 'asc' if (is_active and sort_dir == 'desc') else ('desc' if is_active else default_dir) -%}
+  {%- set args = request.args.to_dict() -%}
+  {%- set _ = args.update({'sort': key, 'dir': next_dir, 'page': 1}) -%}
+  <th style="{{ extra_style }}">
+    <a href="{{ url_for('main.voicemail_list', **args) }}"
+       style="color:inherit; text-decoration:none; display:inline-flex; align-items:center; gap:4px; cursor:pointer;"
+       title="Sort by {{ label }}">
+      <span>{{ label }}</span>
+      {% if is_active %}
+        <span style="color:var(--accent); font-size:10px; line-height:1;">{{ '▲' if sort_dir == 'asc' else '▼' }}</span>
+      {% else %}
+        <span style="color:var(--border); font-size:10px; line-height:1;">⇅</span>
+      {% endif %}
+    </a>
+  </th>
+{%- endmacro %}
+
 {% if voicemails %}
 <div class="card" style="margin-bottom: 20px;">
   <table class="data-table">
     <thead>
       <tr>
-        <th>Call Date</th>
-        <th>Caller</th>
+        {{ sort_th('received_at',       'Call Date') }}
+        {{ sort_th('subject',           'Caller', default_dir='asc') }}
         <th>Phone</th>
-        <th>Category</th>
-        <th>Flag</th>
+        {{ sort_th('category',          'Category', default_dir='asc') }}
+        {{ sort_th('is_urgent',         'Flag') }}
         <th>Transcript</th>
-        <th>Status</th>
+        <th>Assigned</th>
+        {{ sort_th('processing_status', 'Status', default_dir='asc') }}
         <th></th>
       </tr>
     </thead>
@@ -128,6 +149,33 @@
               <span style="font-size:12px; color:var(--muted); font-style:italic;">{{ vm.processing_status }}</span>
             {% endif %}
           </td>
+          <td style="white-space:nowrap; max-width:160px;">
+            {% set cb = vm.active_callback %}
+            {% if cb %}
+              <div style="font-size:12px; font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis;">
+                {{ cb.assignee.name if cb.assignee else '(unassigned)' }}
+              </div>
+              <div style="margin-top:3px;">
+                {% if cb.status == 'completed' %}
+                  <span class="pill pill-done">Completed</span>
+                {% elif cb.status == 'in_progress' %}
+                  <span class="pill pill-proc">In Progress</span>
+                {% elif cb.status == 'cancelled' %}
+                  <span class="pill pill-pend">Cancelled</span>
+                {% else %}
+                  <span class="pill" style="background:rgba(247,206,91,0.12); color:var(--accent); border:1px solid rgba(247,206,91,0.25);">Pending</span>
+                {% endif %}
+                {% if cb.priority == 'urgent' and cb.is_open %}
+                  <span class="pill pill-urg" style="margin-left:2px;">!</span>
+                {% endif %}
+              </div>
+              {% if vm.callbacks|length > 1 %}
+                <div style="font-size:10px; color:var(--muted); margin-top:2px;">+{{ vm.callbacks|length - 1 }} more</div>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--muted); font-size:12px;">—</span>
+            {% endif %}
+          </td>
           <td>
             {% if vm.processing_status == 'completed' %}<span class="pill pill-done">Done</span>
             {% elif vm.processing_status == 'processing' %}<span class="pill pill-proc">Processing</span>
@@ -154,19 +202,24 @@
 </div>
 
 {% if pagination.pages > 1 %}
+{# Preserve all current query args (filters + sort) on pagination links. #}
+{% set page_args = request.args.to_dict() %}
 <div class="pagination">
   {% if pagination.has_prev %}
-    <a href="/voicemails?page={{ pagination.prev_num }}&q={{ q }}&category={{ category_id or '' }}&urgency={{ urgency or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="pg-btn">‹</a>
+    {% set _ = page_args.update({'page': pagination.prev_num}) %}
+    <a href="{{ url_for('main.voicemail_list', **page_args) }}" class="pg-btn">‹</a>
   {% endif %}
   {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
     {% if p %}
-      <a href="/voicemails?page={{ p }}&q={{ q }}&category={{ category_id or '' }}&urgency={{ urgency or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="pg-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
+      {% set _ = page_args.update({'page': p}) %}
+      <a href="{{ url_for('main.voicemail_list', **page_args) }}" class="pg-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
     {% else %}
       <span style="padding: 0 4px; color:var(--muted);">…</span>
     {% endif %}
   {% endfor %}
   {% if pagination.has_next %}
-    <a href="/voicemails?page={{ pagination.next_num }}&q={{ q }}&category={{ category_id or '' }}&urgency={{ urgency or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="pg-btn">›</a>
+    {% set _ = page_args.update({'page': pagination.next_num}) %}
+    <a href="{{ url_for('main.voicemail_list', **page_args) }}" class="pg-btn">›</a>
   {% endif %}
 </div>
 {% endif %}
