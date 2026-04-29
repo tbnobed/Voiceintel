@@ -27,6 +27,11 @@ RUN mkdir -p storage/voicemails storage/processed instance
 ENV TRANSFORMERS_CACHE=/data/model_cache
 ENV HF_HOME=/data/model_cache
 
+# Make the CUDA libraries shipped by the nvidia-* pip wheels visible to
+# CTranslate2 at runtime. If the container has no GPU access, faster-whisper
+# silently falls back to CPU and these paths are simply ignored.
+ENV LD_LIBRARY_PATH=/usr/local/lib/python3.11/site-packages/nvidia/cublas/lib:/usr/local/lib/python3.11/site-packages/nvidia/cudnn/lib:${LD_LIBRARY_PATH}
+
 EXPOSE 5000
 
 # Single-worker gunicorn + thread pool keeps the APScheduler thread stable

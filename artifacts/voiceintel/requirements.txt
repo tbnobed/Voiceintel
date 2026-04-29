@@ -6,6 +6,12 @@ psycopg2-binary==2.9.9
 sqlalchemy==2.0.36
 python-dotenv==1.0.1
 faster-whisper==1.0.3
+# CUDA 12 runtime libs that faster-whisper / CTranslate2 need on the GPU path.
+# These wheels are tiny when no GPU is present (they just sit unused), so it's
+# safe to ship them unconditionally — the Dockerfile adds them to
+# LD_LIBRARY_PATH so ctranslate2 can find libcudnn / libcublas at runtime.
+nvidia-cublas-cu12==12.4.5.8
+nvidia-cudnn-cu12==9.1.0.70
 ffmpeg-python==0.2.0
 textblob==0.18.0
 scikit-learn==1.5.2

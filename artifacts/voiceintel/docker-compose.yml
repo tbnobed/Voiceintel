@@ -8,9 +8,18 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     environment:
-      # Keep models loaded in RAM forever — eliminates cold-start delays.
-      # On a 20 GB host phi3:mini (~3.5 GB resident) easily fits.
+      # Keep models loaded in VRAM forever — eliminates cold-start delays.
+      # On a 12 GB RTX 4070 phi3:mini (~3.5 GB) easily stays resident.
       OLLAMA_KEEP_ALIVE: "-1"
+    # GPU passthrough — Ollama auto-detects NVIDIA once it has device access.
+    # Requires NVIDIA Container Toolkit on the host (see README).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -69,6 +78,16 @@ services:
         condition: service_started
     ports:
       - "${PORT:-5000}:5000"
+    # GPU passthrough for faster-whisper transcription. The transcription
+    # service auto-detects CUDA at startup and falls back to CPU if absent,
+    # so this block can be removed on a CPU-only host.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       # ── Flask ───────────────────────────────────────────────────────────────
       SESSION_SECRET:       ${SESSION_SECRET}
@@ -82,6 +101,9 @@ services:
       STORAGE_DIR:          /data/storage
 
       # ── Whisper ─────────────────────────────────────────────────────────────
+      # CPU host: keep `base` (or `small`). RTX 4070 (12 GB VRAM): set
+      # WHISPER_MODEL=large-v3 in .env for substantially better accuracy
+      # at GPU speed (≈3 GB VRAM resident).
       WHISPER_MODEL:        ${WHISPER_MODEL:-base}
       TRANSFORMERS_CACHE:   /data/model_cache
       HF_HOME:              /data/model_cache
