@@ -69,9 +69,9 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th>Date</th>
-        <th>Sender</th>
-        <th>Subject</th>
+        <th>Call Date</th>
+        <th>Caller</th>
+        <th>Phone</th>
         <th>Category</th>
         <th>Flag</th>
         <th>Transcript</th>
@@ -81,15 +81,33 @@
     </thead>
     <tbody>
       {% for vm in voicemails %}
+        {% set ci = vm.caller_info %}
         <tr class="{{ 'urg' if vm.is_urgent }}">
           <td style="white-space:nowrap;">
-            {% if vm.received_at %}
+            {% if ci.call_date %}
+              <div style="font-size:13px; font-weight:500; color:var(--text);">{{ ci.call_date }}</div>
+              {% if ci.call_time %}
+                <div style="font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums;">{{ ci.call_time }}</div>
+              {% endif %}
+            {% elif vm.received_at %}
               <div style="font-size:13px; font-weight:500; color:var(--text);">{{ vm.received_at.strftime('%b %d, %Y') }}</div>
               <div style="font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums;">{{ vm.received_at.strftime('%I:%M %p') }}</div>
             {% else %}<span style="color:var(--muted);">—</span>{% endif %}
           </td>
-          <td style="max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ vm.sender or '—' }}</td>
-          <td style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text);">{{ vm.subject or '(No subject)' }}</td>
+          <td style="max-width:160px;">
+            {% if ci.caller_name %}
+              <span style="font-weight:500; color:var(--text);">{{ ci.caller_name }}</span>
+            {% else %}
+              <span style="color:var(--muted); font-style:italic;">Unknown</span>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap; font-variant-numeric:tabular-nums; font-size:13px;">
+            {% if ci.phone %}
+              <a href="tel:+1{{ ci.phone|replace('(', '')|replace(')', '')|replace(' ', '')|replace('-', '') }}" style="color:var(--sub); text-decoration:none;">{{ ci.phone }}</a>
+            {% else %}
+              <span style="color:var(--muted);">—</span>
+            {% endif %}
+          </td>
           <td>{% if vm.category_obj %}<span class="pill pill-cat">{{ vm.category_obj.name }}</span>{% else %}<span style="color:var(--muted);">—</span>{% endif %}</td>
           <td>
             {% if vm.is_urgent %}<span class="pill pill-urg">Urgent</span>

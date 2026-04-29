@@ -1,5 +1,61 @@
+import re
 from datetime import datetime
 from app import db
+
+
+def parse_voicemail_subject(subject: str) -> dict:
+    """
+    Extract caller name, phone, call date, and call time from a voicemail
+    notification subject line.
+
+    Handles formats such as:
+      "New Voice Message from FAULKNER R. (262) 968-2401 on 04/24/2026 11:25 AM"
+      "Fw: New Voice Message from FOURROUX EILEEN (225) 907-3484 on 04/26/2026 15:39"
+
+    Returns a dict with keys: caller_name, phone, call_date, call_time.
+    Any unrecognised field is None.
+    """
+    result = {"caller_name": None, "phone": None, "call_date": None, "call_time": None}
+    if not subject:
+        return result
+
+    # Strip common prefixes (Fw:, Re:, Fwd:)
+    cleaned = re.sub(r"^(Fw:|Re:|Fwd:)\s*", "", subject.strip(), flags=re.IGNORECASE)
+
+    # Match "New Voice Message from <name> <phone> on <date> <time>"
+    pattern = re.compile(
+        r"new\s+voice\s+message\s+from\s+"
+        r"(?P<name>.+?)\s+"
+        r"(?P<phone>\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4})"
+        r"(?:\s+on\s+"
+        r"(?P<date>\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4})"
+        r"(?:\s+(?P<time>\d{1,2}:\d{2}(?:\s*[APap][Mm])?))?"
+        r")?",
+        re.IGNORECASE,
+    )
+    m = pattern.search(cleaned)
+    if not m:
+        return result
+
+    raw_name = m.group("name").strip()
+    # Collapse multiple spaces, then title-case
+    result["caller_name"] = re.sub(r"\s+", " ", raw_name).title()
+
+    # Normalise phone to (XXX) XXX-XXXX
+    digits = re.sub(r"\D", "", m.group("phone"))
+    if len(digits) == 10:
+        result["phone"] = f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    elif len(digits) == 11 and digits[0] == "1":
+        result["phone"] = f"({digits[1:4]}) {digits[4:7]}-{digits[7:]}"
+    else:
+        result["phone"] = m.group("phone")
+
+    if m.group("date"):
+        result["call_date"] = m.group("date")
+    if m.group("time"):
+        result["call_time"] = m.group("time").strip().upper()
+
+    return result
 
 
 class Category(db.Model):
@@ -40,6 +96,11 @@ class Voicemail(db.Model):
     insights = db.relationship("Insight", back_populates="voicemail", uselist=False, cascade="all, delete-orphan")
 
     __table_args__ = (db.UniqueConstraint("message_id", "filename", name="uq_message_filename"),)
+
+    @property
+    def caller_info(self) -> dict:
+        """Parsed caller name, phone, call date/time from the subject line."""
+        return parse_voicemail_subject(self.subject)
 
     def to_dict(self):
         return {
