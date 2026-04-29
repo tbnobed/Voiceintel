@@ -59,20 +59,33 @@
     }
 
     .sidebar-logo {
-      padding: 24px 20px 20px;
+      padding: 20px 16px 18px;
       border-bottom: 1px solid var(--border-m);
+      display: flex;
+      align-items: center;
+      gap: 11px;
     }
+    .sidebar-logo img {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      border-radius: 8px;
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 8px rgba(247,206,91,0.2));
+    }
+    .sidebar-logo-text {}
     .sidebar-logo-name {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       letter-spacing: .06em;
       text-transform: uppercase;
       color: var(--accent);
+      line-height: 1.2;
     }
     .sidebar-logo-sub {
-      font-size: 10px;
+      font-size: 9.5px;
       color: var(--muted);
-      letter-spacing: .04em;
+      letter-spacing: .03em;
       margin-top: 2px;
     }
 
@@ -450,8 +463,11 @@
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-logo">
-      <div class="sidebar-logo-name">VoiceIntel</div>
-      <div class="sidebar-logo-sub">Voicemail Intelligence</div>
+      <img src="/static/logo.png" alt="VoiceIntel logo" />
+      <div class="sidebar-logo-text">
+        <div class="sidebar-logo-name">VoiceIntel</div>
+        <div class="sidebar-logo-sub">Voicemail Intelligence</div>
+      </div>
     </div>
 
     <ul class="sidebar-nav">

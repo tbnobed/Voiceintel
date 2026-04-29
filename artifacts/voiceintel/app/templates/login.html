@@ -25,7 +25,13 @@
       width: 100%; max-width: 380px; padding: 24px;
     }
     .login-brand {
-      text-align: center; margin-bottom: 40px;
+      text-align: center; margin-bottom: 36px;
+    }
+    .login-brand img {
+      width: 130px; height: 130px; object-fit: contain;
+      border-radius: 18px;
+      margin-bottom: 14px;
+      filter: drop-shadow(0 0 18px rgba(247,206,91,0.25));
     }
     .login-brand-name {
       font-size: 13px; font-weight: 600; letter-spacing: .08em;
@@ -80,6 +86,7 @@
 <body>
 <div class="login-wrap">
   <div class="login-brand">
+    <img src="/static/logo.png" alt="VoiceIntel" />
     <div class="login-brand-name">VoiceIntel</div>
     <div class="login-brand-tagline">Voicemail Intelligence</div>
   </div>
