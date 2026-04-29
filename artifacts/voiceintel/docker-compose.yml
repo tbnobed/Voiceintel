@@ -7,20 +7,22 @@ services:
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        ollama serve &
-        until curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; do sleep 2; done
-        ollama pull phi3:mini
-        wait
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags"]
-      interval: 30s
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
       timeout: 10s
-      retries: 10
-      start_period: 300s
+      retries: 15
+      start_period: 30s
+
+  model-puller:
+    image: ollama/ollama
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "phi3:mini"]
 
   db:
     image: postgres:16-alpine
