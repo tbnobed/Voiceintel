@@ -410,14 +410,15 @@ def integrations():
         current["sendgrid_api_key_masked"] = ""
 
     # Build example webhook URL
+    # Respect X-Forwarded-Proto so the URL shows https:// when behind a reverse proxy.
     import os as _os
     domains = _os.environ.get("REPLIT_DOMAINS", "")
     if domains:
         host = domains.split(",")[0].strip()
         base_url = f"https://{host}"
     else:
-        from flask import request as freq
-        base_url = freq.host_url.rstrip("/")
+        proto = request.headers.get("X-Forwarded-Proto", request.scheme)
+        base_url = f"{proto}://{request.host}"
     webhook_token = current.get("sendgrid_webhook_key", "")
     webhook_url = f"{base_url}/api/webhook/inbound"
     if webhook_token:
