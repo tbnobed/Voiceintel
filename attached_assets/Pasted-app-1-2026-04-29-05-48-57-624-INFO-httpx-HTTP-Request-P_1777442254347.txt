@@ -1,0 +1,45 @@
+app-1     | 2026-04-29 05:48:57,624 [INFO] httpx: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 404 Not Found"
+app-1     | 2026-04-29 05:48:57,625 [ERROR] app: Ollama insights error: Error code: 404 - {'error': {'message': "model 'phi3:mini' not found", 'type': 'not_found_error', 'param': None, 'code': None}}
+app-1     | Traceback (most recent call last):
+app-1     |   File "/app/app/routes/main.py", line 317, in analytics_insights
+app-1     |     response = client.chat.completions.create(
+app-1     |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app-1     |   File "/usr/local/lib/python3.11/site-packages/openai/_utils/_utils.py", line 287, in wrapper
+app-1     |     return func(*args, **kwargs)
+app-1     |            ^^^^^^^^^^^^^^^^^^^^^
+app-1     |   File "/usr/local/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1211, in create
+app-1     |     return self._post(
+app-1     |            ^^^^^^^^^^^
+app-1     |   File "/usr/local/lib/python3.11/site-packages/openai/_base_client.py", line 1314, in post
+app-1     |     return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+app-1     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app-1     |   File "/usr/local/lib/python3.11/site-packages/openai/_base_client.py", line 1087, in request
+app-1     |     raise self._make_status_error_from_response(err.response) from None
+app-1     | openai.NotFoundError: Error code: 404 - {'error': {'message': "model 'phi3:mini' not found", 'type': 'not_found_error', 'param': None, 'code': None}}
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:48:57 +0000] "GET /analytics/insights HTTP/1.1" 503 91 "https://voice-ai.obtv.io/analytics" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:49:05 +0000] "GET / HTTP/1.1" 302 217 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:49:05 +0000] "GET / HTTP/1.1" 302 217 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:49:05 +0000] "GET /login?next=%2F HTTP/1.1" 200 4411 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:49:05 +0000] "GET /login?next=%2F HTTP/1.1" 200 4411 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:49:06 +0000] "GET / HTTP/1.1" 302 217 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:49:06 +0000] "GET /login?next=%2F HTTP/1.1" 200 4411 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:49:06 +0000] "GET /https%3A/fonts.googleapis.com/css2%3Ffamily%3DInter%3Awght%40300%3B400%3B500%3B600%26family%3DDM%2BSerif%2BDisplay%26display%3Dswap HTTP/1.1" 404 207 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:49:06 +0000] "GET /login%3Fnext%3D/ HTTP/1.1" 404 207 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:53:19 +0000] "GET /analytics HTTP/1.1" 200 37478 "https://voice-ai.obtv.io/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:54:18 +0000] "GET /analytics HTTP/1.1" 200 37478 "https://voice-ai.obtv.io/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:56:47 +0000] "GET /analytics HTTP/1.1" 200 37478 "https://voice-ai.obtv.io/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+ollama-1  | llama_context: n_ctx_seq (4096) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+ollama-1  | llama_context:        CPU  output buffer size =     0.13 MiB
+ollama-1  | llama_kv_cache:        CPU KV buffer size =  1536.00 MiB
+ollama-1  | llama_kv_cache: size = 1536.00 MiB (  4096 cells,  32 layers,  1/1 seqs), K (f16):  768.00 MiB, V (f16):  768.00 MiB
+ollama-1  | llama_context: Flash Attention was auto, set to enabled
+ollama-1  | llama_context:        CPU compute buffer size =    72.01 MiB
+ollama-1  | llama_context: graph nodes  = 935
+ollama-1  | llama_context: graph splits = 1
+ollama-1  | time=2026-04-29T05:54:33.403Z level=INFO source=server.go:1402 msg="llama runner started in 4.13 seconds"
+ollama-1  | time=2026-04-29T05:54:33.403Z level=INFO source=sched.go:561 msg="loaded runners" count=1
+ollama-1  | time=2026-04-29T05:54:33.403Z level=INFO source=server.go:1364 msg="waiting for llama runner to start responding"
+ollama-1  | time=2026-04-29T05:54:33.404Z level=INFO source=server.go:1402 msg="llama runner started in 4.13 seconds"
+ollama-1  | [GIN] 2026/04/29 - 05:57:11 | 200 |         2m42s |      172.18.0.4 | POST     "/v1/chat/completions"
+app-1     | 2026-04-29 05:57:11,195 [INFO] httpx: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+app-1     | 192.168.200.193 - - [29/Apr/2026:05:57:11 +0000] "GET /analytics/insights HTTP/1.1" 200 1744 "https://voice-ai.obtv.io/analytics" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
