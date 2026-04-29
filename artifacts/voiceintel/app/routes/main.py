@@ -7,6 +7,15 @@ from collections import Counter
 
 from app import db
 from app.models.voicemail import Voicemail, Transcript, Insight, Category
+from app.services.nlp_service import STOPWORDS
+
+
+def _filter_keywords(keywords):
+    """Drop common filler/stopwords and very short tokens from a keyword list."""
+    return [
+        kw for kw in keywords
+        if kw and len(kw) >= 3 and kw.lower() not in STOPWORDS
+    ]
 
 main_bp = Blueprint("main", __name__)
 
@@ -46,7 +55,7 @@ def dashboard():
     insights_with_kw = Insight.query.filter(Insight.keywords.isnot(None)).limit(100).all()
     for ins in insights_with_kw:
         if ins.keywords:
-            all_keywords.extend(ins.keywords)
+            all_keywords.extend(_filter_keywords(ins.keywords))
     top_keywords = [kw for kw, _ in Counter(all_keywords).most_common(15)]
 
     recent = (
@@ -184,7 +193,7 @@ def analytics():
     all_kw: list = []
     for ins in Insight.query.filter(Insight.keywords.isnot(None)).all():
         if ins.keywords:
-            all_kw.extend(ins.keywords)
+            all_kw.extend(_filter_keywords(ins.keywords))
     kw_counter = Counter(all_kw)
     top_keywords = [{"word": w, "count": c} for w, c in kw_counter.most_common(20)]
 
@@ -274,7 +283,7 @@ def analytics_insights():
     all_kw: list = []
     for ins in Insight.query.filter(Insight.keywords.isnot(None)).limit(200).all():
         if ins.keywords:
-            all_kw.extend(ins.keywords)
+            all_kw.extend(_filter_keywords(ins.keywords))
     top_kw = [w for w, _ in Counter(all_kw).most_common(15)]
 
     recent_vms = (
