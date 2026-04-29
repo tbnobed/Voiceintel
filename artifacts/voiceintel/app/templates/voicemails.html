@@ -189,3 +189,48 @@
 </div>
 {% endif %}
 {% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // Snapshot taken when the page was rendered server-side.
+  var snap = {
+    total:         {{ pagination.total | tojson }},
+    latest_id:     {{ (voicemails[0].id if voicemails else None) | tojson }},
+    latest_status: {{ (voicemails[0].processing_status if voicemails else None) | tojson }},
+  };
+
+  // Inject a small pulsing dot next to the page title to show live mode is on.
+  if (!document.getElementById("live-pulse-style")) {
+    var s = document.createElement("style");
+    s.id = "live-pulse-style";
+    s.textContent = "@keyframes live-pulse{0%,100%{opacity:.35}50%{opacity:1}}";
+    document.head.appendChild(s);
+  }
+  var dot = document.createElement("span");
+  dot.title = "Live — updates automatically";
+  dot.style.cssText = "display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--sub);margin-left:9px;vertical-align:middle;animation:live-pulse 2s ease-in-out infinite;";
+  var titleEl = document.querySelector(".page-title");
+  if (titleEl) titleEl.appendChild(dot);
+
+  function check() {
+    fetch("/voicemails/poll", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        var changed =
+          data.total         !== snap.total         ||
+          data.latest_id     !== snap.latest_id     ||
+          data.latest_status !== snap.latest_status;
+        if (changed) {
+          window.location.reload();
+        }
+      })
+      .catch(function () { /* network blip, retry next interval */ });
+  }
+
+  // Poll every 6 seconds.
+  setInterval(check, 6000);
+})();
+</script>
+{% endblock %}

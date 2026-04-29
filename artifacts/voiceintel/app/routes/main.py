@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app, jsonify
 from flask_login import login_required
 from sqlalchemy import func, desc, or_
 from datetime import datetime, timedelta
@@ -129,6 +129,29 @@ def voicemail_detail(vm_id):
     vm = Voicemail.query.get_or_404(vm_id)
     q = request.args.get("q", "").strip()
     return render_template("voicemail_detail.html", vm=vm, q=q)
+
+
+@main_bp.route("/voicemails/poll")
+@login_required
+def voicemail_poll():
+    """
+    Lightweight endpoint for live-update polling.
+    Returns the total count plus the most-recently-created voicemail's id and
+    status. An optional ?id= param also returns the status of a specific
+    voicemail (used by the detail page while transcription is in progress).
+    """
+    latest = Voicemail.query.order_by(desc(Voicemail.created_at)).first()
+    payload = {
+        "total": Voicemail.query.count(),
+        "latest_id": latest.id if latest else None,
+        "latest_status": latest.processing_status if latest else None,
+    }
+    # Detail-page targeted check.
+    vm_id = request.args.get("id", type=int)
+    if vm_id:
+        vm = Voicemail.query.get(vm_id)
+        payload["vm_status"] = vm.processing_status if vm else None
+    return jsonify(payload)
 
 
 @main_bp.route("/voicemails/<int:vm_id>/delete", methods=["POST"])

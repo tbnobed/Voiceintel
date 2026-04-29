@@ -265,5 +265,31 @@ function reprocess(id) {
       msg.textContent = 'Error: ' + e.message;
     });
 }
+
+// If this voicemail is still being processed, poll until status changes then
+// reload so the transcript and analysis panels populate automatically.
+(function () {
+  var currentStatus = {{ vm.processing_status | tojson }};
+  if (currentStatus !== 'processing') return;
+
+  // Show a subtle "transcribing…" note in the transcript panel.
+  var emptyNote = document.querySelector('.empty-sub');
+  if (emptyNote) emptyNote.textContent = 'Transcription in progress — this page will refresh automatically…';
+
+  function poll() {
+    fetch('/voicemails/poll?id={{ vm.id }}', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        // vm_status is the status of this specific voicemail.
+        if (data.vm_status && data.vm_status !== 'processing') {
+          window.location.reload();
+        }
+      })
+      .catch(function () {});
+  }
+
+  setInterval(poll, 5000);
+})();
 </script>
 {% endblock %}
