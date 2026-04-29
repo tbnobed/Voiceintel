@@ -36,14 +36,32 @@ def create_app():
         return User.query.get(int(user_id))
 
     from app.routes.main import main_bp
+    from app.routes.tasks import tasks_bp
     from app.routes.api import api_bp
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
 
     app.register_blueprint(main_bp)
+    app.register_blueprint(tasks_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp, url_prefix="/admin")
+
+    # Expose open-callback count for the sidebar badge on every authenticated page.
+    @app.context_processor
+    def _inject_task_count():
+        from flask_login import current_user
+        if not current_user.is_authenticated:
+            return {}
+        try:
+            from app.models.voicemail import Callback
+            count = Callback.query.filter(
+                Callback.assignee_id == current_user.id,
+                Callback.status.in_(("pending", "in_progress")),
+            ).count()
+        except Exception:
+            count = 0
+        return {"open_task_count": count}
 
     with app.app_context():
         db.create_all()

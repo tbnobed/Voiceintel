@@ -110,6 +110,18 @@ class Voicemail(db.Model):
     category_obj = db.relationship("Category", back_populates="voicemails")
     transcript = db.relationship("Transcript", back_populates="voicemail", uselist=False, cascade="all, delete-orphan")
     insights = db.relationship("Insight", back_populates="voicemail", uselist=False, cascade="all, delete-orphan")
+    callbacks = db.relationship(
+        "Callback",
+        back_populates="voicemail",
+        cascade="all, delete-orphan",
+        order_by="Callback.created_at.desc()",
+    )
+    notes = db.relationship(
+        "VoicemailNote",
+        back_populates="voicemail",
+        cascade="all, delete-orphan",
+        order_by="VoicemailNote.created_at.desc()",
+    )
 
     __table_args__ = (db.UniqueConstraint("message_id", "filename", name="uq_message_filename"),)
 
@@ -213,3 +225,64 @@ class Setting(db.Model):
             s = cls(key=key, value=str(value))
             db.session.add(s)
         db.session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Follow-up callback tasks (assignable to agents)
+# ---------------------------------------------------------------------------
+
+CALLBACK_STATUSES = ("pending", "in_progress", "completed", "cancelled")
+CALLBACK_PRIORITIES = ("normal", "urgent")
+
+
+class Callback(db.Model):
+    """A follow-up phone call task assigned to a user (agent/supervisor/admin)
+    in response to a voicemail."""
+    __tablename__ = "callbacks"
+
+    id           = db.Column(db.Integer, primary_key=True)
+    voicemail_id = db.Column(db.Integer, db.ForeignKey("voicemails.id", ondelete="CASCADE"), nullable=False, index=True)
+    assignee_id  = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    assigner_id  = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    status       = db.Column(db.String(20), nullable=False, default="pending", index=True)
+    priority     = db.Column(db.String(20), nullable=False, default="normal")
+    notes        = db.Column(db.Text)               # supervisor's instructions
+    due_at       = db.Column(db.DateTime)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    completed_at = db.Column(db.DateTime)
+
+    voicemail = db.relationship("Voicemail", back_populates="callbacks")
+    assignee  = db.relationship("User", foreign_keys=[assignee_id])
+    assigner  = db.relationship("User", foreign_keys=[assigner_id])
+
+    @property
+    def is_open(self) -> bool:
+        return self.status in ("pending", "in_progress")
+
+    @property
+    def status_label(self) -> str:
+        return {
+            "pending":     "Pending",
+            "in_progress": "In Progress",
+            "completed":   "Completed",
+            "cancelled":   "Cancelled",
+        }.get(self.status, self.status.title())
+
+
+class VoicemailNote(db.Model):
+    """Free-form note attached to a voicemail. Anyone signed-in can post one;
+    used for follow-up notes, call dispositions, internal comments."""
+    __tablename__ = "voicemail_notes"
+
+    id           = db.Column(db.Integer, primary_key=True)
+    voicemail_id = db.Column(db.Integer, db.ForeignKey("voicemails.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id    = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    body         = db.Column(db.Text, nullable=False)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    voicemail = db.relationship("Voicemail", back_populates="notes")
+    author    = db.relationship("User", foreign_keys=[author_id])
+
+    @property
+    def author_name(self) -> str:
+        return self.author.name if self.author else "(deleted user)"

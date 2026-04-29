@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, jsonify
 from flask_login import login_required, current_user
 from app import db
-from app.models.user import User
+from app.models.user import User, ROLES, ROLE_LABELS
 from app.models.trigger import AutomationTrigger
 from app.models.voicemail import Setting
 
@@ -14,6 +14,12 @@ admin_bp = Blueprint("admin", __name__)
 
 def _admin_required():
     if not current_user.is_authenticated or not current_user.is_admin:
+        abort(403)
+
+
+def _user_management_required():
+    """Admins and supervisors can manage users."""
+    if not current_user.is_authenticated or not current_user.can_manage_users:
         abort(403)
 
 
@@ -56,26 +62,30 @@ def index():
 @admin_bp.route("/users")
 @login_required
 def users():
-    _admin_required()
+    _user_management_required()
     all_users = User.query.order_by(User.created_at).all()
-    return render_template("admin/users.html", users=all_users)
+    return render_template("admin/users.html", users=all_users, role_labels=ROLE_LABELS)
 
 
 @admin_bp.route("/users/new", methods=["GET", "POST"])
 @login_required
 def new_user():
-    _admin_required()
+    _user_management_required()
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         name = request.form.get("name", "").strip()
         role = request.form.get("role", "viewer")
         password = request.form.get("password", "")
-        if not email or not name or not password:
+
+        # Only admins may create other admins.
+        if role == "admin" and not current_user.is_admin:
+            error = "Only administrators can create admin accounts."
+        elif not email or not name or not password:
             error = "All fields are required."
         elif User.query.filter_by(email=email).first():
             error = "A user with that email already exists."
-        elif role not in ("admin", "viewer"):
+        elif role not in ROLES:
             error = "Invalid role."
         else:
             user = User(email=email, name=name, role=role)
@@ -83,14 +93,24 @@ def new_user():
             db.session.add(user)
             db.session.commit()
             return redirect(url_for("admin.users"))
-    return render_template("admin/user_form.html", user=None, error=error, action="Create")
+    return render_template(
+        "admin/user_form.html",
+        user=None, error=error, action="Create",
+        roles=ROLES, role_labels=ROLE_LABELS,
+    )
 
 
 @admin_bp.route("/users/<int:user_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_user(user_id):
-    _admin_required()
+    _user_management_required()
     user = User.query.get_or_404(user_id)
+
+    # Supervisors cannot edit admin accounts (only other admins can).
+    if user.is_admin and not current_user.is_admin:
+        flash("Only administrators can edit admin accounts.", "error")
+        return redirect(url_for("admin.users"))
+
     error = None
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -98,9 +118,12 @@ def edit_user(user_id):
         is_active = request.form.get("is_active") == "1"
         new_password = request.form.get("password", "").strip()
 
-        if not name:
+        # Only admins may grant or revoke the admin role.
+        if (role == "admin" or user.is_admin) and not current_user.is_admin:
+            error = "Only administrators can change the admin role."
+        elif not name:
             error = "Name is required."
-        elif role not in ("admin", "viewer"):
+        elif role not in ROLES:
             error = "Invalid role."
         else:
             user.name = name
@@ -110,16 +133,24 @@ def edit_user(user_id):
                 user.set_password(new_password)
             db.session.commit()
             return redirect(url_for("admin.users"))
-    return render_template("admin/user_form.html", user=user, error=error, action="Save Changes")
+    return render_template(
+        "admin/user_form.html",
+        user=user, error=error, action="Save Changes",
+        roles=ROLES, role_labels=ROLE_LABELS,
+    )
 
 
 @admin_bp.route("/users/<int:user_id>/delete", methods=["POST"])
 @login_required
 def delete_user(user_id):
-    _admin_required()
+    _user_management_required()
     user = User.query.get_or_404(user_id)
     if user.id == current_user.id:
         return jsonify({"error": "Cannot delete your own account."}), 400
+    # Supervisors cannot delete admin accounts.
+    if user.is_admin and not current_user.is_admin:
+        flash("Only administrators can delete admin accounts.", "error")
+        return redirect(url_for("admin.users"))
     db.session.delete(user)
     db.session.commit()
     return redirect(url_for("admin.users"))

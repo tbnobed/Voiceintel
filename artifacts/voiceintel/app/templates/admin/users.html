@@ -44,6 +44,10 @@
         <td>
           {% if u.role == 'admin' %}
           <span class="pill pill-urg">Admin</span>
+          {% elif u.role == 'supervisor' %}
+          <span class="pill" style="background:rgba(247,206,91,0.14); color:var(--accent); border:1px solid rgba(247,206,91,0.25);">Supervisor</span>
+          {% elif u.role == 'agent' %}
+          <span class="pill pill-cat">Agent</span>
           {% else %}
           <span class="pill pill-pend">Viewer</span>
           {% endif %}

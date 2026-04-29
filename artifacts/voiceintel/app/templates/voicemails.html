@@ -136,6 +136,7 @@
           </td>
           <td style="text-align:right; padding-right:16px; white-space:nowrap;">
             <a href="/voicemails/{{ vm.id }}{% if q %}?q={{ q }}{% endif %}" class="btn btn-ghost btn-sm">Open →</a>
+            {% if current_user.is_admin or current_user.is_supervisor %}
             <form method="POST" action="/voicemails/{{ vm.id }}/delete" style="display:inline;"
                   onsubmit="return confirm('Delete this voicemail and its audio files?');">
               <button type="submit" class="btn btn-sm"
@@ -144,6 +145,7 @@
                 ✕
               </button>
             </form>
+            {% endif %}
           </td>
         </tr>
       {% endfor %}

@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Tasks — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Tasks</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ 'All Callbacks' if view == 'all' else 'My Callbacks' }}</div>
+  <div class="page-sub">
+    {% if view == 'all' %}
+      Every follow-up callback in the system, across all agents.
+    {% else %}
+      Voicemail follow-ups assigned to you.
+    {% endif %}
+  </div>
+</div>
+
+<!-- View / status tabs -->
+<div style="display:flex; align-items:center; gap:6px; margin-bottom:20px; flex-wrap:wrap;">
+  <a href="/tasks?view=mine&status={{ status_filter }}"
+     class="btn {{ 'btn-primary' if view == 'mine' else 'btn-ghost' }}">
+    Mine{% if mine_open %} <span style="background:rgba(0,0,0,0.18); padding:1px 7px; border-radius:8px; font-size:10px; margin-left:4px;">{{ mine_open }}</span>{% endif %}
+  </a>
+  {% if all_open is not none %}
+  <a href="/tasks?view=all&status={{ status_filter }}"
+     class="btn {{ 'btn-primary' if view == 'all' else 'btn-ghost' }}">
+    All{% if all_open %} <span style="background:rgba(0,0,0,0.18); padding:1px 7px; border-radius:8px; font-size:10px; margin-left:4px;">{{ all_open }}</span>{% endif %}
+  </a>
+  {% endif %}
+
+  <span style="width:1px; height:22px; background:var(--border); margin:0 8px;"></span>
+
+  {% for s_key, s_label in [('open','Open'),('completed','Completed'),('cancelled','Cancelled'),('all','All')] %}
+  <a href="/tasks?view={{ view }}&status={{ s_key }}"
+     class="btn {{ 'btn-primary' if status_filter == s_key else 'btn-ghost' }} btn-sm">
+    {{ s_label }}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+{% if callbacks %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Status</th>
+      <th>Caller</th>
+      <th>Assignee</th>
+      <th>Priority</th>
+      <th>Due</th>
+      <th>Created</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for cb in callbacks %}
+    {% set ci = cb.voicemail.caller_info %}
+    <tr {% if cb.priority == 'urgent' and cb.is_open %}class="urg"{% endif %}>
+      <td>
+        {% if cb.status == 'completed' %}
+          <span class="pill pill-done">Completed</span>
+        {% elif cb.status == 'in_progress' %}
+          <span class="pill pill-proc">In Progress</span>
+        {% elif cb.status == 'cancelled' %}
+          <span class="pill pill-pend">Cancelled</span>
+        {% else %}
+          <span class="pill" style="background:rgba(247,206,91,0.12); color:var(--accent); border:1px solid rgba(247,206,91,0.25);">Pending</span>
+        {% endif %}
+      </td>
+      <td>
+        <a href="/voicemails/{{ cb.voicemail.id }}#callbacks" style="color:var(--vanilla); font-weight:500;">
+          {{ ci.caller_name or cb.voicemail.subject or '(no subject)' }}
+        </a>
+        {% if ci.phone %}
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">{{ ci.phone }}</div>
+        {% endif %}
+        {% if cb.notes %}
+        <div style="font-size:11px; color:var(--muted); margin-top:4px; white-space:pre-wrap; line-height:1.5; max-width:340px;">
+          {{ cb.notes[:140] }}{% if cb.notes|length > 140 %}…{% endif %}
+        </div>
+        {% endif %}
+      </td>
+      <td>
+        {{ cb.assignee.name if cb.assignee else '—' }}
+        {% if cb.assignee_id == current_user.id %}
+        <span class="pill pill-done" style="margin-left:4px;">You</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if cb.priority == 'urgent' %}
+        <span class="pill pill-urg">Urgent</span>
+        {% else %}
+        <span style="font-size:11px; color:var(--muted);">Normal</span>
+        {% endif %}
+      </td>
+      <td style="font-size:12px; color:var(--muted);">
+        {% if cb.due_at %}
+          {{ cb.due_at.strftime('%b %d, %Y') }}
+          <div style="font-size:10px;">{{ cb.due_at.strftime('%H:%M') }} UTC</div>
+        {% else %}
+          —
+        {% endif %}
+      </td>
+      <td style="font-size:12px; color:var(--muted);">
+        {{ cb.created_at.strftime('%b %d') }}
+        <div style="font-size:10px;">by {{ cb.assigner.name if cb.assigner else '—' }}</div>
+      </td>
+      <td style="text-align:right; padding-right:20px;">
+        {% if current_user.is_admin or current_user.is_supervisor or cb.assignee_id == current_user.id %}
+        <form method="POST" action="/tasks/{{ cb.id }}/update" style="display:inline-flex; gap:4px; align-items:center;">
+          <input type="hidden" name="next" value="/tasks?view={{ view }}&status={{ status_filter }}" />
+          <select name="status" class="filter-select" style="font-size:11px; padding:4px 6px; width:auto;">
+            <option value="pending"     {{ 'selected' if cb.status == 'pending' }}>Pending</option>
+            <option value="in_progress" {{ 'selected' if cb.status == 'in_progress' }}>In Progress</option>
+            <option value="completed"   {{ 'selected' if cb.status == 'completed' }}>Completed</option>
+            <option value="cancelled"   {{ 'selected' if cb.status == 'cancelled' }}>Cancelled</option>
+          </select>
+          <button type="submit" class="btn btn-ghost btn-sm">Save</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">
+  <div class="empty-title">No callbacks {{ 'in this view' if view == 'all' else 'assigned to you' }}</div>
+  <div class="empty-sub">
+    {% if status_filter == 'open' %}
+      Nothing pending — try the <strong>All</strong> filter to see completed work.
+    {% else %}
+      No tasks match this filter.
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

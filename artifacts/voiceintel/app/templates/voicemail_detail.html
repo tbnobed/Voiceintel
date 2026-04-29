@@ -123,6 +123,172 @@
     </div>
     {% endif %}
 
+    <!-- ── Callbacks ────────────────────────────────────────────────────── -->
+    <div class="card" id="callbacks">
+      <div class="card-head">
+        <span class="card-head-title">Callbacks</span>
+        <span style="font-size:11px; color:var(--muted);">
+          {{ vm.callbacks|selectattr('is_open')|list|length }} open
+        </span>
+      </div>
+
+      {% if vm.callbacks %}
+      <div>
+        {% for cb in vm.callbacks %}
+        <div style="padding:14px 20px; border-bottom:1px solid var(--border-m);">
+          <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+            {% if cb.status == 'completed' %}
+              <span class="pill pill-done">Completed</span>
+            {% elif cb.status == 'in_progress' %}
+              <span class="pill pill-proc">In Progress</span>
+            {% elif cb.status == 'cancelled' %}
+              <span class="pill pill-pend">Cancelled</span>
+            {% else %}
+              <span class="pill" style="background:rgba(247,206,91,0.12); color:var(--accent); border:1px solid rgba(247,206,91,0.25);">Pending</span>
+            {% endif %}
+            {% if cb.priority == 'urgent' %}
+              <span class="pill pill-urg">Urgent</span>
+            {% endif %}
+            <span style="font-size:12px; color:var(--sub);">
+              <strong style="color:var(--vanilla); font-weight:500;">{{ cb.assignee.name if cb.assignee else '(unassigned)' }}</strong>
+            </span>
+            {% if cb.due_at %}
+              <span style="font-size:11px; color:var(--muted); margin-left:auto;">
+                Due {{ cb.due_at.strftime('%b %d, %Y %H:%M') }} UTC
+              </span>
+            {% endif %}
+          </div>
+          {% if cb.notes %}
+            <div style="font-size:13px; color:var(--sub); margin:6px 0 8px; white-space:pre-wrap;">{{ cb.notes }}</div>
+          {% endif %}
+          <div style="font-size:11px; color:var(--muted);">
+            Assigned by {{ cb.assigner.name if cb.assigner else '—' }} · {{ cb.created_at.strftime('%b %d, %Y %H:%M') }} UTC
+            {% if cb.completed_at %} · Completed {{ cb.completed_at.strftime('%b %d %H:%M') }} UTC{% endif %}
+          </div>
+
+          {# Status update form: assignee, supervisor, or admin can change status #}
+          {% if current_user.is_admin or current_user.is_supervisor or cb.assignee_id == current_user.id %}
+          <form method="POST" action="/tasks/{{ cb.id }}/update" style="display:flex; gap:6px; margin-top:10px; align-items:center;">
+            <input type="hidden" name="next" value="/voicemails/{{ vm.id }}#callbacks" />
+            <select name="status" class="filter-select" style="flex:1; font-size:12px; max-width:170px;">
+              <option value="pending"     {{ 'selected' if cb.status == 'pending' }}>Pending</option>
+              <option value="in_progress" {{ 'selected' if cb.status == 'in_progress' }}>In Progress</option>
+              <option value="completed"   {{ 'selected' if cb.status == 'completed' }}>Completed</option>
+              <option value="cancelled"   {{ 'selected' if cb.status == 'cancelled' }}>Cancelled</option>
+            </select>
+            <button type="submit" class="btn btn-ghost btn-sm">Update</button>
+          </form>
+          {% endif %}
+
+          {% if current_user.can_assign_callbacks %}
+          <form method="POST" action="/tasks/{{ cb.id }}/delete" style="display:inline; margin-top:6px;"
+                onsubmit="return confirm('Remove this callback assignment?');">
+            <input type="hidden" name="next" value="/voicemails/{{ vm.id }}#callbacks" />
+            <button type="submit" class="btn btn-sm" style="background:transparent; color:var(--muted); border:none; padding:6px 0; font-size:11px;">
+              Remove
+            </button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="padding:24px 20px; text-align:center; font-size:13px; color:var(--muted);">
+        No callbacks have been assigned yet.
+      </div>
+      {% endif %}
+
+      {# Assignment form for supervisors/admins #}
+      {% if current_user.can_assign_callbacks %}
+      <div style="border-top:1px solid var(--border-m); padding:18px 20px; background:rgba(247,206,91,0.02);">
+        <div style="font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--sub); margin-bottom:12px;">
+          Assign a Callback
+        </div>
+        <form method="POST" action="/voicemails/{{ vm.id }}/callbacks" style="display:flex; flex-direction:column; gap:10px;">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div class="filter-group">
+              <label>Assignee</label>
+              <select name="assignee_id" class="filter-select" required>
+                <option value="">— choose user —</option>
+                {% for u in assignable_users %}
+                <option value="{{ u.id }}" {{ 'selected' if u.id == current_user.id else '' }}>
+                  {{ u.name }} ({{ u.role_label }}{{ ' — you' if u.id == current_user.id else '' }})
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Priority</label>
+              <select name="priority" class="filter-select">
+                <option value="normal">Normal</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="filter-group">
+            <label>Due (optional)</label>
+            <input type="datetime-local" name="due_at" class="filter-input" />
+          </div>
+          <div class="filter-group">
+            <label>Instructions (optional)</label>
+            <textarea name="notes" class="filter-input" rows="2" placeholder="What should the agent do or ask about?" style="resize:vertical; font-family:inherit;"></textarea>
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.6 17.6 0 0 0 4.168 6.608 17.6 17.6 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.68.68 0 0 0-.58-.122l-2.19.547a1.75 1.75 0 0 1-1.657-.459L5.482 8.062a1.75 1.75 0 0 1-.46-1.657l.548-2.19a.68.68 0 0 0-.122-.58z" fill="currentColor"/></svg>
+              Assign Callback
+            </button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Notes ────────────────────────────────────────────────────────── -->
+    <div class="card" id="notes">
+      <div class="card-head">
+        <span class="card-head-title">Notes &amp; Disposition</span>
+        <span style="font-size:11px; color:var(--muted);">{{ vm.notes|length }}</span>
+      </div>
+
+      {% if vm.notes %}
+      <div>
+        {% for note in vm.notes %}
+        <div style="padding:14px 20px; border-bottom:1px solid var(--border-m);">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+            <span style="font-size:12px; font-weight:500; color:var(--vanilla);">{{ note.author_name }}</span>
+            <span style="font-size:11px; color:var(--muted);">{{ note.created_at.strftime('%b %d, %Y at %H:%M') }} UTC</span>
+            {% if note.author_id == current_user.id or current_user.is_admin or current_user.is_supervisor %}
+            <form method="POST" action="/voicemails/{{ vm.id }}/notes/{{ note.id }}/delete" style="display:inline; margin-left:auto;"
+                  onsubmit="return confirm('Delete this note?');">
+              <button type="submit" style="background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:11px; padding:0;">
+                Delete
+              </button>
+            </form>
+            {% endif %}
+          </div>
+          <div style="font-size:13px; color:var(--sub); white-space:pre-wrap; line-height:1.6;">{{ note.body }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="padding:24px 20px; text-align:center; font-size:13px; color:var(--muted);">
+        No notes yet. Add the first follow-up note below.
+      </div>
+      {% endif %}
+
+      <div style="border-top:1px solid var(--border-m); padding:16px 20px; background:rgba(247,206,91,0.02);">
+        <form method="POST" action="/voicemails/{{ vm.id }}/notes" style="display:flex; flex-direction:column; gap:10px;">
+          <textarea name="body" class="filter-input" rows="3" required maxlength="5000"
+                    placeholder="Add a follow-up note or call disposition…"
+                    style="resize:vertical; font-family:inherit;"></textarea>
+          <div>
+            <button type="submit" class="btn btn-primary">Add Note</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 
   <!-- Right sidebar -->
@@ -226,7 +392,8 @@
           <button type="submit" class="btn btn-ghost" style="white-space:nowrap; font-size:12px;">Set Status</button>
         </form>
 
-        <!-- Delete -->
+        <!-- Delete (admin/supervisor only) -->
+        {% if current_user.is_admin or current_user.is_supervisor %}
         <div style="padding-top:6px; border-top:1px solid var(--border-m);">
           <form method="POST" action="/voicemails/{{ vm.id }}/delete"
                 onsubmit="return confirm('Permanently delete this voicemail and its audio files? This cannot be undone.');">
@@ -236,6 +403,7 @@
             </button>
           </form>
         </div>
+        {% endif %}
 
       </div>
     </div>

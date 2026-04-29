@@ -1,12 +1,13 @@
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app, jsonify
-from flask_login import login_required
+from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app, jsonify, flash
+from flask_login import login_required, current_user
 from sqlalchemy import func, desc, or_
 from datetime import datetime, timedelta
 from collections import Counter
 
 from app import db
-from app.models.voicemail import Voicemail, Transcript, Insight, Category
+from app.models.voicemail import Voicemail, Transcript, Insight, Category, VoicemailNote
+from app.models.user import User
 from app.services.nlp_service import STOPWORDS
 
 
@@ -137,7 +138,55 @@ def voicemail_list():
 def voicemail_detail(vm_id):
     vm = Voicemail.query.get_or_404(vm_id)
     q = request.args.get("q", "").strip()
-    return render_template("voicemail_detail.html", vm=vm, q=q)
+    # Active users who can be assigned a callback (admin/supervisor/agent),
+    # for the assignment dropdown shown to admins/supervisors.
+    assignable_users = []
+    if current_user.can_assign_callbacks:
+        assignable_users = (
+            User.query
+            .filter(User.is_active.is_(True), User.role.in_(("admin", "supervisor", "agent")))
+            .order_by(User.name)
+            .all()
+        )
+    return render_template(
+        "voicemail_detail.html",
+        vm=vm, q=q,
+        assignable_users=assignable_users,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Voicemail notes (any signed-in user can post)
+# ---------------------------------------------------------------------------
+
+@main_bp.route("/voicemails/<int:vm_id>/notes", methods=["POST"])
+@login_required
+def add_voicemail_note(vm_id):
+    vm = Voicemail.query.get_or_404(vm_id)
+    body = request.form.get("body", "").strip()
+    if not body:
+        flash("Note cannot be empty.", "error")
+    elif len(body) > 5000:
+        flash("Note is too long (max 5000 characters).", "error")
+    else:
+        note = VoicemailNote(voicemail_id=vm.id, author_id=current_user.id, body=body)
+        db.session.add(note)
+        db.session.commit()
+    return redirect(url_for("main.voicemail_detail", vm_id=vm.id) + "#notes")
+
+
+@main_bp.route("/voicemails/<int:vm_id>/notes/<int:note_id>/delete", methods=["POST"])
+@login_required
+def delete_voicemail_note(vm_id, note_id):
+    note = VoicemailNote.query.get_or_404(note_id)
+    if note.voicemail_id != vm_id:
+        abort(404)
+    # Author, admins, and supervisors can delete a note.
+    if note.author_id != current_user.id and not current_user.is_admin and not current_user.is_supervisor:
+        abort(403)
+    db.session.delete(note)
+    db.session.commit()
+    return redirect(url_for("main.voicemail_detail", vm_id=vm_id) + "#notes")
 
 
 @main_bp.route("/analytics")
@@ -299,6 +348,11 @@ def voicemail_poll():
 @main_bp.route("/voicemails/<int:vm_id>/delete", methods=["POST"])
 @login_required
 def voicemail_delete(vm_id):
+    # Only admins and supervisors can delete voicemails — this also cascades
+    # to callbacks and notes, so it must be tightly restricted.
+    if not (current_user.is_admin or current_user.is_supervisor):
+        flash("You don't have permission to delete voicemails.", "error")
+        return redirect(url_for("main.voicemail_detail", vm_id=vm_id))
     vm = Voicemail.query.get_or_404(vm_id)
     # Delete audio files from disk
     for path in (vm.original_path, vm.converted_path):

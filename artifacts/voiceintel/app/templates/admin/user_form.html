@@ -38,8 +38,15 @@
         <div class="filter-group" style="margin-bottom:18px;">
           <label>Role</label>
           <select name="role" class="filter-select">
-            <option value="viewer" {{ 'selected' if user and user.role == 'viewer' else '' }}>Viewer — read-only access</option>
-            <option value="admin" {{ 'selected' if user and user.role == 'admin' else '' }}>Admin — full access + admin panel</option>
+            <option value="viewer"     {{ 'selected' if user and user.role == 'viewer' else '' }}>Viewer — read-only access; can post notes</option>
+            <option value="agent"      {{ 'selected' if user and user.role == 'agent' else (' selected' if not user else '') }}>Agent — receives callback assignments</option>
+            <option value="supervisor" {{ 'selected' if user and user.role == 'supervisor' else '' }}>Supervisor — manage users + assign callbacks</option>
+            {# Only admins can grant the admin role. Hide otherwise unless the user is already an admin. #}
+            {% if current_user.is_admin %}
+            <option value="admin"      {{ 'selected' if user and user.role == 'admin' else '' }}>Admin — full access including admin panel</option>
+            {% elif user and user.role == 'admin' %}
+            <option value="admin" selected disabled>Admin (only an admin can change this)</option>
+            {% endif %}
           </select>
         </div>
         {% if user %}
