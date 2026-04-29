@@ -111,22 +111,11 @@ prompt SESSION_SECRET  "Flask session secret (leave blank to auto-generate)" "" 
 prompt DB_PASSWORD     "PostgreSQL password (leave blank to auto-generate)" "" "yes"
 [[ -z "$DB_PASSWORD" ]] && DB_PASSWORD="$GEN_DB_PASS" && info "Auto-generated database password."
 
-echo ""
-echo -e "${BOLD}  IMAP Email Ingestion  (optional — press Enter to skip)${RESET}"
-prompt IMAP_HOST     "IMAP hostname (e.g. imap.gmail.com)" ""
-prompt IMAP_PORT     "IMAP port"                          "993"
-prompt IMAP_USERNAME "IMAP username / email address"      ""
-prompt IMAP_PASSWORD "IMAP password or app-password"      "" "yes"
-prompt IMAP_FOLDER   "Mailbox folder to watch"            "INBOX"
-prompt POLL_INTERVAL "Poll interval in seconds"           "60"
-
-echo ""
-echo -e "${BOLD}  SendGrid  (optional — press Enter to skip)${RESET}"
-prompt SENDGRID_API_KEY      "SendGrid API key"         "" "yes"
-prompt SENDGRID_FROM_EMAIL   "From email address"       ""
-prompt SENDGRID_FROM_NAME    "From display name"        "VoiceIntel"
-prompt SENDGRID_ADMIN_EMAIL  "Admin notification email" ""
-prompt SENDGRID_WEBHOOK_KEY  "Inbound Parse webhook token (any secret string)" ""
+# IMAP and SendGrid are configured after installation via Admin → Integrations.
+IMAP_HOST=""; IMAP_PORT="993"; IMAP_USERNAME=""; IMAP_PASSWORD=""
+IMAP_FOLDER="INBOX"; POLL_INTERVAL="60"
+SENDGRID_API_KEY=""; SENDGRID_FROM_EMAIL=""; SENDGRID_FROM_NAME="VoiceIntel"
+SENDGRID_ADMIN_EMAIL=""; SENDGRID_WEBHOOK_KEY=""
 
 # ── Write .env ────────────────────────────────────────────────────────────────
 section "Writing .env"
