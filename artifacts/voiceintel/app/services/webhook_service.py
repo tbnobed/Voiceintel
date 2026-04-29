@@ -128,13 +128,14 @@ def parse_sendgrid_inbound(request, storage_dir: str) -> list[dict]:
     logger.info(f"SendGrid webhook: from={sender!r}, subject={subject!r}, attachments={num_attachments}")
 
     results = []
+
+    # ── Path 1: top-level SendGrid attachments ────────────────────────────────
     for i in range(1, num_attachments + 1):
         key = f"attachment{i}"
         file_obj = request.files.get(key)
         if file_obj is None:
             continue
 
-        # Determine filename
         filename = file_obj.filename or ""
         if not filename:
             info = attachment_info.get(key, {})
@@ -164,6 +165,95 @@ def parse_sendgrid_inbound(request, storage_dir: str) -> list[dict]:
 
     if num_attachments > 0 and not results:
         logger.warning(f"Webhook received {num_attachments} attachment(s) but none were audio files")
+
+    # ── Path 2: raw email fallback for forwarded messages ─────────────────────
+    # When the voicemail email is forwarded, the MP3 is a nested MIME part
+    # that SendGrid does not expose as a top-level attachment (attachments=0).
+    # SendGrid includes the full RFC 2822 message in the "email" field when
+    # "Send Raw" is enabled in Inbound Parse settings, or in the "charsets"
+    # payload. We always try to extract from it as a safety net.
+    if not results:
+        results = _extract_from_raw_email(
+            request.form.get("email", ""),
+            message_id, sender, subject, received_at, voicemail_dir,
+        )
+
+    return results
+
+
+def _extract_from_raw_email(
+    raw: str,
+    message_id: str,
+    sender: str,
+    subject: str,
+    received_at,
+    voicemail_dir: str,
+) -> list[dict]:
+    """
+    Walk every MIME part of the raw RFC 2822 email string (including nested
+    parts inside forwarded messages) and save any audio attachments found.
+    """
+    if not raw:
+        return []
+
+    import email as _email
+
+    results = []
+    try:
+        msg = _email.message_from_string(raw)
+    except Exception as exc:
+        logger.warning(f"Could not parse raw email field: {exc}")
+        return []
+
+    audio_parts = []
+    for part in msg.walk():
+        ct = part.get_content_type()
+        disposition = part.get("Content-Disposition", "")
+        filename = part.get_filename()
+
+        # Accept parts that are either explicitly attached or whose content
+        # type looks like audio (catches inline audio in forwarded messages).
+        is_audio_type = ct.startswith("audio/")
+        is_attachment = "attachment" in disposition.lower()
+
+        if not filename and not is_audio_type:
+            continue
+
+        filename = _decode_filename(filename or "")
+        if not filename:
+            # Derive a filename from the content-type subtype
+            subtype = ct.split("/")[-1] if "/" in ct else "wav"
+            filename = f"voicemail.{subtype}"
+
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in AUDIO_EXTENSIONS and not is_audio_type:
+            continue
+
+        payload = part.get_payload(decode=True)
+        if not payload:
+            continue
+
+        audio_parts.append((filename, payload))
+
+    logger.info(f"Raw email parse: found {len(audio_parts)} nested audio part(s)")
+
+    for idx, (filename, payload) in enumerate(audio_parts, start=1):
+        mid = f"{message_id}_raw{idx}" if len(audio_parts) > 1 else message_id
+        safe_name = _safe_filename(mid, filename)
+        save_path = os.path.join(voicemail_dir, safe_name)
+        with open(save_path, "wb") as fh:
+            fh.write(payload)
+        logger.info(f"Saved nested audio part: {save_path} ({len(payload)} bytes)")
+        results.append({
+            "message_id": mid,
+            "filename": filename,
+            "saved_path": save_path,
+            "sender": sender,
+            "subject": subject,
+            "received_at": received_at,
+            "uid": None,
+            "source": "sendgrid_webhook_raw",
+        })
 
     return results
 
