@@ -7,6 +7,10 @@ services:
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
+    environment:
+      # Keep models loaded in RAM forever — eliminates cold-start delays.
+      # On a 20 GB host phi3:mini (~3.5 GB resident) easily fits.
+      OLLAMA_KEEP_ALIVE: "-1"
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -14,7 +18,11 @@ services:
       retries: 15
       start_period: 30s
 
-  model-puller:
+  # Pulls phi3:mini if missing, then issues a tiny generate request with
+  # keep_alive=-1 so the model is loaded into memory and stays there. This
+  # means the first real /analytics/insights click after a fresh stack-up
+  # already finds the model warm — no 2-minute cold start.
+  model-warmer:
     image: ollama/ollama
     restart: "no"
     depends_on:
@@ -22,7 +30,19 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["ollama", "pull", "phi3:mini"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        if ollama list | grep -q "phi3:mini"; then
+          echo "phi3:mini already present, skipping pull";
+        else
+          echo "Pulling phi3:mini...";
+          ollama pull phi3:mini;
+        fi
+        echo "Warming phi3:mini into memory (keep_alive=-1)...";
+        ollama run phi3:mini --keepalive=-1 "" >/dev/null 2>&1 || true;
+        echo "Warm-up complete.";
 
   db:
     image: postgres:16-alpine

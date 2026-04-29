@@ -329,13 +329,17 @@ def analytics_insights():
 
     def generate():
         # Send an initial "connected" frame straight away so the browser knows
-        # we're alive even while Phi-3 is still loading into memory.
+        # we're alive even while Phi-3 is still loading into memory. Padding
+        # with a 2 KB SSE comment forces any in-the-middle reverse proxy
+        # (nginx, Cloudflare, etc.) to flush its first buffer, so the browser
+        # actually starts reading the stream instead of waiting.
+        yield ":" + (" " * 2048) + "\n\n"
         yield _sse({"status": "connecting"})
 
         try:
             from openai import OpenAI
             # Generous timeout to accommodate cold-start model loading.
-            client = OpenAI(base_url=ollama_url, api_key="ollama", timeout=300.0)
+            client = OpenAI(base_url=ollama_url, api_key="ollama", timeout=600.0)
 
             stream = client.chat.completions.create(
                 model="phi3:mini",
@@ -343,6 +347,10 @@ def analytics_insights():
                 temperature=0.4,
                 messages=[{"role": "user", "content": prompt}],
                 stream=True,
+                # Ollama-specific: keep model resident in RAM forever so the
+                # next request is instant. Sent via extra_body because the
+                # standard OpenAI schema doesn't include this field.
+                extra_body={"keep_alive": -1},
             )
 
             yield _sse({"status": "generating"})
@@ -357,8 +365,12 @@ def analytics_insights():
             yield _sse({"done": True})
         except Exception as e:
             current_app.logger.error(f"Ollama insights stream error: {e}", exc_info=True)
+            # Surface the actual error class + first line so we can debug
+            # production failures instead of guessing.
+            err_type = type(e).__name__
+            err_msg  = str(e).splitlines()[0][:200] if str(e) else "unknown"
             yield _sse({
-                "error": "Local model unavailable — ensure Ollama is running with phi3:mini pulled."
+                "error": f"Local model failed ({err_type}): {err_msg}"
             })
             yield _sse({"done": True})
 
