@@ -96,7 +96,10 @@
   </th>
 {%- endmacro %}
 
-{% set can_bulk = bulk_assign_teams and (current_user.is_admin or current_user.is_supervisor) %}
+{# can_bulk is provided by the view (see routes/main.py voicemail_list). It
+   intentionally lives in the route context — NOT a {% set %} inside this
+   block — so the {% block scripts %} at the bottom of the page can see it
+   too. #}
 {% if voicemails %}
 <div class="card" style="margin-bottom: 20px;">
   {% if can_bulk %}

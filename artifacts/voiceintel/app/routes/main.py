@@ -199,6 +199,10 @@ def voicemail_list():
     bulk_assign_teams = []
     if current_user.is_admin or current_user.is_supervisor:
         bulk_assign_teams = Team.query.order_by(Team.name).all()
+    # Pass can_bulk as a top-level template var so every Jinja block (content
+    # AND scripts) can see it. A `{% set %}` declared inside a block is scoped
+    # to that block and won't be visible in {% block scripts %}.
+    can_bulk = bool(bulk_assign_teams) and (current_user.is_admin or current_user.is_supervisor)
 
     return render_template(
         "voicemails.html",
@@ -207,6 +211,7 @@ def voicemail_list():
         categories=categories,
         available_teams=available_teams,
         bulk_assign_teams=bulk_assign_teams,
+        can_bulk=can_bulk,
         team_filter=team_filter,
         q=q,
         category_id=category_id,
