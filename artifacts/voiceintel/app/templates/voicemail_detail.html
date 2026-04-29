@@ -207,11 +207,36 @@
     <!-- Actions -->
     <div class="card">
       <div class="card-head"><span class="card-head-title">Actions</span></div>
-      <div class="card-body">
+      <div class="card-body" style="display:flex; flex-direction:column; gap:10px;">
+
+        <!-- Reprocess -->
         <button onclick="reprocess({{ vm.id }})" class="btn btn-primary btn-block" id="reproc-btn">
           Reprocess
         </button>
-        <div id="reproc-msg" style="display:none; margin-top:10px; font-size:12px; color:var(--muted); text-align:center;"></div>
+        <div id="reproc-msg" style="display:none; font-size:12px; color:var(--muted); text-align:center;"></div>
+
+        <!-- Change Status -->
+        <form method="POST" action="/voicemails/{{ vm.id }}/status" style="display:flex; gap:6px;">
+          <select name="status" class="filter-select" style="flex:1; font-size:12px;">
+            <option value="pending"    {{ 'selected' if vm.processing_status == 'pending' }}>Pending</option>
+            <option value="processing" {{ 'selected' if vm.processing_status == 'processing' }}>Processing</option>
+            <option value="completed"  {{ 'selected' if vm.processing_status == 'completed' }}>Completed</option>
+            <option value="error"      {{ 'selected' if vm.processing_status == 'error' }}>Error</option>
+          </select>
+          <button type="submit" class="btn btn-ghost" style="white-space:nowrap; font-size:12px;">Set Status</button>
+        </form>
+
+        <!-- Delete -->
+        <div style="padding-top:6px; border-top:1px solid var(--border-m);">
+          <form method="POST" action="/voicemails/{{ vm.id }}/delete"
+                onsubmit="return confirm('Permanently delete this voicemail and its audio files? This cannot be undone.');">
+            <button type="submit" class="btn btn-block"
+                    style="background:rgba(224,92,58,0.12); color:var(--urgent); border:1px solid rgba(224,92,58,0.25); font-size:12px;">
+              Delete voicemail
+            </button>
+          </form>
+        </div>
+
       </div>
     </div>
 

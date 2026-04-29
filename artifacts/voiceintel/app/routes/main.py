@@ -131,6 +131,34 @@ def voicemail_detail(vm_id):
     return render_template("voicemail_detail.html", vm=vm, q=q)
 
 
+@main_bp.route("/voicemails/<int:vm_id>/delete", methods=["POST"])
+@login_required
+def voicemail_delete(vm_id):
+    vm = Voicemail.query.get_or_404(vm_id)
+    # Delete audio files from disk
+    for path in (vm.original_path, vm.converted_path):
+        if path and os.path.isfile(path):
+            try:
+                os.remove(path)
+            except Exception as e:
+                current_app.logger.warning(f"Could not delete file {path}: {e}")
+    db.session.delete(vm)
+    db.session.commit()
+    return redirect(url_for("main.voicemail_list"))
+
+
+@main_bp.route("/voicemails/<int:vm_id>/status", methods=["POST"])
+@login_required
+def voicemail_set_status(vm_id):
+    vm = Voicemail.query.get_or_404(vm_id)
+    new_status = request.form.get("status", "").strip()
+    allowed = {"pending", "processing", "completed", "error"}
+    if new_status in allowed:
+        vm.processing_status = new_status
+        db.session.commit()
+    return redirect(url_for("main.voicemail_detail", vm_id=vm_id))
+
+
 @main_bp.route("/voicemails/<int:vm_id>/audio")
 @login_required
 def serve_audio(vm_id):

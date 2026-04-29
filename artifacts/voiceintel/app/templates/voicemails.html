@@ -134,8 +134,16 @@
             {% elif vm.processing_status == 'error' %}<span class="pill pill-err">Error</span>
             {% else %}<span class="pill pill-pend">Pending</span>{% endif %}
           </td>
-          <td style="text-align:right; padding-right:16px;">
+          <td style="text-align:right; padding-right:16px; white-space:nowrap;">
             <a href="/voicemails/{{ vm.id }}{% if q %}?q={{ q }}{% endif %}" class="btn btn-ghost btn-sm">Open →</a>
+            <form method="POST" action="/voicemails/{{ vm.id }}/delete" style="display:inline;"
+                  onsubmit="return confirm('Delete this voicemail and its audio files?');">
+              <button type="submit" class="btn btn-sm"
+                      style="margin-left:4px; background:rgba(224,92,58,0.1); color:var(--urgent); border:1px solid rgba(224,92,58,0.2);"
+                      title="Delete">
+                ✕
+              </button>
+            </form>
           </td>
         </tr>
       {% endfor %}
