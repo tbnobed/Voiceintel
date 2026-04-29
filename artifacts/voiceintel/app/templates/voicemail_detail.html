@@ -199,39 +199,9 @@
       {% endif %}
 
       {# Assignment form for supervisors/admins.
-         If there's already an OPEN callback we flip the bottom CTA to an
-         "Unassign" action — admins/supervisors can clear it before assigning
-         someone new. Once all callbacks are closed the assignment form
-         re-appears. #}
-      {% if current_user.can_assign_callbacks %}
-        {% set open_cb = vm.callbacks|selectattr('is_open')|list|first %}
-        {% if open_cb %}
-        <div style="border-top:1px solid var(--border-m); padding:18px 20px; background:rgba(247,206,91,0.02);">
-          <div style="font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--sub); margin-bottom:10px;">
-            Currently Assigned
-          </div>
-          <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-            <div style="font-size:13px; color:var(--vanilla);">
-              <strong style="font-weight:500;">{{ open_cb.assignee.name if open_cb.assignee else '(unassigned)' }}</strong>
-              <span style="color:var(--muted); font-size:12px;"> — {{ open_cb.status.replace('_',' ').title() }}{% if open_cb.priority == 'urgent' %} · Urgent{% endif %}</span>
-            </div>
-            <form method="POST" action="/tasks/{{ open_cb.id }}/delete" style="margin-left:auto;"
-                  onsubmit="return confirm('Unassign this callback? You can then assign it to someone else.');">
-              <input type="hidden" name="next" value="/voicemails/{{ vm.id }}#callbacks" />
-              <button type="submit" class="btn"
-                      style="background:rgba(224,92,58,0.12); color:var(--urgent); border:1px solid rgba(224,92,58,0.25);">
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="13" height="13" style="vertical-align:-2px; margin-right:4px;">
-                  <circle cx="8" cy="8" r="6.5"/><line x1="4.5" y1="4.5" x2="11.5" y2="11.5"/>
-                </svg>
-                Unassign Callback
-              </button>
-            </form>
-          </div>
-          <div style="font-size:11px; color:var(--muted); margin-top:8px;">
-            Mark the existing callback complete or unassign it to assign someone new.
-          </div>
-        </div>
-        {% else %}
+         Hidden whenever there's already an open callback — to assign someone
+         new, mark the existing one complete or use the Remove link above. #}
+      {% if current_user.can_assign_callbacks and not (vm.callbacks|selectattr('is_open')|list) %}
         <div style="border-top:1px solid var(--border-m); padding:18px 20px; background:rgba(247,206,91,0.02);">
           <div style="font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--sub); margin-bottom:12px;">
             Assign a Callback
@@ -273,7 +243,6 @@
             </div>
           </form>
         </div>
-        {% endif %}
       {% endif %}
     </div>
 
