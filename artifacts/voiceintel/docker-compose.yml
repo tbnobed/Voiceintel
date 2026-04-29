@@ -49,6 +49,11 @@ services:
       SENDGRID_ADMIN_EMAIL: ${SENDGRID_ADMIN_EMAIL:-}
       SENDGRID_WEBHOOK_KEY: ${SENDGRID_WEBHOOK_KEY:-}
 
+      # ── OpenAI (for Analytics AI Insights) ──────────────────────────────────
+      OPENAI_API_KEY:                          ${OPENAI_API_KEY:-}
+      AI_INTEGRATIONS_OPENAI_BASE_URL:         ${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      AI_INTEGRATIONS_OPENAI_API_KEY:          ${AI_INTEGRATIONS_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}
+
     volumes:
       # Audio files — persisted across container restarts
       - app_storage:/data/storage

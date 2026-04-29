@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% block title %}Analytics — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+  <span>Analytics</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
+  <div>
+    <h1 class="page-title">Analytics</h1>
+    <p class="page-sub">Trends, insights, and patterns across all voicemails</p>
+  </div>
+  <button id="ai-btn" onclick="loadAIInsights()" class="btn btn-primary" style="gap:7px; display:inline-flex; align-items:center;">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+    Generate AI Insights
+  </button>
+</div>
+
+<!-- ── AI Insights card (hidden until requested) ─────────────────────────── -->
+<div id="ai-card" class="card" style="display:none; margin-bottom:20px; border-color:rgba(247,206,91,0.25);">
+  <div class="card-head">
+    <span class="card-head-title" style="color:var(--accent);">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:-1px; margin-right:5px;"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3v4l3 3"/></svg>
+      AI Analysis
+    </span>
+    <span style="font-size:10px; color:var(--muted);">Powered by GPT · Based on all voicemail data</span>
+  </div>
+  <div id="ai-body" class="card-body" style="padding:20px 28px; font-size:13px; line-height:1.75; color:var(--vanilla);">
+    <div id="ai-loading" style="color:var(--muted); font-style:italic;">Analysing voicemail data…</div>
+  </div>
+</div>
+
+<!-- ── Stats strip ────────────────────────────────────────────────────────── -->
+<div class="stats-grid" style="margin-bottom:20px;">
+  <div class="stat-cell">
+    <div class="stat-label">Total</div>
+    <div class="stat-value">{{ total }}</div>
+    <div class="stat-desc">All time</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-label">Last 30 days</div>
+    <div class="stat-value">{{ month_count }}</div>
+    <div class="stat-desc">{{ week_count }} this week</div>
+  </div>
+  <div class="stat-cell" style="{{ 'border-top:2px solid var(--urgent);' if urgent_count > 0 else '' }}">
+    <div class="stat-label">Urgent</div>
+    <div class="stat-value" style="{{ 'color:var(--urgent);' if urgent_count > 0 else '' }}">{{ urgent_count }}</div>
+    <div class="stat-desc">{{ ((urgent_count / total * 100) | round(1)) if total else 0 }}% of total</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-label">Avg duration</div>
+    <div class="stat-value">{{ '%d:%02d'|format(avg_duration // 60, avg_duration % 60) }}</div>
+    <div class="stat-desc">Minutes : seconds</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-label">Transcribed</div>
+    <div class="stat-value">{{ status_dist.get('completed', 0) }}</div>
+    <div class="stat-desc">{{ status_dist.get('error', 0) }} errors</div>
+  </div>
+</div>
+
+<!-- ── Row 1: 30-day trend + Sentiment ───────────────────────────────────── -->
+<div class="grid-2-1" style="margin-bottom:16px; align-items:start;">
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-head-title">Daily Volume — 30 Days</span>
+    </div>
+    <div class="card-body" style="height:220px; position:relative; padding:16px 20px 12px;">
+      {% if daily_trend %}
+        <canvas id="trendChart" style="position:absolute; inset:16px 20px 12px 20px;"></canvas>
+      {% else %}
+        <div class="empty" style="padding:40px;">
+          <p class="empty-sub">No voicemails in the last 30 days</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-head-title">Sentiment</span></div>
+    <div class="card-body" style="height:220px; position:relative; display:flex; align-items:center; justify-content:center;">
+      {% set sent_total = (sentiment_dist.values() | sum) %}
+      {% if sent_total > 0 %}
+        <canvas id="sentimentChart" style="max-height:170px; max-width:170px;"></canvas>
+      {% else %}
+        <div class="empty" style="padding:32px 0;"><p class="empty-sub">No sentiment data yet</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Row 2: Hourly heatmap + Categories ────────────────────────────────── -->
+<div class="grid-1-2" style="margin-bottom:16px; align-items:start;">
+
+  <div class="card">
+    <div class="card-head"><span class="card-head-title">By Category</span></div>
+    <div class="card-body" style="padding:8px 20px;">
+      {% if category_dist %}
+        {% set cat_max = category_dist[0].count if category_dist else 1 %}
+        {% for item in category_dist %}
+          <div class="cat-row">
+            <div class="cat-meta">
+              <span class="cat-name">{{ item.name }}</span>
+              <span class="cat-count">{{ item.count }}</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:{{ ((item.count / cat_max) * 100) | round(1) }}%"></div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty" style="padding:28px 0;"><p class="empty-sub">No data yet</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-head-title">Call Hour Distribution</span></div>
+    <div class="card-body" style="height:220px; position:relative; padding:16px 20px 12px;">
+      <canvas id="hourChart" style="position:absolute; inset:16px 20px 12px 20px;"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Row 3: Keywords + Urgency keywords ────────────────────────────────── -->
+<div class="grid-1-1" style="margin-bottom:16px; align-items:start;">
+
+  <div class="card">
+    <div class="card-head"><span class="card-head-title">Top Keywords</span></div>
+    <div class="card-body">
+      {% if top_keywords %}
+        <div style="display:flex; flex-wrap:wrap; gap:6px; padding-bottom:4px;">
+          {% for kw in top_keywords %}
+            {% set opacity = 0.4 + (0.6 * kw.count / top_keywords[0].count) %}
+            <a href="/voicemails?q={{ kw.word }}"
+               class="kw-tag"
+               style="font-size:{{ 10 + (4 * kw.count / top_keywords[0].count) | round | int }}px; opacity:{{ opacity }};"
+               title="{{ kw.count }} occurrences">
+              {{ kw.word }}
+            </a>
+          {% endfor %}
+        </div>
+        <div style="margin-top:16px;">
+          <canvas id="kwChart" style="max-height:180px;"></canvas>
+        </div>
+      {% else %}
+        <div class="empty" style="padding:28px 0;"><p class="empty-sub">Keywords appear after transcription</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-head-title">Urgency Keywords</span></div>
+    <div class="card-body">
+      {% if top_urgency_kw %}
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">
+          {% for kw in top_urgency_kw %}
+            <span style="background:rgba(224,92,58,0.1); color:var(--urgent); border:1px solid rgba(224,92,58,0.22); padding:3px 10px; border-radius:3px; font-size:12px;">
+              {{ kw.word }} <span style="opacity:.6; font-size:10px;">×{{ kw.count }}</span>
+            </span>
+          {% endfor %}
+        </div>
+        <canvas id="urgKwChart" style="max-height:170px;"></canvas>
+      {% else %}
+        <div class="empty" style="padding:28px 0;"><p class="empty-sub">No urgency keywords triggered yet</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color          = 'rgba(175,155,70,0.5)';
+Chart.defaults.font.family    = "'Inter', system-ui, sans-serif";
+Chart.defaults.font.size      = 11;
+Chart.defaults.borderColor    = 'rgba(175,155,70,0.08)';
+
+const GOLD   = 'rgba(247,206,91,';
+const WARM   = 'rgba(247,176,91,';
+const URGENT = 'rgba(224,92,58,';
+
+const tooltipDefaults = {
+  backgroundColor: '#1a1400',
+  borderColor: 'rgba(175,155,70,0.25)',
+  borderWidth: 1,
+  titleColor: 'rgba(175,155,70,0.6)',
+  bodyColor: '#DFD6A7',
+  padding: 10,
+};
+
+/* ── 30-day trend ──────────────────────────────────────────────────────── */
+const trend = {{ daily_trend | tojson }};
+if (trend.length && document.getElementById('trendChart')) {
+  new Chart(document.getElementById('trendChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: trend.map(d => d.day.slice(5)),   // MM-DD
+      datasets: [{
+        data: trend.map(d => d.count),
+        fill: true,
+        backgroundColor: GOLD + '0.08)',
+        borderColor: GOLD + '0.7)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: GOLD + '0.9)',
+        tension: 0.35,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: tooltipDefaults },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(175,155,70,0.06)' }, border: { display: false } },
+        x: { ticks: { maxRotation: 0, font: { size: 9 } }, grid: { display: false }, border: { display: false } },
+      },
+    },
+  });
+}
+
+/* ── Sentiment donut ───────────────────────────────────────────────────── */
+const sentData = {{ sentiment_dist | tojson }};
+if (Object.keys(sentData).length && document.getElementById('sentimentChart')) {
+  const labels = Object.keys(sentData);
+  const values = Object.values(sentData);
+  const colors = labels.map(l =>
+    l === 'positive' ? GOLD + '0.75)' :
+    l === 'negative' ? URGENT + '0.75)' :
+                       'rgba(175,155,70,0.35)'
+  );
+  new Chart(document.getElementById('sentimentChart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
+    options: {
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'bottom', labels: { padding: 14, boxWidth: 10, font: { size: 11 } } },
+        tooltip: tooltipDefaults,
+      },
+    },
+  });
+}
+
+/* ── Hourly bar ────────────────────────────────────────────────────────── */
+const hourly = {{ hourly_dist | tojson }};
+if (document.getElementById('hourChart')) {
+  new Chart(document.getElementById('hourChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: hourly.map(h => h.hour === 0 ? '12a' : h.hour < 12 ? h.hour + 'a' : h.hour === 12 ? '12p' : (h.hour - 12) + 'p'),
+      datasets: [{
+        data: hourly.map(h => h.count),
+        backgroundColor: hourly.map(h => (h.hour >= 8 && h.hour <= 17) ? GOLD + '0.55)' : GOLD + '0.22)'),
+        borderColor: 'transparent',
+        borderRadius: 2,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { ...tooltipDefaults, callbacks: { title: (items) => items[0].label + ':00' } } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(175,155,70,0.06)' }, border: { display: false } },
+        x: { ticks: { font: { size: 9 } }, grid: { display: false }, border: { display: false } },
+      },
+    },
+  });
+}
+
+/* ── Top keywords bar ──────────────────────────────────────────────────── */
+const kwData = {{ top_keywords | tojson }};
+if (kwData.length && document.getElementById('kwChart')) {
+  const top10 = kwData.slice(0, 10);
+  new Chart(document.getElementById('kwChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: top10.map(k => k.word),
+      datasets: [{ data: top10.map(k => k.count), backgroundColor: GOLD + '0.45)', borderColor: GOLD + '0.8)', borderWidth: 1, borderRadius: 3, hoverBackgroundColor: GOLD + '0.65)' }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: tooltipDefaults },
+      scales: {
+        x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(175,155,70,0.06)' }, border: { display: false } },
+        y: { ticks: { font: { size: 11 } }, grid: { display: false }, border: { display: false } },
+      },
+    },
+  });
+}
+
+/* ── Urgency keywords bar ──────────────────────────────────────────────── */
+const urgData = {{ top_urgency_kw | tojson }};
+if (urgData.length && document.getElementById('urgKwChart')) {
+  new Chart(document.getElementById('urgKwChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: urgData.map(k => k.word),
+      datasets: [{ data: urgData.map(k => k.count), backgroundColor: URGENT + '0.45)', borderColor: URGENT + '0.8)', borderWidth: 1, borderRadius: 3 }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: tooltipDefaults },
+      scales: {
+        x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(175,155,70,0.06)' }, border: { display: false } },
+        y: { ticks: { font: { size: 11 }, color: 'rgba(224,92,58,0.7)' }, grid: { display: false }, border: { display: false } },
+      },
+    },
+  });
+}
+
+/* ── AI Insights ───────────────────────────────────────────────────────── */
+function loadAIInsights() {
+  const btn  = document.getElementById('ai-btn');
+  const card = document.getElementById('ai-card');
+  const body = document.getElementById('ai-body');
+  const load = document.getElementById('ai-loading');
+
+  btn.disabled = true;
+  btn.textContent = 'Analysing…';
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  fetch('/analytics/ai-insights', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        load.textContent = 'Error: ' + data.error;
+        load.style.color = 'var(--urgent)';
+      } else {
+        // Render markdown-style bold headers
+        const html = data.insights
+          .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--accent)">$1</strong>')
+          .replace(/\n\n/g, '</p><p style="margin-top:12px;">')
+          .replace(/\n/g, '<br>');
+        body.innerHTML = '<p>' + html + '</p>';
+      }
+      btn.textContent = 'Refresh AI Insights';
+      btn.disabled = false;
+    })
+    .catch(e => {
+      load.textContent = 'Network error — please try again.';
+      load.style.color = 'var(--urgent)';
+      btn.textContent = 'Generate AI Insights';
+      btn.disabled = false;
+    });
+}
+</script>
+{% endblock %}

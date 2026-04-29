@@ -131,6 +131,208 @@ def voicemail_detail(vm_id):
     return render_template("voicemail_detail.html", vm=vm, q=q)
 
 
+@main_bp.route("/analytics")
+@login_required
+def analytics():
+    now = datetime.utcnow()
+    week_ago   = now - timedelta(days=7)
+    month_ago  = now - timedelta(days=30)
+
+    total        = Voicemail.query.count()
+    week_count   = Voicemail.query.filter(Voicemail.received_at >= week_ago).count()
+    month_count  = Voicemail.query.filter(Voicemail.received_at >= month_ago).count()
+    urgent_count = Voicemail.query.filter_by(is_urgent=True).count()
+
+    # Average duration (seconds)
+    avg_dur_row = db.session.query(func.avg(Voicemail.duration)).filter(
+        Voicemail.duration.isnot(None)
+    ).scalar()
+    avg_duration = round(avg_dur_row or 0)
+
+    # 30-day daily trend
+    daily_rows = (
+        db.session.query(
+            func.date(Voicemail.received_at).label("day"),
+            func.count(Voicemail.id).label("cnt"),
+        )
+        .filter(Voicemail.received_at >= month_ago)
+        .group_by(func.date(Voicemail.received_at))
+        .order_by("day")
+        .all()
+    )
+    daily_trend = [{"day": str(r.day), "count": r.cnt} for r in daily_rows]
+
+    # Sentiment distribution
+    sentiment_rows = (
+        db.session.query(Insight.sentiment, func.count(Insight.id))
+        .group_by(Insight.sentiment)
+        .all()
+    )
+    sentiment_dist = {s or "neutral": c for s, c in sentiment_rows}
+
+    # Category distribution
+    cat_rows = (
+        db.session.query(Category.name, func.count(Voicemail.id))
+        .join(Voicemail, Voicemail.category_id == Category.id, isouter=True)
+        .group_by(Category.name)
+        .order_by(func.count(Voicemail.id).desc())
+        .all()
+    )
+    category_dist = [{"name": n, "count": c} for n, c in cat_rows if c > 0]
+
+    # Top 20 keywords with frequency
+    all_kw: list = []
+    for ins in Insight.query.filter(Insight.keywords.isnot(None)).all():
+        if ins.keywords:
+            all_kw.extend(ins.keywords)
+    kw_counter = Counter(all_kw)
+    top_keywords = [{"word": w, "count": c} for w, c in kw_counter.most_common(20)]
+
+    # Hourly call distribution (0-23)
+    hour_rows = (
+        db.session.query(
+            func.extract("hour", Voicemail.received_at).label("hr"),
+            func.count(Voicemail.id).label("cnt"),
+        )
+        .filter(Voicemail.received_at.isnot(None))
+        .group_by("hr")
+        .order_by("hr")
+        .all()
+    )
+    hourly = {int(r.hr): r.cnt for r in hour_rows}
+    hourly_dist = [{"hour": h, "count": hourly.get(h, 0)} for h in range(24)]
+
+    # Urgency keywords across all insights
+    urg_kw: list = []
+    for ins in Insight.query.filter(Insight.urgency_keywords.isnot(None)).all():
+        if ins.urgency_keywords:
+            urg_kw.extend(ins.urgency_keywords)
+    top_urgency_kw = [{"word": w, "count": c} for w, c in Counter(urg_kw).most_common(10)]
+
+    # Processing status breakdown
+    status_rows = (
+        db.session.query(Voicemail.processing_status, func.count(Voicemail.id))
+        .group_by(Voicemail.processing_status)
+        .all()
+    )
+    status_dist = {s: c for s, c in status_rows}
+
+    return render_template(
+        "analytics.html",
+        total=total,
+        week_count=week_count,
+        month_count=month_count,
+        urgent_count=urgent_count,
+        avg_duration=avg_duration,
+        daily_trend=daily_trend,
+        sentiment_dist=sentiment_dist,
+        category_dist=category_dist,
+        top_keywords=top_keywords,
+        hourly_dist=hourly_dist,
+        top_urgency_kw=top_urgency_kw,
+        status_dist=status_dist,
+    )
+
+
+@main_bp.route("/analytics/ai-insights")
+@login_required
+def analytics_ai_insights():
+    """
+    Generate an AI narrative summary of voicemail analytics.
+    Called via AJAX from the analytics page.
+    """
+    import os
+
+    base_url = os.environ.get("AI_INTEGRATIONS_OPENAI_BASE_URL", "")
+    api_key  = os.environ.get("AI_INTEGRATIONS_OPENAI_API_KEY", "")
+    if not base_url or not api_key:
+        return jsonify({"error": "AI integration not configured"}), 503
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(base_url=base_url, api_key=api_key)
+    except Exception as e:
+        return jsonify({"error": f"OpenAI client error: {e}"}), 500
+
+    # Gather data to feed the model
+    now       = datetime.utcnow()
+    week_ago  = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+
+    total         = Voicemail.query.count()
+    urgent_count  = Voicemail.query.filter_by(is_urgent=True).count()
+    week_count    = Voicemail.query.filter(Voicemail.received_at >= week_ago).count()
+    month_count   = Voicemail.query.filter(Voicemail.received_at >= month_ago).count()
+
+    sentiment_rows = db.session.query(Insight.sentiment, func.count(Insight.id)).group_by(Insight.sentiment).all()
+    sentiment_dist = {s or "neutral": c for s, c in sentiment_rows}
+
+    cat_rows = (
+        db.session.query(Category.name, func.count(Voicemail.id))
+        .join(Voicemail, Voicemail.category_id == Category.id, isouter=True)
+        .group_by(Category.name).order_by(func.count(Voicemail.id).desc()).limit(5).all()
+    )
+
+    all_kw: list = []
+    for ins in Insight.query.filter(Insight.keywords.isnot(None)).limit(200).all():
+        if ins.keywords:
+            all_kw.extend(ins.keywords)
+    top_kw = [w for w, _ in Counter(all_kw).most_common(15)]
+
+    # Sample up to 15 recent transcripts for context
+    recent_vms = (
+        Voicemail.query
+        .join(Transcript, Voicemail.id == Transcript.voicemail_id)
+        .filter(Transcript.text.isnot(None))
+        .order_by(desc(Voicemail.received_at))
+        .limit(15)
+        .all()
+    )
+    transcript_snippets = []
+    for vm in recent_vms:
+        if vm.transcript and vm.transcript.text:
+            name = vm.caller_info.get("caller_name") or "Unknown"
+            snippet = vm.transcript.text[:300]
+            transcript_snippets.append(f"- {name}: \"{snippet}\"")
+
+    data_summary = f"""
+Voicemail Analytics Summary:
+- Total voicemails: {total}
+- Last 7 days: {week_count}
+- Last 30 days: {month_count}
+- Urgent: {urgent_count} ({round(urgent_count/total*100) if total else 0}%)
+- Sentiment: {dict(sentiment_dist)}
+- Top categories: {[f"{n} ({c})" for n, c in cat_rows]}
+- Top keywords: {top_kw}
+
+Recent voicemail excerpts:
+{chr(10).join(transcript_snippets[:12])}
+""".strip()
+
+    prompt = (
+        "You are an AI analyst for a voicemail intelligence platform used by a donor services team. "
+        "Based on the analytics data below, provide a concise but insightful analysis in 4 short paragraphs:\n\n"
+        "1. **Volume & Trends**: Summarize call volume patterns and any notable changes.\n"
+        "2. **Caller Sentiment & Urgency**: Describe the overall emotional tone and urgency level.\n"
+        "3. **Key Themes**: Identify the most common topics or needs callers are expressing.\n"
+        "4. **Recommendations**: Give 2-3 actionable recommendations based on the data.\n\n"
+        "Be specific, data-driven, and concise. Use the caller excerpts only to identify themes — do not quote or identify callers.\n\n"
+        f"Data:\n{data_summary}"
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-5-mini",
+            max_completion_tokens=600,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = response.choices[0].message.content or ""
+        return jsonify({"insights": text})
+    except Exception as e:
+        current_app.logger.error(f"AI insights error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @main_bp.route("/voicemails/poll")
 @login_required
 def voicemail_poll():

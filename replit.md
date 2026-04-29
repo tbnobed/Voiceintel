@@ -27,7 +27,7 @@ pnpm workspace monorepo using TypeScript for backend services, plus a Python Fla
 - **Local Whisper transcription** via faster-whisper (no cloud APIs)
 - **IMAP email ingestion** — polls for voicemail attachments (configurable interval)
 - **NLP pipeline** — keywords, sentiment, urgency detection, category classification
-- **Analytics dashboard** — daily trend chart, category distribution, keyword cloud
+- **Analytics dashboard** — 30-day trend, sentiment donut, category bars, keyword cloud, hourly distribution, urgency keywords, AI narrative insights via OpenAI GPT
 - **Full-text search** across all transcripts
 - **Voicemail detail** — audio player, full transcript, segments timeline, insights
 - **Background scheduler** via APScheduler
