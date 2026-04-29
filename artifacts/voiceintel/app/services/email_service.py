@@ -115,7 +115,8 @@ def send_notification_email(to: str, subject: str, body: str, html_body: str = "
 
 def test_sendgrid_connection(api_key: str = "") -> tuple[bool, str]:
     """
-    Validate the SendGrid API key by calling /v3/user/account.
+    Validate the SendGrid API key by calling /v3/scopes.
+    This endpoint is accessible by any valid key regardless of permissions.
     Returns (success, message).
     """
     if not api_key:
@@ -124,18 +125,28 @@ def test_sendgrid_connection(api_key: str = "") -> tuple[bool, str]:
     if not api_key:
         return False, "No API key configured."
     try:
-        import json
-        from sendgrid import SendGridAPIClient
-        sg = SendGridAPIClient(api_key=api_key)
-        resp = sg.client.user.account.get()
+        import json, requests as _requests
+        resp = _requests.get(
+            "https://api.sendgrid.com/v3/scopes",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=10,
+        )
         if resp.status_code == 200:
-            account = json.loads(resp.body)
-            username = account.get("username") or account.get("email", "")
-            plan = account.get("type", "")
-            label = username or "API key valid"
-            if plan:
-                label += f" ({plan} plan)"
-            return True, f"Connected — {label}."
+            scopes = resp.json().get("scopes", [])
+            has_send = any("mail" in s for s in scopes)
+            has_parse = any("inbound_parse" in s for s in scopes)
+            parts = []
+            if has_send:
+                parts.append("Mail Send ✓")
+            else:
+                parts.append("Mail Send ✗")
+            if has_parse:
+                parts.append("Inbound Parse ✓")
+            else:
+                parts.append("Inbound Parse ✗")
+            return True, "API key valid — " + ", ".join(parts) + "."
+        if resp.status_code == 401:
+            return False, "Invalid API key — authentication failed."
         return False, f"API returned status {resp.status_code}."
     except Exception as e:
         return False, str(e)
