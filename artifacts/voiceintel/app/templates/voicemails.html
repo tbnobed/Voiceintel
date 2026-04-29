@@ -96,11 +96,21 @@
   </th>
 {%- endmacro %}
 
+{% set can_bulk = bulk_assign_teams and (current_user.is_admin or current_user.is_supervisor) %}
 {% if voicemails %}
 <div class="card" style="margin-bottom: 20px;">
+  {% if can_bulk %}
+  <form id="bulk-team-form" method="POST" action="{{ url_for('main.voicemails_bulk_set_team') }}">
+  {% endif %}
   <table class="data-table">
     <thead>
       <tr>
+        {% if can_bulk %}
+        <th style="width:28px; padding-left:14px;">
+          <input type="checkbox" id="bulk-select-all" title="Select all on this page"
+                 style="cursor:pointer; accent-color: var(--accent);" />
+        </th>
+        {% endif %}
         {{ sort_th('received_at',       'Call Date') }}
         {{ sort_th('subject',           'Caller', default_dir='asc') }}
         <th>Phone</th>
@@ -117,6 +127,12 @@
       {% for vm in voicemails %}
         {% set ci = vm.caller_info %}
         <tr class="{{ 'urg' if vm.is_urgent }}">
+          {% if can_bulk %}
+          <td style="padding-left:14px; width:28px;">
+            <input type="checkbox" name="vm_ids" value="{{ vm.id }}" form="bulk-team-form"
+                   class="bulk-vm-check" style="cursor:pointer; accent-color: var(--accent);" />
+          </td>
+          {% endif %}
           <td style="white-space:nowrap;">
             {% if ci.call_date %}
               <div style="font-size:13px; font-weight:500; color:var(--text);">{{ ci.call_date }}</div>
@@ -222,7 +238,41 @@
       {% endfor %}
     </tbody>
   </table>
+  {% if can_bulk %}
+  <!-- Hidden field so the form has a target team selector below; the select
+       lives in the sticky action bar but POSTs through this same form via the
+       `form="bulk-team-form"` attribute on its inputs. -->
+  </form>
+  {% endif %}
 </div>
+
+{% if can_bulk %}
+<div id="bulk-action-bar" aria-hidden="true"
+     style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(120%);
+            z-index:50; display:flex; align-items:center; gap:14px;
+            background:#1F1300; border:1px solid var(--border); border-radius:14px;
+            padding:12px 16px; box-shadow:0 12px 40px rgba(0,0,0,0.55);
+            transition: transform 220ms ease, opacity 180ms ease;
+            opacity:0; pointer-events:none; visibility:hidden;">
+  <span style="font-size:13px; color:var(--text);">
+    <strong id="bulk-selected-count" style="color:var(--accent);">0</strong>
+    <span style="color:var(--muted);">selected</span>
+  </span>
+  <span style="width:1px; height:22px; background:var(--border);"></span>
+  <label style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Assign to team</label>
+  <select name="team_id" form="bulk-team-form" class="filter-select" style="min-width:170px; margin:0;">
+    <option value="none">— Clear team (re-route)</option>
+    {% for t in bulk_assign_teams %}
+      <option value="{{ t.id }}">{{ t.name }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" form="bulk-team-form" class="btn btn-primary"
+          onclick="return confirm('Apply team change to the selected voicemails? This will lock them from auto-routing (or unlock if clearing).');">
+    Apply
+  </button>
+  <button type="button" id="bulk-cancel" class="btn btn-ghost" title="Clear selection">Cancel</button>
+</div>
+{% endif %}
 
 {% if pagination.pages > 1 %}
 {# Preserve all current query args (filters + sort) on pagination links. #}
@@ -311,4 +361,61 @@
   setInterval(check, 6000);
 })();
 </script>
+
+{% if can_bulk %}
+<script>
+(function () {
+  var bar          = document.getElementById("bulk-action-bar");
+  var countEl      = document.getElementById("bulk-selected-count");
+  var selectAll    = document.getElementById("bulk-select-all");
+  var cancelBtn    = document.getElementById("bulk-cancel");
+  var checks       = function () { return Array.prototype.slice.call(document.querySelectorAll(".bulk-vm-check")); };
+
+  if (!bar || !selectAll) return;
+
+  function refresh() {
+    var sel = checks().filter(function (c) { return c.checked; });
+    countEl.textContent = sel.length;
+    var any = sel.length > 0;
+    bar.style.transform = "translateX(-50%) translateY(" + (any ? "0" : "120%") + ")";
+    bar.style.opacity = any ? "1" : "0";
+    bar.style.pointerEvents = any ? "auto" : "none";
+    bar.style.visibility = any ? "visible" : "hidden";
+    bar.setAttribute("aria-hidden", any ? "false" : "true");
+    // Sync the master checkbox indeterminate / checked state.
+    var all = checks();
+    if (sel.length === 0) {
+      selectAll.checked = false;
+      selectAll.indeterminate = false;
+    } else if (sel.length === all.length) {
+      selectAll.checked = true;
+      selectAll.indeterminate = false;
+    } else {
+      selectAll.checked = false;
+      selectAll.indeterminate = true;
+    }
+  }
+
+  selectAll.addEventListener("change", function () {
+    checks().forEach(function (c) { c.checked = selectAll.checked; });
+    refresh();
+  });
+
+  document.addEventListener("change", function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains("bulk-vm-check")) {
+      refresh();
+    }
+  });
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", function () {
+      checks().forEach(function (c) { c.checked = false; });
+      refresh();
+    });
+  }
+
+  refresh();
+})();
+</script>
+{% endif %}
 {% endblock %}

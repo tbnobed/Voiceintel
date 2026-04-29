@@ -195,12 +195,18 @@ def voicemail_list():
             if ids else []
         )
 
+    # Admins/supervisors get the full team list for the bulk-assign action bar.
+    bulk_assign_teams = []
+    if current_user.is_admin or current_user.is_supervisor:
+        bulk_assign_teams = Team.query.order_by(Team.name).all()
+
     return render_template(
         "voicemails.html",
         voicemails=pagination.items,
         pagination=pagination,
         categories=categories,
         available_teams=available_teams,
+        bulk_assign_teams=bulk_assign_teams,
         team_filter=team_filter,
         q=q,
         category_id=category_id,
@@ -271,6 +277,67 @@ def voicemail_set_team(vm_id):
         flash(f"Voicemail manually assigned to {team.name}.", "success")
     db.session.commit()
     return redirect(url_for("main.voicemail_detail", vm_id=vm.id))
+
+
+# ---------------------------------------------------------------------------
+# Bulk team assignment (admin/supervisor only)
+# ---------------------------------------------------------------------------
+
+@main_bp.route("/voicemails/bulk/team", methods=["POST"])
+@login_required
+def voicemails_bulk_set_team():
+    if not (current_user.is_admin or current_user.is_supervisor):
+        abort(403)
+
+    raw_ids = request.form.getlist("vm_ids")
+    vm_ids = []
+    for r in raw_ids:
+        try:
+            vm_ids.append(int(r))
+        except (TypeError, ValueError):
+            continue
+    if not vm_ids:
+        flash("No voicemails selected.", "error")
+        return redirect(request.referrer or url_for("main.voicemail_list"))
+
+    raw = request.form.get("team_id", "").strip()
+    target_team = None
+    clearing = raw == "" or raw == "none"
+    if not clearing:
+        try:
+            tid = int(raw)
+        except ValueError:
+            flash("Invalid team selection.", "error")
+            return redirect(request.referrer or url_for("main.voicemail_list"))
+        target_team = Team.query.get(tid)
+        if not target_team:
+            flash("Team not found.", "error")
+            return redirect(request.referrer or url_for("main.voicemail_list"))
+
+    # Only operate on voicemails the user can actually see (defence in depth —
+    # admin/supervisor see all anyway, but we apply scope_voicemails so this
+    # endpoint behaves consistently if the role check is ever relaxed).
+    base_q = Voicemail.query.filter(Voicemail.id.in_(vm_ids))
+    base_q = scope_voicemails(base_q, current_user)
+    vms = base_q.all()
+
+    updated = 0
+    for vm in vms:
+        if clearing:
+            vm.team_id = None
+            vm.team_locked = False
+        else:
+            vm.team_id = target_team.id
+            vm.team_locked = True
+        updated += 1
+    if updated:
+        db.session.commit()
+
+    if clearing:
+        flash(f"Cleared team on {updated} voicemail{'s' if updated != 1 else ''}. Auto-routing will re-evaluate.", "success")
+    else:
+        flash(f"Assigned {updated} voicemail{'s' if updated != 1 else ''} to {target_team.name}.", "success")
+    return redirect(request.referrer or url_for("main.voicemail_list"))
 
 
 # ---------------------------------------------------------------------------
