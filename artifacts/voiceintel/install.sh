@@ -111,11 +111,6 @@ prompt SESSION_SECRET  "Flask session secret (leave blank to auto-generate)" "" 
 prompt DB_PASSWORD     "PostgreSQL password (leave blank to auto-generate)" "" "yes"
 [[ -z "$DB_PASSWORD" ]] && DB_PASSWORD="$GEN_DB_PASS" && info "Auto-generated database password."
 
-# IMAP and SendGrid are configured after installation via Admin → Integrations.
-IMAP_HOST=""; IMAP_PORT="993"; IMAP_USERNAME=""; IMAP_PASSWORD=""
-IMAP_FOLDER="INBOX"; POLL_INTERVAL="60"
-SENDGRID_API_KEY=""; SENDGRID_FROM_EMAIL=""; SENDGRID_FROM_NAME="VoiceIntel"
-SENDGRID_ADMIN_EMAIL=""; SENDGRID_WEBHOOK_KEY=""
 
 # ── Write .env ────────────────────────────────────────────────────────────────
 section "Writing .env"
@@ -128,22 +123,8 @@ cat > "$ENV_FILE" <<EOF
 
 PORT=${PORT}
 WHISPER_MODEL=${WHISPER_MODEL}
-
 SESSION_SECRET=${SESSION_SECRET}
 DB_PASSWORD=${DB_PASSWORD}
-
-IMAP_HOST=${IMAP_HOST}
-IMAP_PORT=${IMAP_PORT}
-IMAP_USERNAME=${IMAP_USERNAME}
-IMAP_PASSWORD=${IMAP_PASSWORD}
-IMAP_FOLDER=${IMAP_FOLDER}
-POLL_INTERVAL=${POLL_INTERVAL}
-
-SENDGRID_API_KEY=${SENDGRID_API_KEY}
-SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
-SENDGRID_FROM_NAME=${SENDGRID_FROM_NAME}
-SENDGRID_ADMIN_EMAIL=${SENDGRID_ADMIN_EMAIL}
-SENDGRID_WEBHOOK_KEY=${SENDGRID_WEBHOOK_KEY}
 EOF
 
 chmod 600 "$ENV_FILE"
