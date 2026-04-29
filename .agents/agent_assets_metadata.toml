@@ -1,0 +1,13 @@
+uploads = []
+
+[[generated]]
+id = "Xl5VilYZKWtGXUHP-3N5P"
+uri = "file://attached_assets/generated_images/voiceintel_logo.png"
+type = "image"
+title = "voiceintel retro logo"
+
+[[outputs]]
+id = "5Z9ILTLYkfX9CSxl--lOc"
+uri = "file://attached_assets/generated_images/voiceintel_logo.png"
+type = "image"
+title = "VoiceIntel Retro Logo"
