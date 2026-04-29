@@ -1,0 +1,49 @@
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following package was automatically installed and is no longer required:
+  python3-netifaces
+Use 'sudo apt autoremove' to remove it.
+The following additional packages will be installed:
+  adwaita-icon-theme at-spi2-common at-spi2-core binutils binutils-common binutils-x86-64-linux-gnu build-essential bzip2 cpp cpp-13 cpp-13-x86-64-linux-gnu
+  cpp-x86-64-linux-gnu dconf-gsettings-backend dconf-service dkms dpkg-dev fakeroot fontconfig g++ g++-13 g++-13-x86-64-linux-gnu g++-x86-64-linux-gnu gcc gcc-13
+  gcc-13-base gcc-13-x86-64-linux-gnu gcc-x86-64-linux-gnu gsettings-desktop-schemas gtk-update-icon-cache hicolor-icon-theme humanity-icon-theme
+  libalgorithm-diff-perl libalgorithm-diff-xs-perl libalgorithm-merge-perl libasan8 libatk-bridge2.0-0t64 libatk1.0-0t64 libatomic1 libatspi2.0-0t64
+  libavahi-client3 libavahi-common-data libavahi-common3 libbinutils libcairo-gobject2 libcairo2 libcc1-0 libcolord2 libctf-nobfd0 libctf0 libcups2t64 libdatrie1
+  libdconf1 libdpkg-perl libdrm-amdgpu1 libdrm-intel1 libegl-mesa0 libegl1 libepoxy0 libfakeroot libfile-fcntllock-perl libfontenc1 libfribidi0 libgbm1
+  libgcc-13-dev libgdk-pixbuf-2.0-0 libgdk-pixbuf2.0-bin libgdk-pixbuf2.0-common libgl1 libgl1-mesa-dri libglvnd0 libglx-mesa0 libglx0 libgomp1 libgprofng0
+  libgraphite2-3 libgtk-3-0t64 libgtk-3-bin libgtk-3-common libharfbuzz0b libhwasan0 libice6 libisl23 libitm1 liblcms2-2 libllvm20 liblsan0 libmpc3
+  libnvidia-cfg1-535 libnvidia-common-535 libnvidia-compute-535 libnvidia-decode-535 libnvidia-egl-wayland1 libnvidia-encode-535 libnvidia-extra-535
+  libnvidia-fbc1-535 libnvidia-gl-535 libpango-1.0-0 libpangocairo-1.0-0 libpangoft2-1.0-0 libpciaccess0 libpixman-1-0 libpkgconf3 libquadmath0 librsvg2-2
+  librsvg2-common libsensors-config libsensors5 libsframe1 libsm6 libstdc++-13-dev libthai-data libthai0 libtsan2 libubsan1 libvdpau1 libvulkan1 libwayland-client0
+  libwayland-cursor0 libwayland-egl1 libwayland-server0 libx11-xcb1 libxaw7 libxcb-dri3-0 libxcb-glx0 libxcb-present0 libxcb-randr0 libxcb-render0 libxcb-shm0
+  libxcb-sync1 libxcb-xfixes0 libxcomposite1 libxcursor1 libxcvt0 libxdamage1 libxfixes3 libxfont2 libxi6 libxinerama1 libxkbfile1 libxmu6 libxnvctrl0 libxrandr2
+  libxrender1 libxshmfence1 libxt6t64 libxtst6 libxxf86vm1 lto-disabled-list make mesa-libgallium mesa-vdpau-drivers mesa-vulkan-drivers nvidia-compute-utils-535
+  nvidia-dkms-535 nvidia-firmware-535-535.288.01 nvidia-kernel-common-535 nvidia-kernel-source-535 nvidia-prime nvidia-settings pkexec pkg-config pkgconf
+  pkgconf-bin screen-resolution-extra session-migration ubuntu-mono vdpau-driver-all x11-common x11-xkb-utils xcvt xfonts-base xfonts-encodings xfonts-utils
+  xserver-common xserver-xorg-core xserver-xorg-video-nvidia-535
+Suggested packages:
+  binutils-doc gprofng-gui bzip2-doc cpp-doc gcc-13-locales cpp-13-doc menu debian-keyring g++-multilib g++-13-multilib gcc-13-doc gcc-multilib autoconf automake
+  libtool flex bison gdb gcc-doc gcc-13-multilib gdb-x86-64-linux-gnu colord cups-common bzr gvfs liblcms2-utils librsvg2-bin lm-sensors libstdc++-13-doc make-doc
+  libvdpau-va-gl1 xfs | xserver xfonts-100dpi | xfonts-75dpi xfonts-scalable
+Recommended packages:
+  libnvidia-compute-535:i386 libnvidia-decode-535:i386 libnvidia-encode-535:i386 libnvidia-fbc1-535:i386 libnvidia-gl-535:i386
+The following NEW packages will be installed:
+  adwaita-icon-theme at-spi2-common at-spi2-core binutils binutils-common binutils-x86-64-linux-gnu build-essential bzip2 cpp cpp-13 cpp-13-x86-64-linux-gnu
+  cpp-x86-64-linux-gnu dconf-gsettings-backend dconf-service dkms dpkg-dev fakeroot fontconfig g++ g++-13 g++-13-x86-64-linux-gnu g++-x86-64-linux-gnu gcc gcc-13
+  gcc-13-base gcc-13-x86-64-linux-gnu gcc-x86-64-linux-gnu gsettings-desktop-schemas gtk-update-icon-cache hicolor-icon-theme humanity-icon-theme
+  libalgorithm-diff-perl libalgorithm-diff-xs-perl libalgorithm-merge-perl libasan8 libatk-bridge2.0-0t64 libatk1.0-0t64 libatomic1 libatspi2.0-0t64
+  libavahi-client3 libavahi-common-data libavahi-common3 libbinutils libcairo-gobject2 libcairo2 libcc1-0 libcolord2 libctf-nobfd0 libctf0 libcups2t64 libdatrie1
+  libdconf1 libdpkg-perl libdrm-amdgpu1 libdrm-intel1 libegl-mesa0 libegl1 libepoxy0 libfakeroot libfile-fcntllock-perl libfontenc1 libfribidi0 libgbm1
+  libgcc-13-dev libgdk-pixbuf-2.0-0 libgdk-pixbuf2.0-bin libgdk-pixbuf2.0-common libgl1 libgl1-mesa-dri libglvnd0 libglx-mesa0 libglx0 libgomp1 libgprofng0
+  libgraphite2-3 libgtk-3-0t64 libgtk-3-bin libgtk-3-common libharfbuzz0b libhwasan0 libice6 libisl23 libitm1 liblcms2-2 libllvm20 liblsan0 libmpc3
+  libnvidia-cfg1-535 libnvidia-common-535 libnvidia-compute-535 libnvidia-decode-535 libnvidia-egl-wayland1 libnvidia-encode-535 libnvidia-extra-535
+  libnvidia-fbc1-535 libnvidia-gl-535 libpango-1.0-0 libpangocairo-1.0-0 libpangoft2-1.0-0 libpciaccess0 libpixman-1-0 libpkgconf3 libquadmath0 librsvg2-2
+  librsvg2-common libsensors-config libsensors5 libsframe1 libsm6 libstdc++-13-dev libthai-data libthai0 libtsan2 libubsan1 libvdpau1 libvulkan1 libwayland-client0
+  libwayland-cursor0 libwayland-egl1 libwayland-server0 libx11-xcb1 libxaw7 libxcb-dri3-0 libxcb-glx0 libxcb-present0 libxcb-randr0 libxcb-render0 libxcb-shm0
+  libxcb-sync1 libxcb-xfixes0 libxcomposite1 libxcursor1 libxcvt0 libxdamage1 libxfixes3 libxfont2 libxi6 libxinerama1 libxkbfile1 libxmu6 libxnvctrl0 libxrandr2
+  libxrender1 libxshmfence1 libxt6t64 libxtst6 libxxf86vm1 lto-disabled-list make mesa-libgallium mesa-vdpau-drivers mesa-vulkan-drivers nvidia-compute-utils-535
+  nvidia-dkms-535 nvidia-driver-535 nvidia-firmware-535-535.288.01 nvidia-kernel-common-535 nvidia-kernel-source-535 nvidia-prime nvidia-settings nvidia-utils-535
+  pkexec pkg-config pkgconf pkgconf-bin screen-resolution-extra session-migration ubuntu-mono vdpau-driver-all x11-common x11-xkb-utils xcvt xfonts-base
+  xfonts-encodings xfonts-utils xserver-common xserver-xorg-core xserver-xorg-video-nvidia-535
+0 upgraded, 178 newly installed, 0 to remove and 1 not upgraded.
