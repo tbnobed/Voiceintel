@@ -22,7 +22,7 @@
 
 <!-- Filters -->
 <div class="card" style="margin-bottom: 20px;">
-  <form method="GET" action="/voicemails">
+  <form method="GET" action="/voicemails" id="filters-form">
     <div class="filter-row">
       <div class="filter-group" style="flex: 1; min-width: 160px;">
         <label>Search</label>
@@ -78,12 +78,40 @@
         <input type="date" name="date_to" class="filter-input" value="{{ date_to or '' }}" />
       </div>
       <div style="display:flex; gap:8px; padding-bottom:0; align-self:flex-end;">
-        <button type="submit" class="btn btn-primary">Filter</button>
         <a href="/voicemails" class="btn btn-ghost">Clear</a>
       </div>
     </div>
+    <noscript>
+      <div style="margin-top:10px;">
+        <button type="submit" class="btn btn-primary">Filter</button>
+      </div>
+    </noscript>
   </form>
 </div>
+
+<script>
+  // Auto-apply filters: any select/date change submits immediately; the
+  // search box submits 400ms after the user stops typing.
+  (function () {
+    const form = document.getElementById('filters-form');
+    if (!form) return;
+
+    form.querySelectorAll('select, input[type="date"]').forEach(el => {
+      el.addEventListener('change', () => form.submit());
+    });
+
+    const search = form.querySelector('input[name="q"]');
+    if (search) {
+      let t = null;
+      search.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(() => form.submit(), 400);
+      });
+      // Pressing Enter in the search box submits immediately (default form
+      // behavior) — no extra handler needed.
+    }
+  })();
+</script>
 
 {# ── Sortable column header macro ──────────────────────────────────────── #}
 {% macro sort_th(key, label, default_dir='desc', extra_style='') -%}
