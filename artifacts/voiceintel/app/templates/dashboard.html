@@ -84,22 +84,41 @@
 <!-- Row 2: Keywords + Recent -->
 <div class="grid-1-2" style="align-items: start;">
 
-  <!-- Keywords -->
-  <div class="card">
-    <div class="card-head"><span class="card-head-title">Top Keywords</span></div>
-    <div class="card-body">
-      {% if top_keywords %}
-        <div style="display: flex; flex-wrap: wrap; gap: 6px; line-height: 2;">
-          {% for kw in top_keywords %}
-            <a href="/voicemails?q={{ kw }}" class="kw-tag">{{ kw }}</a>
-          {% endfor %}
-        </div>
-      {% else %}
-        <div class="empty" style="padding: 28px 0;">
-          <svg class="empty-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1" width="32" height="32"><circle cx="16" cy="16" r="12"/><path d="M10 16h12M16 10v12"/></svg>
-          <p class="empty-sub">Keywords appear after transcription</p>
-        </div>
-      {% endif %}
+  <!-- Left column: Keywords + Sentiment -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <!-- Keywords -->
+    <div class="card">
+      <div class="card-head"><span class="card-head-title">Top Keywords</span></div>
+      <div class="card-body">
+        {% if top_keywords %}
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; line-height: 2;">
+            {% for kw in top_keywords %}
+              <a href="/voicemails?q={{ kw }}" class="kw-tag">{{ kw }}</a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty" style="padding: 28px 0;">
+            <svg class="empty-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1" width="32" height="32"><circle cx="16" cy="16" r="12"/><path d="M10 16h12M16 10v12"/></svg>
+            <p class="empty-sub">Keywords appear after transcription</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Sentiment -->
+    <div class="card">
+      <div class="card-head"><span class="card-head-title">Sentiment</span></div>
+      <div class="card-body">
+        {% if sentiment_dist %}
+          <div style="position: relative; height: 220px;">
+            <canvas id="sentimentChart"></canvas>
+          </div>
+        {% else %}
+          <div class="empty" style="padding: 28px 0;">
+            <p class="empty-sub">Sentiment appears after transcription</p>
+          </div>
+        {% endif %}
+      </div>
     </div>
   </div>
 
@@ -156,11 +175,57 @@ function copyWebhookUrl() {
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+  Chart.defaults.color = 'rgba(175,155,70,0.5)';
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.font.size = 11;
+
+  const tooltipDefaults = {
+    backgroundColor: '#1a1400',
+    borderColor: 'rgba(175,155,70,0.25)',
+    borderWidth: 1,
+    titleColor: 'rgba(175,155,70,0.6)',
+    bodyColor: '#DFD6A7',
+    padding: 10,
+  };
+
+  const GOLD   = 'rgba(247,206,91,';
+  const URGENT = 'rgba(224,92,58,';
+
+  /* ── Sentiment donut (mirrors analytics page) ─────────────────────────── */
+  const sentData = {{ sentiment_dist | tojson }};
+  const sentCanvas = document.getElementById('sentimentChart');
+  if (sentCanvas && Object.keys(sentData).length) {
+    const labels = Object.keys(sentData);
+    const values = Object.values(sentData);
+    const colors = labels.map(l =>
+      l === 'positive' ? GOLD + '0.75)' :
+      l === 'negative' ? URGENT + '0.75)' :
+                         'rgba(175,155,70,0.35)'
+    );
+    sentCanvas.style.cursor = 'pointer';
+    sentCanvas.title = 'Click a slice to see the messages';
+    new Chart(sentCanvas.getContext('2d'), {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 14, boxWidth: 10, font: { size: 11 } } },
+          tooltip: { ...tooltipDefaults, callbacks: { afterLabel: () => 'Click to view messages' } },
+        },
+        onClick: (_evt, elements) => {
+          if (!elements.length) return;
+          const label = labels[elements[0].index];
+          if (label) window.location.href = '/voicemails?sentiment=' + encodeURIComponent(label);
+        },
+      },
+    });
+  }
+
   const trend = {{ daily_trend | tojson }};
   if (trend.length) {
-    Chart.defaults.color = 'rgba(175,155,70,0.5)';
-    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-    Chart.defaults.font.size = 11;
     const ctx = document.getElementById('trendChart').getContext('2d');
     new Chart(ctx, {
       type: 'bar',

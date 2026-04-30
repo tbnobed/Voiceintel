@@ -84,6 +84,17 @@ def dashboard():
         current_user,
     ).limit(5).all()
 
+    # Sentiment distribution — joined to Voicemail so we can apply scoping.
+    sent_q = (
+        db.session.query(Insight.sentiment, func.count(Insight.id))
+        .join(Voicemail, Voicemail.id == Insight.voicemail_id)
+        .filter(Insight.sentiment.isnot(None))
+    )
+    sent_q = scope_voicemails(sent_q, current_user)
+    sentiment_dist = {
+        (s or "neutral"): c for s, c in sent_q.group_by(Insight.sentiment).all()
+    }
+
     return render_template(
         "dashboard.html",
         total=total,
@@ -92,6 +103,7 @@ def dashboard():
         category_dist=category_dist,
         daily_trend=daily_trend,
         top_keywords=top_keywords,
+        sentiment_dist=sentiment_dist,
         recent=recent,
     )
 
