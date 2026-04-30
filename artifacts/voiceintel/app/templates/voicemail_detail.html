@@ -324,8 +324,20 @@
               </div>
             </div>
             <div class="filter-group">
-              <label>Due (optional)</label>
-              <input type="datetime-local" name="due_at" class="filter-input" />
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                <label style="margin:0;">Due (optional)</label>
+                <button type="button" id="due-clear-btn"
+                        style="background:transparent; border:none; color:var(--muted); font-size:11px; cursor:pointer; padding:0;">
+                  Clear
+                </button>
+              </div>
+              <!-- Hidden input is what the form actually submits; flatpickr
+                   writes the formatted value (`Y-m-dTH:i`) here. -->
+              <input type="hidden" name="due_at" id="due-at-input" />
+              <div id="due-at-calendar"></div>
+              <div id="due-at-display" style="font-size:11px; color:var(--muted); margin-top:6px; min-height:14px;">
+                No due date set
+              </div>
             </div>
             <div class="filter-group">
               <label>Instructions (optional)</label>
@@ -626,4 +638,82 @@ function regenerateAiSummary(id) {
   setInterval(poll, 5000);
 })();
 </script>
+
+{% if current_user.can_assign_callbacks and not (vm.callbacks|selectattr('is_open')|list) %}
+<!-- flatpickr — inline mini calendar for the Due date field. Loaded only on
+     the assignment form, since that's the sole consumer. The dark theme
+     matches the rest of the app's palette. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/themes/dark.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+<style>
+  /* Trim flatpickr so its inline calendar feels native to VoiceIntel.
+     It defaults to ~307px wide and a bright white surface in dark mode —
+     we override the surface and keep the gold accent consistent. */
+  #due-at-calendar .flatpickr-calendar.inline {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--border-m);
+    border-radius: 4px;
+    box-shadow: none;
+    width: 100%;
+    max-width: 100%;
+    font-size: 12px;
+  }
+  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.selected,
+  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.selected:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+  }
+  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.today {
+    border-color: var(--accent);
+  }
+  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day {
+    color: var(--vanilla);
+  }
+  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.flatpickr-disabled,
+  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.prevMonthDay,
+  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.nextMonthDay {
+    color: var(--muted);
+  }
+  #due-at-calendar .dayContainer { width: 100%; min-width: 0; max-width: 100%; }
+  /* Make the calendar's day grid stretch to fill the column width */
+  #due-at-calendar .flatpickr-days { width: 100%; }
+</style>
+<script>
+(function () {
+  var hidden  = document.getElementById('due-at-input');
+  var display = document.getElementById('due-at-display');
+  var clear   = document.getElementById('due-clear-btn');
+  if (!hidden || !window.flatpickr) return;
+
+  // dateFormat must match what _parse_due() in routes/tasks.py understands:
+  //   "%Y-%m-%dT%H:%M"  →  flatpickr's "Y-m-d\\TH:i"
+  var fp = flatpickr('#due-at-calendar', {
+    inline: true,
+    enableTime: true,
+    time_24hr: false,
+    minuteIncrement: 15,
+    minDate: 'today',
+    dateFormat: "Y-m-d\\TH:i",
+    altInput: false,
+    onChange: function (selectedDates, dateStr) {
+      hidden.value = dateStr || '';
+      if (selectedDates.length) {
+        display.textContent = 'Due ' + selectedDates[0].toLocaleString(undefined, {
+          weekday: 'short', month: 'short', day: 'numeric',
+          hour: 'numeric', minute: '2-digit',
+        });
+        display.style.color = 'var(--vanilla)';
+      } else {
+        display.textContent = 'No due date set';
+        display.style.color = 'var(--muted)';
+      }
+    },
+  });
+
+  clear.addEventListener('click', function () { fp.clear(); });
+})();
+</script>
+{% endif %}
 {% endblock %}
