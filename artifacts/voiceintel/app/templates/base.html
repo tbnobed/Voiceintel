@@ -48,11 +48,26 @@
 
     /* Embed mode: render page chrome-free for use inside an iframe modal.
        Activated by appending ?embed=1 to any URL. */
+    body.embedded { background: var(--card); }
+    body.embedded .layout { min-height: auto; display: block; }
     body.embedded .sidebar,
     body.embedded .topbar { display: none !important; }
-    body.embedded .main { margin-left: 0 !important; width: 100% !important; }
-    body.embedded .content { padding: 24px !important; }
-    body.embedded .page-header { margin-top: 0 !important; }
+    body.embedded .main {
+      margin-left: 0 !important;
+      width: 100% !important;
+      display: block !important;
+    }
+    body.embedded .content {
+      padding: 32px 40px !important;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    body.embedded .page-header { margin-top: 0 !important; margin-bottom: 24px !important; }
+    /* Center any form-card-style wrappers inside the embedded modal */
+    body.embedded .content > div[style*="max-width"] {
+      margin-left: auto !important;
+      margin-right: auto !important;
+    }
 
     /* Sidebar */
     .sidebar {
