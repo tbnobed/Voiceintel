@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, current_app, jsonify, flash
 from flask_login import login_required, current_user
 from sqlalchemy import func, desc, or_
@@ -155,7 +156,15 @@ def voicemail_list():
     query = query.join(Category, Voicemail.category_id == Category.id, isouter=True)
 
     if q:
-        query = query.filter(Transcript.text.ilike(f"%{q}%"))
+        # Search across transcript text, subject (carrier puts the caller's
+        # phone + name here), and sender. Subject + sender matter for the
+        # Frequent Callers analytics card, which links to ?q=<digits>.
+        like = f"%{q}%"
+        query = query.filter(or_(
+            Transcript.text.ilike(like),
+            Voicemail.subject.ilike(like),
+            Voicemail.sender.ilike(like),
+        ))
 
     if category_id:
         query = query.filter(Voicemail.category_id == category_id)
@@ -680,6 +689,60 @@ def analytics():
             urg_kw.extend(ins.urgency_keywords)
     top_urgency_kw = [{"word": w, "count": c} for w, c in Counter(urg_kw).most_common(10)]
 
+    # Frequent callers — group voicemails by parsed caller phone number
+    # (digits only, so "(555) 123-4567" and "555-123-4567" land in the
+    # same bucket). Eager-load `insights` so `display_caller_name` (which
+    # reads `vm.insights.ai_caller_name`) doesn't N+1 across hundreds of
+    # rows. Voicemails with no parseable phone are skipped — without a
+    # stable identifier we can't safely cluster them.
+    fc_q = (
+        db.session.query(Voicemail)
+        .options(selectinload(Voicemail.insights))
+        .filter(Voicemail.subject.isnot(None))
+    )
+    fc_q = scope_voicemails(fc_q, current_user)
+    fc_groups: dict[str, dict] = {}
+    for vm in fc_q.all():
+        ci = vm.caller_info or {}
+        phone_raw = (ci.get("phone") or "").strip()
+        digits = re.sub(r"\D+", "", phone_raw)
+        if not digits:
+            continue
+        g = fc_groups.setdefault(digits, {
+            "phone": phone_raw,
+            "name": None,
+            "count": 0,
+            "last_received": None,
+            "last_vm_id": None,
+        })
+        g["count"] += 1
+        if vm.received_at and (g["last_received"] is None or vm.received_at > g["last_received"]):
+            g["last_received"] = vm.received_at
+            g["last_vm_id"] = vm.id
+        # First non-empty display name wins; display_caller_name already
+        # prefers the AI-extracted name over generic carrier placeholders.
+        if not g["name"]:
+            nm = vm.display_caller_name
+            if nm:
+                g["name"] = nm
+    # Sort by count desc, then most-recent desc as a deterministic tiebreaker.
+    # Keep `last_received` as a raw datetime so the `localtime` Jinja filter
+    # can render it in DISPLAY_TZ.
+    frequent_callers = [
+        {
+            "phone": g["phone"],
+            "phone_digits": d,
+            "name": g["name"],
+            "count": g["count"],
+            "last_received": g["last_received"],
+            "last_vm_id": g["last_vm_id"],
+        }
+        for d, g in sorted(
+            fc_groups.items(),
+            key=lambda item: (-item[1]["count"], -(item[1]["last_received"].timestamp() if item[1]["last_received"] else 0)),
+        )[:10]
+    ]
+
     # Processing status breakdown
     status_q = (
         db.session.query(Voicemail.processing_status, func.count(Voicemail.id))
@@ -707,6 +770,7 @@ def analytics():
         top_keywords=top_keywords,
         hourly_dist=hourly_dist,
         top_urgency_kw=top_urgency_kw,
+        frequent_callers=frequent_callers,
         status_dist=status_dist,
         latest_insight=latest_insight,
     )

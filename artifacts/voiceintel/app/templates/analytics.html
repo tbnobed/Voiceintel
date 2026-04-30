@@ -148,8 +148,8 @@
 
 </div>
 
-<!-- ── Row 3: Keywords + Urgency keywords ────────────────────────────────── -->
-<div class="grid-1-1" style="margin-bottom:16px; align-items:start;">
+<!-- ── Row 3: Keywords + Urgency keywords + Frequent callers ─────────────── -->
+<div class="grid-1-1-1" style="margin-bottom:16px; align-items:start;">
 
   <div class="card">
     <div class="card-head"><span class="card-head-title">Top Keywords</span></div>
@@ -193,6 +193,43 @@
         <canvas id="urgKwChart" style="max-height:170px; cursor:pointer;" title="Click a bar to view matching voicemails"></canvas>
       {% else %}
         <div class="empty" style="padding:28px 0;"><p class="empty-sub">No urgency keywords triggered yet</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-head-title">Frequent Callers</span></div>
+    <div class="card-body">
+      {% if frequent_callers %}
+        {% set _fc_max = frequent_callers[0].count %}
+        <div style="display:flex; flex-direction:column; gap:0;">
+          {% for c in frequent_callers %}
+            {% set _fc_pct = (100 * c.count / _fc_max) | round | int %}
+            <a href="/voicemails?q={{ c.phone_digits }}"
+               title="{{ c.count }} voicemail{{ '' if c.count == 1 else 's' }} from this number — click to view"
+               style="display:block; padding:10px 0; border-bottom:1px solid var(--border-m); text-decoration:none; color:inherit;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:5px;">
+                <div style="min-width:0; flex:1;">
+                  <div style="font-size:13px; font-weight:500; color:var(--vanilla); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    {% if c.name %}{{ c.name }}{% else %}<span style="color:var(--muted); font-style:italic;">Unknown</span>{% endif %}
+                  </div>
+                  <div style="font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; margin-top:1px;">
+                    {{ c.phone }}
+                    {% if c.last_received %}
+                      <span style="opacity:.6;"> · last {{ c.last_received | localtime('%b %-d') }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div style="font-size:12px; font-weight:600; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap;">
+                  {{ c.count }} <span style="opacity:.55; font-weight:400; font-size:10px;">call{{ '' if c.count == 1 else 's' }}</span>
+                </div>
+              </div>
+              <div class="bar-track"><div class="bar-fill" style="width:{{ _fc_pct }}%;"></div></div>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty" style="padding:28px 0;"><p class="empty-sub">No callers with phone numbers yet</p></div>
       {% endif %}
     </div>
   </div>
