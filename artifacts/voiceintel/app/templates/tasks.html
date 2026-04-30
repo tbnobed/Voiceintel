@@ -97,14 +97,14 @@
       </td>
       <td style="font-size:12px; color:var(--muted);">
         {% if cb.due_at %}
-          {{ cb.due_at.strftime('%b %d, %Y') }}
-          <div style="font-size:10px;">{{ cb.due_at.strftime('%H:%M') }} UTC</div>
+          {{ cb.due_at | localtime('%b %d, %Y') }}
+          <div style="font-size:10px;">{{ cb.due_at | localtime('%H:%M %Z') }}</div>
         {% else %}
           —
         {% endif %}
       </td>
       <td style="font-size:12px; color:var(--muted);">
-        {{ cb.created_at.strftime('%b %d') }}
+        {{ cb.created_at | localtime('%b %d') }}
         <div style="font-size:10px;">by {{ cb.assigner.name if cb.assigner else '—' }}</div>
       </td>
       <td style="text-align:right; padding-right:20px;">

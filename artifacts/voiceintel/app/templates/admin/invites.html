@@ -80,13 +80,13 @@
           {{ inv.invited_by.name if inv.invited_by else '—' }}
         </td>
         <td style="color:var(--muted); font-size:12px;">
-          {{ inv.last_sent_at.strftime('%b %d, %Y') if inv.last_sent_at else '—' }}
+          {{ (inv.last_sent_at | localtime('%b %d, %Y')) if inv.last_sent_at else '—' }}
         </td>
         <td style="color:var(--muted); font-size:12px;">
           {% if inv.accepted_at %}
-            <span style="color:var(--sub);">accepted {{ inv.accepted_at.strftime('%b %d') }}</span>
+            <span style="color:var(--sub);">accepted {{ inv.accepted_at | localtime('%b %d') }}</span>
           {% else %}
-            {{ inv.expires_at.strftime('%b %d, %Y') if inv.expires_at else '—' }}
+            {{ (inv.expires_at | localtime('%b %d, %Y')) if inv.expires_at else '—' }}
           {% endif %}
         </td>
         <td style="text-align:right; padding-right:20px; white-space:nowrap;">

@@ -66,10 +66,10 @@
           {% endif %}
         </td>
         <td style="color:var(--muted); font-size:12px;">
-          {{ u.last_login.strftime('%b %d, %Y') if u.last_login else '—' }}
+          {{ (u.last_login | localtime('%b %d, %Y')) if u.last_login else '—' }}
         </td>
         <td style="color:var(--muted); font-size:12px;">
-          {{ u.created_at.strftime('%b %d, %Y') if u.created_at else '—' }}
+          {{ (u.created_at | localtime('%b %d, %Y')) if u.created_at else '—' }}
         </td>
         <td style="text-align:right; padding-right:20px;">
           <a href="/admin/users/{{ u.id }}/edit" class="btn btn-ghost btn-sm">Edit</a>

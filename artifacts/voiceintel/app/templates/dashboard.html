@@ -118,7 +118,7 @@
               {% if vm.is_urgent %}&ensp;<span class="pill pill-urg">Urgent</span>{% endif %}
               {% if vm.category_obj %}&ensp;<span class="pill pill-cat">{{ vm.category_obj.name }}</span>{% endif %}
               <span style="margin-left:auto; font-size:10px; color:var(--muted);">
-                {% if vm.received_at %}{{ vm.received_at.strftime('%b %d') }}{% endif %}
+                {% if vm.received_at %}{{ vm.received_at | localtime('%b %d') }}{% endif %}
               </span>
             </div>
             <div class="recent-subject">{{ vm.subject or '(No subject)' }}</div>

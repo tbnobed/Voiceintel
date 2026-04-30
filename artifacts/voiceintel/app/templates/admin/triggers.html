@@ -41,7 +41,7 @@
         <div style="font-size:20px; font-weight:300; color:var(--accent); letter-spacing:-.5px;">{{ t.trigger_count }}</div>
         <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;">times fired</div>
         {% if t.last_triggered %}
-        <div style="font-size:10px; color:var(--muted); margin-top:2px;">last {{ t.last_triggered.strftime('%b %d') }}</div>
+        <div style="font-size:10px; color:var(--muted); margin-top:2px;">last {{ t.last_triggered | localtime('%b %d') }}</div>
         {% endif %}
       </div>
 

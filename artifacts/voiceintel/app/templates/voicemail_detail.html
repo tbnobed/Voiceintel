@@ -34,7 +34,7 @@
           {% elif vm.processing_status == 'error' %}<span class="pill pill-err">Error</span>
           {% else %}<span class="pill pill-pend">Pending</span>{% endif %}
           <span style="margin-left:auto; font-size:11px; color:var(--muted);">
-            {% if vm.received_at %}{{ vm.received_at.strftime('%B %d, %Y at %I:%M %p') }}{% endif %}
+            {% if vm.received_at %}{{ vm.received_at | localtime('%B %d, %Y at %I:%M %p %Z') }}{% endif %}
           </span>
         </div>
 
@@ -102,7 +102,7 @@
         <div style="display:flex; align-items:center; gap:10px;">
           {% if vm.insights and vm.insights.ai_generated_at %}
             <span style="font-size:11px; color:var(--muted);" id="ai-summary-time">
-              {{ vm.insights.ai_generated_at.strftime('%b %d at %H:%M') }} UTC
+              {{ vm.insights.ai_generated_at | localtime('%b %d at %H:%M %Z') }}
               {% if vm.insights.ai_duration_ms %} · {{ (vm.insights.ai_duration_ms / 1000)|round(1) }}s{% endif %}
             </span>
           {% endif %}
@@ -264,7 +264,7 @@
             </span>
             {% if cb.due_at %}
               <span style="font-size:11px; color:var(--muted); margin-left:auto;">
-                Due {{ cb.due_at.strftime('%b %d, %Y %H:%M') }} UTC
+                Due {{ cb.due_at | localtime('%b %d, %Y %H:%M %Z') }}
               </span>
             {% endif %}
           </div>
@@ -272,8 +272,8 @@
             <div style="font-size:13px; color:var(--sub); margin:6px 0 8px; white-space:pre-wrap;">{{ cb.notes }}</div>
           {% endif %}
           <div style="font-size:11px; color:var(--muted);">
-            Assigned by {{ cb.assigner.name if cb.assigner else '—' }} · {{ cb.created_at.strftime('%b %d, %Y %H:%M') }} UTC
-            {% if cb.completed_at %} · Completed {{ cb.completed_at.strftime('%b %d %H:%M') }} UTC{% endif %}
+            Assigned by {{ cb.assigner.name if cb.assigner else '—' }} · {{ cb.created_at | localtime('%b %d, %Y %H:%M %Z') }}
+            {% if cb.completed_at %} · Completed {{ cb.completed_at | localtime('%b %d %H:%M %Z') }}{% endif %}
           </div>
 
           {# Status update form: assignee, supervisor, or admin can change status #}
@@ -369,7 +369,7 @@
         <div style="padding:14px 20px; border-bottom:1px solid var(--border-m);">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
             <span style="font-size:12px; font-weight:500; color:var(--vanilla);">{{ note.author_name }}</span>
-            <span style="font-size:11px; color:var(--muted);">{{ note.created_at.strftime('%b %d, %Y at %H:%M') }} UTC</span>
+            <span style="font-size:11px; color:var(--muted);">{{ note.created_at | localtime('%b %d, %Y at %H:%M %Z') }}</span>
             {% if note.author_id == current_user.id or current_user.is_admin or current_user.is_supervisor %}
             <form method="POST" action="/voicemails/{{ vm.id }}/notes/{{ note.id }}/delete" style="display:inline; margin-left:auto;"
                   onsubmit="return confirm('Delete this note?');">
@@ -604,10 +604,21 @@ function regenerateAiSummary(id) {
       body.innerHTML = html;
 
       if (time && data.duration_ms != null) {
-        const now = new Date();
-        const mm = String(now.getUTCMinutes()).padStart(2, '0');
-        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        time.textContent = `${months[now.getUTCMonth()]} ${now.getUTCDate()} at ${now.getUTCHours()}:${mm} UTC · ${(data.duration_ms / 1000).toFixed(1)}s`;
+        // Render in the configured display timezone so it matches the Jinja
+        // `localtime` filter the rest of the page uses on initial load.
+        const tzName = {{ DISPLAY_TZ_NAME | tojson }};
+        try {
+          const now = new Date();
+          const fmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: tzName, month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
+          });
+          const parts = Object.fromEntries(fmt.formatToParts(now).map(p => [p.type, p.value]));
+          time.textContent =
+            `${parts.month} ${parts.day} at ${parts.hour}:${parts.minute} ${parts.timeZoneName} · ${(data.duration_ms / 1000).toFixed(1)}s`;
+        } catch (_) {
+          time.textContent = `just now · ${(data.duration_ms / 1000).toFixed(1)}s`;
+        }
       }
     })
     .catch(err => {

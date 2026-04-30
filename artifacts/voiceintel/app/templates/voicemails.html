@@ -152,8 +152,8 @@
                 <div style="font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums;">{{ ci.call_time }}</div>
               {% endif %}
             {% elif vm.received_at %}
-              <div style="font-size:13px; font-weight:500; color:var(--text);">{{ vm.received_at.strftime('%b %d, %Y') }}</div>
-              <div style="font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums;">{{ vm.received_at.strftime('%I:%M %p') }}</div>
+              <div style="font-size:13px; font-weight:500; color:var(--text);">{{ vm.received_at | localtime('%b %d, %Y') }}</div>
+              <div style="font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums;">{{ vm.received_at | localtime('%I:%M %p') }}</div>
             {% else %}<span style="color:var(--muted);">—</span>{% endif %}
           </td>
           <td style="max-width:160px;">

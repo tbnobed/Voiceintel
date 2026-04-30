@@ -24,6 +24,8 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
 
+    _register_jinja_filters(app)
+
     # Flask-Login
     login_manager.init_app(app)
     login_manager.login_view = "auth.login"
@@ -88,6 +90,64 @@ def create_app():
     _start_insights_scheduler(app)
 
     return app
+
+
+def _register_jinja_filters(app):
+    """
+    Display-only timezone conversion. The database always stores UTC
+    (`datetime.utcnow()` everywhere); these filters convert to the operator's
+    local zone at render time. Set `DISPLAY_TZ` env var (default
+    `America/Chicago`) to change the displayed zone — no schema change needed.
+
+    Filters:
+      {{ dt | localtime }}                       → "Apr 29, 2026 11:20 PM"
+      {{ dt | localtime('%b %d, %Y %H:%M %Z') }} → "Apr 29, 2026 23:20 CDT"
+      {{ dt | tz_abbr }}                         → "CDT" / "CST" for that moment
+    """
+    import logging as _logging
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    log = _logging.getLogger(__name__)
+
+    tz_name = os.environ.get("DISPLAY_TZ", "America/Chicago")
+    try:
+        zone = ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError:
+        log.warning(f"DISPLAY_TZ={tz_name!r} not found in tz database; falling back to UTC")
+        zone = ZoneInfo("UTC")
+        tz_name = "UTC"
+    log.info(f"Display timezone: {tz_name}")
+
+    _UTC = ZoneInfo("UTC")
+
+    def _to_local(dt):
+        """Coerce a datetime (assumed UTC if naive) into the display zone."""
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=_UTC)
+        return dt.astimezone(zone)
+
+    def localtime_filter(dt, fmt="%b %d, %Y %I:%M %p"):
+        local = _to_local(dt)
+        if local is None:
+            return ""
+        return local.strftime(fmt)
+
+    def tz_abbr_filter(dt=None):
+        if dt is None:
+            local = datetime.now(zone)
+        else:
+            local = _to_local(dt)
+            if local is None:
+                return ""
+        return local.strftime("%Z")
+
+    app.jinja_env.filters["localtime"] = localtime_filter
+    app.jinja_env.filters["tz_abbr"]   = tz_abbr_filter
+    # Expose the configured zone name as a global so templates / JS data attrs
+    # can reference it (e.g. for the analytics "X mins ago" widget).
+    app.jinja_env.globals["DISPLAY_TZ_NAME"] = tz_name
 
 
 def _start_insights_scheduler(app):
