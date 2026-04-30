@@ -497,6 +497,13 @@ def delete_voicemail_note(vm_id, note_id):
 @main_bp.route("/analytics")
 @login_required
 def analytics():
+    # Analytics is restricted to admins and supervisors. Agents and viewers
+    # don't have visibility across the full inbox so the cross-team metrics
+    # would be misleading for them.
+    if not (current_user.is_admin or current_user.is_supervisor):
+        flash("You don't have permission to view analytics.", "error")
+        return redirect(url_for("main.dashboard"))
+
     now = datetime.utcnow()
     week_ago   = now - timedelta(days=7)
     month_ago  = now - timedelta(days=30)
