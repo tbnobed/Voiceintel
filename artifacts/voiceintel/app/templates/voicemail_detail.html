@@ -31,6 +31,7 @@
           {% if vm.category_obj %}<span class="pill pill-cat">{{ vm.category_obj.name }}</span>{% endif %}
           {% if vm.processing_status == 'completed' %}<span class="pill pill-done">Transcribed</span>
           {% elif vm.processing_status == 'processing' %}<span class="pill pill-proc">Processing</span>
+          {% elif vm.processing_status == 'no_speech' %}<span class="pill pill-mute">No Speech</span>
           {% elif vm.processing_status == 'error' %}<span class="pill pill-err">Error</span>
           {% else %}<span class="pill pill-pend">Pending</span>{% endif %}
           <span style="margin-left:auto; font-size:11px; color:var(--muted);">
@@ -186,6 +187,10 @@
         {% elif vm.transcript and vm.transcript.error %}
           <div style="background:rgba(224,92,58,0.08); border:1px solid rgba(224,92,58,0.2); border-radius:6px; padding:14px 18px; font-size:13px; color:var(--urgent);">
             {{ vm.transcript.error }}
+          </div>
+        {% elif vm.processing_status == 'no_speech' %}
+          <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-m); border-radius:6px; padding:14px 18px; font-size:13px; color:var(--sub);">
+            No speech was detected in this recording. The audio may be silent, contain only background noise, or be too short to transcribe.
           </div>
         {% else %}
           <div class="empty" style="padding:32px 0;">

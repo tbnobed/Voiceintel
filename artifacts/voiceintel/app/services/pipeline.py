@@ -138,9 +138,14 @@ def process_email_items(app, items: list):
                     )
                     db.session.add(insight)
 
-                voicemail.processing_status = "error" if transcription.get("error") else "completed"
+                if transcription.get("error"):
+                    voicemail.processing_status = "error"
+                elif not (transcription.get("text") or "").strip():
+                    voicemail.processing_status = "no_speech"
+                else:
+                    voicemail.processing_status = "completed"
                 db.session.commit()
-                logger.info(f"Processed voicemail id={voicemail.id}: {item['filename']}")
+                logger.info(f"Processed voicemail id={voicemail.id}: {item['filename']} status={voicemail.processing_status}")
 
                 # ── Per-voicemail AI summary (Phi-3 via Ollama) ──────────────
                 # Best-effort — a model timeout/outage must NOT mark the
@@ -254,7 +259,12 @@ def reprocess_voicemail(app, voicemail_id):
                 )
                 db.session.add(insight)
 
-        vm.processing_status = "error" if transcription.get("error") else "completed"
+        if transcription.get("error"):
+            vm.processing_status = "error"
+        elif not (transcription.get("text") or "").strip():
+            vm.processing_status = "no_speech"
+        else:
+            vm.processing_status = "completed"
         db.session.commit()
 
         # ── Regenerate the AI summary too (best-effort) ─────────────────

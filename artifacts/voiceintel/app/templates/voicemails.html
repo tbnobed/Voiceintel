@@ -230,6 +230,7 @@
           <td>
             {% if vm.processing_status == 'completed' %}<span class="pill pill-done">Done</span>
             {% elif vm.processing_status == 'processing' %}<span class="pill pill-proc">Processing</span>
+            {% elif vm.processing_status == 'no_speech' %}<span class="pill pill-mute">No Speech</span>
             {% elif vm.processing_status == 'error' %}<span class="pill pill-err">Error</span>
             {% else %}<span class="pill pill-pend">Pending</span>{% endif %}
           </td>
