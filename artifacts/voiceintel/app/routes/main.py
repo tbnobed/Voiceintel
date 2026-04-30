@@ -51,14 +51,18 @@ def dashboard():
     cat_dist_q = scope_voicemails(cat_dist_q, current_user)
     category_dist = cat_dist_q.group_by(Category.name).all()
 
+    # Bucket by display timezone so a 9pm Central call lands on the right day,
+    # not in the next UTC day.
+    tz_name = os.environ.get("DISPLAY_TZ", "America/Chicago")
+    received_local = func.timezone(tz_name, func.timezone("UTC", Voicemail.received_at))
     trend_q = db.session.query(
-        func.date(Voicemail.received_at).label("day"),
+        func.date(received_local).label("day"),
         func.count(Voicemail.id).label("count"),
     ).filter(Voicemail.received_at >= week_ago)
     trend_q = scope_voicemails(trend_q, current_user)
     daily_trend = [
         {"day": str(d), "count": c}
-        for d, c in trend_q.group_by(func.date(Voicemail.received_at))
+        for d, c in trend_q.group_by(func.date(received_local))
                            .order_by("day").all()
     ]
 
@@ -497,6 +501,13 @@ def analytics():
     week_ago   = now - timedelta(days=7)
     month_ago  = now - timedelta(days=30)
 
+    # Bucket analytics by the user-facing display timezone, not UTC. Voicemails
+    # are stored as naive UTC, so we re-label as UTC and convert to DISPLAY_TZ
+    # before extracting day/hour. Without this, a 9pm Central call shows up
+    # under "2 AM" on the hour chart.
+    tz_name = os.environ.get("DISPLAY_TZ", "America/Chicago")
+    received_local = func.timezone(tz_name, func.timezone("UTC", Voicemail.received_at))
+
     total        = Voicemail.query.count()
     week_count   = Voicemail.query.filter(Voicemail.received_at >= week_ago).count()
     month_count  = Voicemail.query.filter(Voicemail.received_at >= month_ago).count()
@@ -508,14 +519,14 @@ def analytics():
     ).scalar()
     avg_duration = round(avg_dur_row or 0)
 
-    # 30-day daily trend
+    # 30-day daily trend (bucketed in DISPLAY_TZ)
     daily_rows = (
         db.session.query(
-            func.date(Voicemail.received_at).label("day"),
+            func.date(received_local).label("day"),
             func.count(Voicemail.id).label("cnt"),
         )
         .filter(Voicemail.received_at >= month_ago)
-        .group_by(func.date(Voicemail.received_at))
+        .group_by(func.date(received_local))
         .order_by("day")
         .all()
     )
@@ -550,10 +561,10 @@ def analytics():
     kw_counter = Counter(all_kw)
     top_keywords = [{"word": w, "count": c} for w, c in kw_counter.most_common(20)]
 
-    # Hourly call distribution (0-23)
+    # Hourly call distribution (0-23, bucketed in DISPLAY_TZ)
     hour_rows = (
         db.session.query(
-            func.extract("hour", Voicemail.received_at).label("hr"),
+            func.extract("hour", received_local).label("hr"),
             func.count(Voicemail.id).label("cnt"),
         )
         .filter(Voicemail.received_at.isnot(None))
