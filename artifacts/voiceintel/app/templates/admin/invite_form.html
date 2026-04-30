@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Send Invitation — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span>
+<a href="/admin/invites" style="color:var(--sub);">Invites</a>
+<span class="sep">/</span><span>New</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Send Invitation</div>
+  <div class="page-sub">The recipient gets an email with a link to set up their own password.</div>
+</div>
+
+<div style="max-width: 540px;">
+  <div class="card">
+    <div class="card-body">
+      {% if error %}
+      <div style="background:rgba(224,92,58,0.1); border:1px solid rgba(224,92,58,0.25); color:var(--urgent); font-size:12px; padding:10px 14px; border-radius:6px; margin-bottom:20px;">{{ error }}</div>
+      {% endif %}
+      <form method="POST">
+        <div class="filter-group" style="margin-bottom:18px;">
+          <label>Email Address</label>
+          <input type="email" name="email" class="filter-input" placeholder="jane@example.com" required autofocus />
+        </div>
+        <div class="filter-group" style="margin-bottom:18px;">
+          <label>Full Name</label>
+          <input type="text" name="name" class="filter-input" placeholder="Jane Smith" required />
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">The invitee can edit this when they accept.</div>
+        </div>
+        <div class="filter-group" style="margin-bottom:18px;">
+          <label>Role</label>
+          <select name="role" class="filter-select">
+            <option value="viewer">Viewer — read-only access; can post notes</option>
+            <option value="agent" selected>Agent — receives callback assignments</option>
+            <option value="supervisor">Supervisor — manage users + assign callbacks</option>
+            {% if current_user.is_admin %}
+            <option value="admin">Admin — full access including admin panel</option>
+            {% endif %}
+          </select>
+        </div>
+
+        {% if teams %}
+        <div class="filter-group" style="margin-bottom:24px;">
+          <label>Assign to Team(s)</label>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:10px 12px; max-height:180px; overflow-y:auto;">
+            {% for team in teams %}
+            <label style="display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px; cursor:pointer;">
+              <input type="checkbox" name="team_ids" value="{{ team.id }}"
+                     {{ 'checked' if team.id in selected_team_ids else '' }}
+                     style="accent-color:var(--accent); width:14px; height:14px;" />
+              <span>{{ team.name }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">Optional. Team membership can be edited later from the Teams page.</div>
+        </div>
+        {% endif %}
+
+        <div style="display:flex; gap:10px;">
+          <button type="submit" class="btn btn-primary">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M14 3L2 8l5 2 2 5L14 3z"/></svg>
+            Send Invitation
+          </button>
+          <a href="/admin/invites" class="btn btn-ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div style="margin-top:14px; font-size:12px; color:var(--muted); line-height:1.6;">
+    Invitations expire after 7 days. If SendGrid isn't configured the link will be displayed so you can share it manually.
+  </div>
+</div>
+{% endblock %}

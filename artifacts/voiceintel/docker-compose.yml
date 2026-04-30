@@ -93,6 +93,11 @@ services:
       SESSION_SECRET:       ${SESSION_SECRET}
       FLASK_ENV:            production
       PORT:                 5000
+      # Public-facing base URL for invite/reset links sent over email.
+      # Required when running behind a reverse proxy so emailed links use the
+      # public hostname (e.g. https://voice-ai.obtv.io) instead of the
+      # container's internal address.
+      APP_BASE_URL:         ${APP_BASE_URL:-}
 
       # ── Database ────────────────────────────────────────────────────────────
       DATABASE_URL:         postgresql://voiceintel:${DB_PASSWORD:-changeme}@db:5432/voiceintel

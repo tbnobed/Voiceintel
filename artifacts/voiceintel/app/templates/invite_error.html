@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ heading }} — VoiceIntel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #000; --surface: #0d0b00; --card: #1a1400; --border: rgba(175,155,70,0.16);
+      --accent: #F7CE5B; --gold: #AF9B46; --vanilla: #DFD6A7; --sub: #AF9B46;
+      --muted: rgba(175,155,70,0.5); --urgent: #e05c3a;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg); color: var(--vanilla);
+      font-size: 14px; line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    }
+    .wrap { width: 100%; max-width: 420px; padding: 24px; text-align: center; }
+    .brand img {
+      width: 100px; height: 100px; object-fit: contain;
+      border-radius: 18px; margin-bottom: 18px; opacity: .7;
+    }
+    .heading {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: 26px; font-weight: 400; color: var(--accent);
+      letter-spacing: -.3px; margin-bottom: 12px;
+    }
+    .message {
+      color: var(--vanilla); font-size: 14px; line-height: 1.6; margin-bottom: 22px;
+    }
+    .btn {
+      display: inline-block; padding: 10px 22px; background: var(--accent); color: #000;
+      text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+      transition: background .12s;
+    }
+    .btn:hover { background: var(--vanilla); }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <img src="/static/logo.png" alt="VoiceIntel" />
+  </div>
+  <div class="heading">{{ heading }}</div>
+  <div class="message">{{ message }}</div>
+  {% if show_login %}
+  <a href="/login" class="btn">Sign In</a>
+  {% endif %}
+</div>
+</body>
+</html>

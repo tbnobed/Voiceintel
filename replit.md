@@ -32,6 +32,7 @@ pnpm workspace monorepo using TypeScript for backend services, plus a Python Fla
 - **Full-text search** across all transcripts
 - **Voicemail detail** — audio player, full transcript, segments timeline, insights, callbacks, notes
 - **Roles** — `admin`, `supervisor`, `agent`, `viewer`. Admins have full access; supervisors manage non-admin users + assign callbacks; agents receive callback assignments + can add notes; viewers are read-only but can still add notes.
+- **Email invitations** — admins/supervisors send invites at `/admin/invites`. Recipient gets a SendGrid email with a one-time link (`/invite/<token>`) where they choose their own password and (optionally) edit the suggested name. Accepted invites create the User row + apply optional team memberships in one step. Tokens are 256-bit `secrets.token_urlsafe(32)` values, expire after 7 days, and a fresh invite to the same email auto-revokes any prior pending one. Status (`pending`/`accepted`/`expired`/`revoked`) is derived from `accepted_at` / `revoked_at` / `expires_at` rather than stored, eliminating drift. Sidebar shows a pending-invite badge for user-managers. Email links use `APP_BASE_URL` env var (recommended for self-hosted) and fall back to the request scheme + Host.
 - **Teams** — agents belong to one or many teams (M:N). Incoming voicemails are auto-routed to a team via per-team rules: `recipient_email`/`recipient_domain` (uses the SendGrid Inbound-Parse "to" field — e.g. `team1@mail3.opscal.io` → Sales), `sender_email`/`sender_domain`, `keyword` (substring of transcript or subject), or `caller_phone` (digit substring). Rules evaluate lowest-priority-number first, first match wins. Routing runs twice per voicemail: once on initial save (recipient/sender/phone) and again after transcription (gives keyword rules a chance). Agents/viewers see only voicemails routed to their teams **plus** unrouted voicemails; supervisors and admins always see everything. Supervisors/admins can manually override the team on the voicemail detail page — manual changes set `team_locked=True` so auto-routing won't overwrite them. Managed at `/admin/teams`.
 - **Callbacks** — supervisors/admins assign follow-up phone calls to agents. Each callback has status (pending/in_progress/completed/cancelled), priority (normal/urgent), optional due date and instructions. Visible on the voicemail detail page and in the per-user "My Tasks" inbox at `/tasks`.
 - **Notes & disposition** — anyone signed in can add free-form notes to any voicemail. Author or supervisor/admin can delete.
@@ -48,6 +49,7 @@ pnpm workspace monorepo using TypeScript for backend services, plus a Python Fla
 | `IMAP_FOLDER` | Folder to monitor | INBOX |
 | `WHISPER_MODEL` | tiny/base/small/medium/large-v2 | base |
 | `POLL_INTERVAL` | Email poll interval (seconds) | 60 |
+| `APP_BASE_URL` | Public base URL for emailed invite links (e.g. `https://voice-ai.obtv.io`); falls back to request scheme + Host if unset | (empty) |
 
 ## File Structure (VoiceIntel)
 ```
@@ -65,8 +67,9 @@ artifacts/voiceintel/
 ```
 
 ### Schema migrations
-The app uses `db.create_all()` for first-boot table creation. New columns added
-to existing tables are applied via an idempotent boot guard
+The app uses `db.create_all()` for first-boot table creation (this picks up
+brand-new tables like `user_invites` automatically). New columns added to
+existing tables are applied via an idempotent boot guard
 `_ensure_voicemails_columns()` in `app/__init__.py` (issues `ALTER TABLE ADD
 COLUMN` for the Teams feature: `recipient`, `team_id`, `team_locked`). Safe on
 both Postgres and SQLite. Add new columns to that helper when you extend the

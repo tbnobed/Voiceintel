@@ -519,6 +519,15 @@
           Teams
         </a>
       </li>
+      <li>
+        <a href="/admin/invites" class="nav-link {{ 'active' if request.endpoint and request.endpoint.startswith('invites.') else '' }}">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="3" width="13" height="10" rx="1.5"/><path d="M1.5 4l6.5 5 6.5-5"/></svg>
+          Invites
+          {% if pending_invite_count and pending_invite_count > 0 %}
+            <span style="margin-left:auto; background:var(--accent); color:#000; font-size:9.5px; font-weight:700; padding:1px 6px; border-radius:8px; line-height:1.4;">{{ pending_invite_count }}</span>
+          {% endif %}
+        </a>
+      </li>
       {% endif %}
     </ul>
 

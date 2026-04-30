@@ -41,6 +41,7 @@ def create_app():
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
     from app.routes.teams_admin import teams_admin_bp
+    from app.routes.invites import invites_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(tasks_bp)
@@ -48,22 +49,34 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(teams_admin_bp, url_prefix="/admin/teams")
+    # Invites blueprint mounts both /admin/invites/* and the public /invite/<token>
+    # at the app root, so no url_prefix.
+    app.register_blueprint(invites_bp)
 
-    # Expose open-callback count for the sidebar badge on every authenticated page.
+    # Expose open-callback count + pending-invite count for sidebar badges
+    # on every authenticated page.
     @app.context_processor
-    def _inject_task_count():
+    def _inject_sidebar_counts():
         from flask_login import current_user
         if not current_user.is_authenticated:
             return {}
+        ctx = {}
         try:
             from app.models.voicemail import Callback
-            count = Callback.query.filter(
+            ctx["open_task_count"] = Callback.query.filter(
                 Callback.assignee_id == current_user.id,
                 Callback.status.in_(("pending", "in_progress")),
             ).count()
         except Exception:
-            count = 0
-        return {"open_task_count": count}
+            ctx["open_task_count"] = 0
+        # Pending-invite badge is only relevant to user managers.
+        if getattr(current_user, "can_manage_users", False):
+            try:
+                from app.services.invite_service import pending_invite_count
+                ctx["pending_invite_count"] = pending_invite_count()
+            except Exception:
+                ctx["pending_invite_count"] = 0
+        return ctx
 
     with app.app_context():
         db.create_all()

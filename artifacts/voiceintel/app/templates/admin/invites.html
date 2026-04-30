@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Invites — Admin — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+<span>Admin</span><span class="sep">/</span><span>Invites</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+  <div>
+    <div class="page-title">Invitations</div>
+    <div class="page-sub">Send email invites and track who's accepted.</div>
+  </div>
+  <a href="/admin/invites/new" class="btn btn-primary">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v14M1 8h14"/></svg>
+    Send Invite
+  </a>
+</div>
+
+{# ── Status filter chips ─────────────────────────────────────────────────── #}
+<div style="display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap;">
+  {% for s, label in [('all','All'), ('pending','Pending'), ('accepted','Accepted'), ('expired','Expired'), ('revoked','Revoked')] %}
+    {% set count = counts.get(s, 0) if s != 'all' else (counts.pending + counts.accepted + counts.expired + counts.revoked) %}
+    <a href="/admin/invites?status={{ s }}"
+       class="btn btn-sm {{ 'btn-primary' if status_filter == s else 'btn-ghost' }}"
+       style="text-decoration:none;">
+      {{ label }}
+      <span style="margin-left:4px; opacity:.7;">{{ count }}</span>
+    </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  {% if invites %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Recipient</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th>Sent By</th>
+        <th>Sent</th>
+        <th>Expires</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in invites %}
+      <tr>
+        <td>
+          <div style="font-weight:500;">{{ inv.name }}</div>
+          <div style="font-family:monospace; font-size:12px; color:var(--muted);">{{ inv.email }}</div>
+        </td>
+        <td>
+          {% if inv.role == 'admin' %}
+            <span class="pill pill-urg">Admin</span>
+          {% elif inv.role == 'supervisor' %}
+            <span class="pill" style="background:rgba(247,206,91,0.14); color:var(--accent); border:1px solid rgba(247,206,91,0.25);">Supervisor</span>
+          {% elif inv.role == 'agent' %}
+            <span class="pill pill-cat">Agent</span>
+          {% else %}
+            <span class="pill pill-pend">Viewer</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if inv.status == 'pending' %}
+            <span class="pill" style="background:rgba(247,206,91,0.14); color:var(--accent); border:1px solid rgba(247,206,91,0.25);">Pending</span>
+          {% elif inv.status == 'accepted' %}
+            <span class="pill pill-done">Accepted</span>
+          {% elif inv.status == 'expired' %}
+            <span class="pill pill-pend">Expired</span>
+          {% elif inv.status == 'revoked' %}
+            <span class="pill pill-err">Revoked</span>
+          {% endif %}
+          {% if inv.send_count and inv.send_count > 1 %}
+            <span style="margin-left:6px; font-size:11px; color:var(--muted);">sent {{ inv.send_count }}×</span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px; color:var(--sub);">
+          {{ inv.invited_by.name if inv.invited_by else '—' }}
+        </td>
+        <td style="color:var(--muted); font-size:12px;">
+          {{ inv.last_sent_at.strftime('%b %d, %Y') if inv.last_sent_at else '—' }}
+        </td>
+        <td style="color:var(--muted); font-size:12px;">
+          {% if inv.accepted_at %}
+            <span style="color:var(--sub);">accepted {{ inv.accepted_at.strftime('%b %d') }}</span>
+          {% else %}
+            {{ inv.expires_at.strftime('%b %d, %Y') if inv.expires_at else '—' }}
+          {% endif %}
+        </td>
+        <td style="text-align:right; padding-right:20px; white-space:nowrap;">
+          {% if inv.is_actionable %}
+            <form method="POST" action="/admin/invites/{{ inv.id }}/resend" style="display:inline;">
+              <button type="submit" class="btn btn-ghost btn-sm">Resend</button>
+            </form>
+            {% if inv.status == 'pending' %}
+            <form method="POST" action="/admin/invites/{{ inv.id }}/revoke" style="display:inline;" onsubmit="return confirm('Revoke this invitation? The link will stop working immediately.')">
+              <button type="submit" class="btn btn-sm" style="background:rgba(224,92,58,0.1); color:var(--urgent); border:1px solid rgba(224,92,58,0.2);">Revoke</button>
+            </form>
+            {% endif %}
+          {% endif %}
+          <form method="POST" action="/admin/invites/{{ inv.id }}/delete" style="display:inline;" onsubmit="return confirm('Permanently delete this invitation record?')">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--muted);">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <div class="empty-title">No invitations {{ 'yet' if status_filter == 'all' else status_filter }}</div>
+    {% if status_filter == 'all' or status_filter == 'pending' %}
+    <a href="/admin/invites/new" class="btn btn-primary" style="margin-top:8px;">Send First Invite</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
