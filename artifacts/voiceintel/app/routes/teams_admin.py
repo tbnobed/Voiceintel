@@ -21,6 +21,27 @@ def _required():
         abort(403)
 
 
+def _team_access_required(team):
+    """Admins can manage any team; supervisors only their own."""
+    if current_user.is_admin:
+        return
+    if not current_user.is_authenticated or not current_user.is_supervisor:
+        abort(403)
+    if team not in current_user.teams:
+        abort(403)
+
+
+def _visible_teams_query():
+    """Teams the current user is allowed to see in admin lists."""
+    if current_user.is_admin:
+        return Team.query.order_by(Team.name)
+    my_ids = [t.id for t in current_user.teams]
+    if not my_ids:
+        # Empty result, but still a valid query for templates that iterate it.
+        return Team.query.filter(Team.id == -1)
+    return Team.query.filter(Team.id.in_(my_ids)).order_by(Team.name)
+
+
 def _slugify(s: str) -> str:
     s = re.sub(r"[^a-zA-Z0-9]+", "-", (s or "").strip().lower())
     return re.sub(r"-+", "-", s).strip("-") or "team"
@@ -43,14 +64,16 @@ def _safe_color(value: str, fallback: str = "#F7CE5B") -> str:
 @login_required
 def list_teams():
     _required()
-    teams = Team.query.order_by(Team.name).all()
+    teams = _visible_teams_query().all()
     return render_template("admin/teams.html", teams=teams)
 
 
 @teams_admin_bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new_team():
-    _required()
+    # Only admins can create new teams.
+    if not current_user.is_authenticated or not current_user.is_admin:
+        abort(403)
     error = None
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -78,6 +101,7 @@ def new_team():
 def edit_team(team_id):
     _required()
     team = Team.query.get_or_404(team_id)
+    _team_access_required(team)
     error = None
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -107,7 +131,9 @@ def edit_team(team_id):
 @teams_admin_bp.route("/<int:team_id>/delete", methods=["POST"])
 @login_required
 def delete_team(team_id):
-    _required()
+    # Only admins can delete teams.
+    if not current_user.is_authenticated or not current_user.is_admin:
+        abort(403)
     team = Team.query.get_or_404(team_id)
     name = team.name
     db.session.delete(team)
@@ -125,10 +151,20 @@ def delete_team(team_id):
 def team_detail(team_id):
     _required()
     team = Team.query.get_or_404(team_id)
+    _team_access_required(team)
     member_ids = {u.id for u in team.members}
     q = User.query.filter(User.is_active.is_(True))
     if member_ids:
         q = q.filter(~User.id.in_(member_ids))
+    if not current_user.is_admin:
+        # Supervisors should only see/add users that are already in one of
+        # their other teams (and never admin accounts).
+        my_team_ids = [t.id for t in current_user.teams]
+        if my_team_ids:
+            q = q.filter(User.teams.any(Team.id.in_(my_team_ids)))
+        else:
+            q = q.filter(User.id == -1)
+        q = q.filter(User.role != "admin")
     available_users = q.order_by(User.name).all()
     return render_template(
         "admin/team_detail.html",
@@ -148,11 +184,20 @@ def team_detail(team_id):
 def add_member(team_id):
     _required()
     team = Team.query.get_or_404(team_id)
+    _team_access_required(team)
     user_id = request.form.get("user_id", type=int)
     if not user_id:
         flash("Please select a user.", "error")
         return redirect(url_for("teams_admin.team_detail", team_id=team_id))
     user = User.query.get_or_404(user_id)
+    # Prevent supervisors from sneaking arbitrary users (or elevated accounts)
+    # onto teams they manage.
+    if not current_user.is_admin:
+        if user.role in ("admin", "supervisor"):
+            abort(403)
+        my_team_ids = {t.id for t in current_user.teams}
+        if not (my_team_ids & {t.id for t in user.teams}):
+            abort(403)
     if user not in team.members:
         team.members.append(user)
         db.session.commit()
@@ -165,7 +210,12 @@ def add_member(team_id):
 def remove_member(team_id, user_id):
     _required()
     team = Team.query.get_or_404(team_id)
+    _team_access_required(team)
     user = User.query.get_or_404(user_id)
+    # Supervisors must not be able to remove admins or peer supervisors from
+    # teams they happen to share with them.
+    if not current_user.is_admin and user.role in ("admin", "supervisor"):
+        abort(403)
     if user in team.members:
         team.members.remove(user)
         db.session.commit()
@@ -182,6 +232,7 @@ def remove_member(team_id, user_id):
 def add_rule(team_id):
     _required()
     team = Team.query.get_or_404(team_id)
+    _team_access_required(team)
     kind = request.form.get("kind", "")
     pattern = request.form.get("pattern", "").strip()
     priority = request.form.get("priority", type=int) or 100
@@ -210,6 +261,7 @@ def add_rule(team_id):
 def toggle_rule(rule_id):
     _required()
     rule = RoutingRule.query.get_or_404(rule_id)
+    _team_access_required(rule.team)
     rule.is_active = not rule.is_active
     db.session.commit()
     return redirect(url_for("teams_admin.team_detail", team_id=rule.team_id) + "#rules")
@@ -220,6 +272,7 @@ def toggle_rule(rule_id):
 def delete_rule(rule_id):
     _required()
     rule = RoutingRule.query.get_or_404(rule_id)
+    _team_access_required(rule.team)
     team_id = rule.team_id
     db.session.delete(rule)
     db.session.commit()

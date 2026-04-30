@@ -39,10 +39,14 @@
               <div style="font-size:11px;color:var(--muted);">{{ u.email }} · {{ u.role_label }}</div>
             </td>
             <td style="padding:11px 20px;text-align:right;white-space:nowrap;">
+              {% if current_user.is_admin or u.role not in ('admin', 'supervisor') %}
               <form method="POST" action="/admin/teams/{{ team.id }}/members/{{ u.id }}/remove" style="display:inline;"
                     onsubmit="return confirm('Remove {{ u.name }} from {{ team.name }}?');">
                 <button type="submit" class="btn btn-ghost" style="padding:4px 10px;font-size:11px;color:var(--urgent);border-color:rgba(224,92,58,0.25);">Remove</button>
               </form>
+              {% else %}
+              <span style="font-size:11px;color:var(--muted);">—</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

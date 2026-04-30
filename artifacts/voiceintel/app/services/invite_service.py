@@ -87,13 +87,18 @@ def create_invite(
     name = name.strip()
     role = role if role in ROLES else "viewer"
 
-    # Auto-revoke prior pending/expired invites for this email so the listing
-    # never shows multiple "live" invites for the same person.
-    prior = (
+    # Auto-revoke prior pending invites for this email so the listing never
+    # shows multiple "live" invites for the same person. Limit auto-revocation
+    # to invites the same inviter created (or to all of them if the new inviter
+    # is an admin) — supervisors must not be able to clobber another user's
+    # pending invitation just by re-inviting the same email.
+    prior_q = (
         UserInvite.query
         .filter_by(email=email, accepted_at=None, revoked_at=None)
-        .all()
     )
+    if not getattr(invited_by, "is_admin", False):
+        prior_q = prior_q.filter(UserInvite.invited_by_id == invited_by.id)
+    prior = prior_q.all()
     for inv in prior:
         inv.revoked_at = datetime.utcnow()
 

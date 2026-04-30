@@ -11,10 +11,12 @@
     <div class="page-title">Teams</div>
     <div class="page-sub">Group agents into teams. Incoming voicemails are auto-routed to a team based on rules you configure.</div>
   </div>
+  {% if current_user.is_admin %}
   <a href="/admin/teams/new" class="btn btn-primary" style="flex-shrink:0;">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v14M1 8h14"/></svg>
     New Team
   </a>
+  {% endif %}
 </div>
 
 <div class="card">
@@ -55,9 +57,11 @@
           <td style="padding:13px 20px;text-align:right;white-space:nowrap;">
             <a href="/admin/teams/{{ team.id }}" class="btn btn-ghost" style="padding:5px 12px;font-size:12px;margin-right:6px;">Manage</a>
             <a href="/admin/teams/{{ team.id }}/edit" class="btn btn-ghost" style="padding:5px 12px;font-size:12px;margin-right:6px;">Edit</a>
+            {% if current_user.is_admin %}
             <form method="POST" action="/admin/teams/{{ team.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete team &quot;{{ team.name }}&quot;? Members will be removed and any voicemails routed to this team will become unrouted.');">
               <button type="submit" class="btn btn-ghost" style="padding:5px 12px;font-size:12px;color:var(--urgent);border-color:rgba(224,92,58,0.25);">Delete</button>
             </form>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

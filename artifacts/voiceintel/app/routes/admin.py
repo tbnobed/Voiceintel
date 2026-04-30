@@ -30,15 +30,38 @@ def _user_management_required():
 @admin_bp.route("/", strict_slashes=False)
 @login_required
 def index():
-    _admin_required()
+    # Supervisors land here too — the template hides admin-only actions for
+    # them so they only see the user/team/invite management surface.
+    _user_management_required()
     from app.models.voicemail import Category
     from app.models.team import Team
+    from app.models.invite import UserInvite
     from app.services.invite_service import pending_invite_count
-    user_count = User.query.count()
     trigger_count = AutomationTrigger.query.filter_by(is_active=True).count()
     cat_count = Category.query.count()
-    team_count = Team.query.count()
-    invite_count = pending_invite_count()
+    if current_user.is_admin:
+        user_count = User.query.count()
+        team_count = Team.query.count()
+        invite_count = pending_invite_count()
+    else:
+        # Supervisors see only the teams they belong to and only the invites
+        # they themselves sent.
+        my_team_ids = [t.id for t in current_user.teams]
+        team_count = len(my_team_ids)
+        if my_team_ids:
+            user_count = (
+                User.query.filter(User.teams.any(Team.id.in_(my_team_ids))).count()
+            )
+        else:
+            user_count = 0
+        from datetime import datetime as _dt
+        invites_q = UserInvite.query.filter(
+            UserInvite.invited_by_id == current_user.id,
+            UserInvite.accepted_at.is_(None),
+            UserInvite.revoked_at.is_(None),
+            UserInvite.expires_at > _dt.utcnow(),
+        )
+        invite_count = invites_q.count()
     custom_kw_raw = Setting.get("custom_urgency_keywords", "[]")
     try:
         custom_kw = json.loads(custom_kw_raw)
@@ -65,11 +88,49 @@ def index():
 # User management
 # ---------------------------------------------------------------------------
 
+SUPERVISOR_ASSIGNABLE_ROLES = ("agent", "viewer")
+
+
+def _supervisor_user_scope_ids():
+    """User IDs a supervisor is allowed to see/manage — anyone in their teams."""
+    from app.models.team import Team
+    if current_user.is_admin:
+        return None  # None means "no restriction"
+    my_team_ids = [t.id for t in current_user.teams]
+    if not my_team_ids:
+        return set()
+    rows = (
+        User.query.filter(User.teams.any(Team.id.in_(my_team_ids)))
+        .with_entities(User.id)
+        .all()
+    )
+    return {r[0] for r in rows}
+
+
+def _can_manage_user(user) -> bool:
+    """Admins manage everyone; supervisors only non-elevated members of their teams."""
+    if current_user.is_admin:
+        return True
+    # Supervisors must never be able to manage other supervisors or admins.
+    if user.role in ("admin", "supervisor"):
+        return False
+    scope = _supervisor_user_scope_ids()
+    return scope is not None and user.id in scope
+
+
 @admin_bp.route("/users")
 @login_required
 def users():
     _user_management_required()
-    all_users = User.query.order_by(User.created_at).all()
+    q = User.query.order_by(User.created_at)
+    if not current_user.is_admin:
+        scope = _supervisor_user_scope_ids()
+        if not scope:
+            all_users = []
+        else:
+            all_users = q.filter(User.id.in_(scope)).all()
+    else:
+        all_users = q.all()
     return render_template("admin/users.html", users=all_users, role_labels=ROLE_LABELS)
 
 
@@ -84,19 +145,26 @@ def new_user():
         role = request.form.get("role", "viewer")
         password = request.form.get("password", "")
 
-        # Only admins may create other admins.
-        if role == "admin" and not current_user.is_admin:
-            error = "Only administrators can create admin accounts."
+        # Only admins may grant elevated roles.
+        if not current_user.is_admin and role not in SUPERVISOR_ASSIGNABLE_ROLES:
+            error = "Supervisors can only create agent or viewer accounts."
         elif not email or not name or not password:
             error = "All fields are required."
         elif User.query.filter_by(email=email).first():
             error = "A user with that email already exists."
         elif role not in ROLES:
             error = "Invalid role."
+        elif not current_user.is_admin and not current_user.teams:
+            error = "You must belong to at least one team before creating users."
         else:
             user = User(email=email, name=name, role=role)
             user.set_password(password)
             db.session.add(user)
+            # Supervisors creating users directly should auto-assign them to
+            # the supervisor's own teams so the new account stays in scope.
+            if not current_user.is_admin:
+                for t in current_user.teams:
+                    user.teams.append(t)
             db.session.commit()
             return redirect(url_for("admin.users"))
     return render_template(
@@ -116,6 +184,9 @@ def edit_user(user_id):
     if user.is_admin and not current_user.is_admin:
         flash("Only administrators can edit admin accounts.", "error")
         return redirect(url_for("admin.users"))
+    # Supervisors may only edit users that share at least one of their teams.
+    if not _can_manage_user(user):
+        abort(403)
 
     error = None
     if request.method == "POST":
@@ -124,9 +195,11 @@ def edit_user(user_id):
         is_active = request.form.get("is_active") == "1"
         new_password = request.form.get("password", "").strip()
 
-        # Only admins may grant or revoke the admin role.
-        if (role == "admin" or user.is_admin) and not current_user.is_admin:
-            error = "Only administrators can change the admin role."
+        # Only admins may grant or revoke admin/supervisor roles.
+        if not current_user.is_admin and (
+            role not in SUPERVISOR_ASSIGNABLE_ROLES or user.role not in SUPERVISOR_ASSIGNABLE_ROLES
+        ):
+            error = "Only administrators can change elevated roles."
         elif not name:
             error = "Name is required."
         elif role not in ROLES:
@@ -157,6 +230,8 @@ def delete_user(user_id):
     if user.is_admin and not current_user.is_admin:
         flash("Only administrators can delete admin accounts.", "error")
         return redirect(url_for("admin.users"))
+    if not _can_manage_user(user):
+        abort(403)
     db.session.delete(user)
     db.session.commit()
     return redirect(url_for("admin.users"))

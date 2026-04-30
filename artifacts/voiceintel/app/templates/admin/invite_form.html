@@ -34,8 +34,8 @@
           <select name="role" class="filter-select">
             <option value="viewer">Viewer — read-only access; can post notes</option>
             <option value="agent" selected>Agent — receives callback assignments</option>
-            <option value="supervisor">Supervisor — manage users + assign callbacks</option>
             {% if current_user.is_admin %}
+            <option value="supervisor">Supervisor — manage users + assign callbacks</option>
             <option value="admin">Admin — full access including admin panel</option>
             {% endif %}
           </select>

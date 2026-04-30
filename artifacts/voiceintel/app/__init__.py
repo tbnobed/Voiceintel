@@ -74,8 +74,17 @@ def create_app():
         # Pending-invite badge is only relevant to user managers.
         if getattr(current_user, "can_manage_users", False):
             try:
-                from app.services.invite_service import pending_invite_count
-                ctx["pending_invite_count"] = pending_invite_count()
+                from app.models.invite import UserInvite
+                from datetime import datetime as _dt
+                q = UserInvite.query.filter(
+                    UserInvite.accepted_at.is_(None),
+                    UserInvite.revoked_at.is_(None),
+                    UserInvite.expires_at > _dt.utcnow(),
+                )
+                if not getattr(current_user, "is_admin", False):
+                    # Supervisors only see badges for invites they sent.
+                    q = q.filter(UserInvite.invited_by_id == current_user.id)
+                ctx["pending_invite_count"] = q.count()
             except Exception:
                 ctx["pending_invite_count"] = 0
         return ctx

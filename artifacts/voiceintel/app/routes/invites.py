@@ -38,6 +38,14 @@ def _user_management_required():
         abort(403)
 
 
+def _invite_access_required(invite):
+    """Admins can manage any invite; supervisors only those they sent."""
+    if current_user.is_admin:
+        return
+    if invite.invited_by_id != current_user.id:
+        abort(403)
+
+
 # ---------------------------------------------------------------------------
 # Admin: list
 # ---------------------------------------------------------------------------
@@ -48,7 +56,11 @@ def list_invites():
     _user_management_required()
     status_filter = (request.args.get("status") or "all").lower()
 
-    q = UserInvite.query.order_by(UserInvite.created_at.desc())
+    base_q = UserInvite.query
+    if not current_user.is_admin:
+        # Supervisors only see invitations they sent themselves.
+        base_q = base_q.filter(UserInvite.invited_by_id == current_user.id)
+    q = base_q.order_by(UserInvite.created_at.desc())
     invites = q.all()
 
     # Filter by derived status in Python — there are very few invites and the
@@ -77,7 +89,13 @@ def list_invites():
 @login_required
 def new_invite():
     _user_management_required()
-    teams = Team.query.order_by(Team.name).all()
+    if current_user.is_admin:
+        teams = Team.query.order_by(Team.name).all()
+        allowed_team_ids = {t.id for t in teams}
+    else:
+        # Supervisors can only assign invitees to teams they belong to.
+        teams = sorted(current_user.teams, key=lambda t: t.name.lower())
+        allowed_team_ids = {t.id for t in teams}
     error = None
 
     if request.method == "POST":
@@ -85,14 +103,22 @@ def new_invite():
         email = request.form.get("email", "").strip().lower()
         name  = request.form.get("name", "").strip()
         role  = request.form.get("role", "viewer")
-        team_ids = [int(t) for t in request.form.getlist("team_ids") if t.isdigit()]
+        raw_team_ids = [int(t) for t in request.form.getlist("team_ids") if t.isdigit()]
+        # Drop any team the current user isn't allowed to assign to.
+        team_ids = [tid for tid in raw_team_ids if tid in allowed_team_ids]
+        rejected = [tid for tid in raw_team_ids if tid not in allowed_team_ids]
 
-        if role == "admin" and not current_user.is_admin:
-            error = "Only administrators can invite admin accounts."
+        from app.routes.admin import SUPERVISOR_ASSIGNABLE_ROLES
+        if not current_user.is_admin and role not in SUPERVISOR_ASSIGNABLE_ROLES:
+            error = "Supervisors can only invite agent or viewer accounts."
         elif not email or not name:
             error = "Email and name are required."
         elif role not in ROLES:
             error = "Invalid role."
+        elif rejected:
+            error = "You can only invite users into teams you belong to."
+        elif not current_user.is_admin and not team_ids:
+            error = "Please select at least one team for the invitee."
         elif User.query.filter_by(email=email).first():
             error = "A user with this email already exists."
         else:
@@ -133,6 +159,7 @@ def new_invite():
 def resend(invite_id):
     _user_management_required()
     invite = UserInvite.query.get_or_404(invite_id)
+    _invite_access_required(invite)
     if invite.role == "admin" and not current_user.is_admin:
         flash("Only administrators can manage admin invitations.", "error")
         return redirect(url_for("invites.list_invites"))
@@ -157,6 +184,7 @@ def resend(invite_id):
 def revoke(invite_id):
     _user_management_required()
     invite = UserInvite.query.get_or_404(invite_id)
+    _invite_access_required(invite)
     if invite.role == "admin" and not current_user.is_admin:
         flash("Only administrators can manage admin invitations.", "error")
         return redirect(url_for("invites.list_invites"))
@@ -173,6 +201,7 @@ def revoke(invite_id):
 def delete(invite_id):
     _user_management_required()
     invite = UserInvite.query.get_or_404(invite_id)
+    _invite_access_required(invite)
     if invite.role == "admin" and not current_user.is_admin:
         flash("Only administrators can manage admin invitations.", "error")
         return redirect(url_for("invites.list_invites"))

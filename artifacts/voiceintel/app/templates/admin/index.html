@@ -6,9 +6,10 @@
 {% endblock %}
 
 {% block content %}
+{% set is_admin = current_user.is_admin %}
 <div class="page-header">
-  <div class="page-title">Admin Panel</div>
-  <div class="page-sub">Manage users, urgency keywords, and automation triggers.</div>
+  <div class="page-title">{{ 'Admin Panel' if is_admin else 'Manage' }}</div>
+  <div class="page-sub">{{ 'Manage users, urgency keywords, and automation triggers.' if is_admin else 'Manage users, teams, and invitations for your teams.' }}</div>
 </div>
 
 <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 32px;">
@@ -17,6 +18,7 @@
     <div class="stat-value">{{ user_count }}</div>
     <div class="stat-desc"><a href="/admin/users" style="color:var(--gold)">Manage users →</a></div>
   </div>
+  {% if is_admin %}
   <div class="stat-cell">
     <div class="stat-label">Active Triggers</div>
     <div class="stat-value">{{ trigger_count }}</div>
@@ -32,6 +34,7 @@
     <div class="stat-value">{{ cat_count }}</div>
     <div class="stat-desc"><a href="/admin/categories" style="color:var(--gold)">Manage categories →</a></div>
   </div>
+  {% endif %}
   <div class="stat-cell">
     <div class="stat-label">Teams</div>
     <div class="stat-value">{{ team_count }}</div>
@@ -42,11 +45,13 @@
     <div class="stat-value">{{ pending_invite_count or 0 }}</div>
     <div class="stat-desc"><a href="/admin/invites" style="color:var(--gold)">View invites →</a></div>
   </div>
+  {% if is_admin %}
   <div class="stat-cell">
     <div class="stat-label">SendGrid</div>
     <div class="stat-value" style="font-size:18px;">{{ '✓' if sg_configured else '—' }}</div>
     <div class="stat-desc"><a href="/admin/integrations" style="color:var(--gold)">Configure →</a></div>
   </div>
+  {% endif %}
 </div>
 
 <div class="grid-2-1" style="gap:16px;">
@@ -64,6 +69,7 @@
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="5" r="3"/><path d="M1.5 14.5c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/></svg>
           Add User Directly
         </button>
+        {% if is_admin %}
         <button type="button" class="btn btn-ghost qa-btn" data-url="/admin/triggers/new" data-title="Create Automation Trigger">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v14M1 8h14"/></svg>
           Create Automation Trigger
@@ -80,17 +86,23 @@
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="5" cy="8" r="2.5"/><circle cx="11" cy="4" r="2.5"/><circle cx="11" cy="12" r="2.5"/><path d="M7.5 7L8.5 5M7.5 9L8.5 11"/></svg>
           SendGrid Integrations
         </a>
+        {% endif %}
       </div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-head">
-      <span class="card-head-title">About Automation</span>
+      <span class="card-head-title">{{ 'About Automation' if is_admin else 'About Your Teams' }}</span>
     </div>
     <div class="card-body" style="font-size:13px; color:var(--sub); line-height:1.8;">
-      <p style="margin-bottom:12px;">Triggers fire automatically after each voicemail is processed. Set a <strong style="color:var(--vanilla)">condition</strong> (category, keyword, sentiment) and an <strong style="color:var(--vanilla)">action</strong> (mark urgent, send notification, add label).</p>
-      <p>Custom <strong style="color:var(--vanilla)">urgency keywords</strong> supplement the built-in urgency detection. Any voicemail whose transcript contains one of these words will be flagged urgent.</p>
+      {% if is_admin %}
+        <p style="margin-bottom:12px;">Triggers fire automatically after each voicemail is processed. Set a <strong style="color:var(--vanilla)">condition</strong> (category, keyword, sentiment) and an <strong style="color:var(--vanilla)">action</strong> (mark urgent, send notification, add label).</p>
+        <p>Custom <strong style="color:var(--vanilla)">urgency keywords</strong> supplement the built-in urgency detection. Any voicemail whose transcript contains one of these words will be flagged urgent.</p>
+      {% else %}
+        <p style="margin-bottom:12px;">As a supervisor you can manage members and routing rules for the teams you belong to, and invite new users into those teams.</p>
+        <p>Voicemails are routed to teams automatically based on each team's routing rules. Reach out to an admin if you need a new team or different rule type.</p>
+      {% endif %}
     </div>
   </div>
 </div>
