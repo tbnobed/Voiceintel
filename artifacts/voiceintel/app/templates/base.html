@@ -46,6 +46,14 @@
     /* Layout */
     .layout { display: flex; min-height: 100vh; }
 
+    /* Embed mode: render page chrome-free for use inside an iframe modal.
+       Activated by appending ?embed=1 to any URL. */
+    body.embedded .sidebar,
+    body.embedded .topbar { display: none !important; }
+    body.embedded .main { margin-left: 0 !important; width: 100% !important; }
+    body.embedded .content { padding: 24px !important; }
+    body.embedded .page-header { margin-top: 0 !important; }
+
     /* Sidebar */
     .sidebar {
       width: 200px;
@@ -460,7 +468,7 @@
     .insight-val { flex: 1; }
   </style>
 </head>
-<body>
+<body class="{{ 'embedded' if request.args.get('embed') == '1' else '' }}">
 <div class="layout">
 
   <!-- Sidebar -->
