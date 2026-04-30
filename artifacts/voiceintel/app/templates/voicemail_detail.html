@@ -129,26 +129,6 @@
             Summary
           </div>
           <div style="font-size:13.5px; line-height:1.65; color:var(--vanilla); margin-bottom:18px; white-space:pre-wrap;">{{ vm.insights.ai_summary }}</div>
-
-          {% if vm.insights.ai_action_items %}
-            <div style="font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--sub); margin-bottom:8px;">
-              Action Items
-            </div>
-            <ul style="margin:0 0 18px; padding-left:20px; font-size:13px; line-height:1.7; color:var(--vanilla);">
-              {% for item in vm.insights.ai_action_items %}
-                <li style="margin-bottom:4px;">{{ item }}</li>
-              {% endfor %}
-            </ul>
-          {% endif %}
-
-          {% if vm.insights.ai_suggested_response %}
-            <div style="font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--sub); margin-bottom:6px;">
-              Suggested Response
-            </div>
-            <div style="font-size:13px; line-height:1.65; color:var(--sub); padding:12px 14px; border:1px solid var(--border-m); border-radius:4px; background:rgba(0,0,0,0.18); white-space:pre-wrap; font-style:italic;">
-              {{ vm.insights.ai_suggested_response }}
-            </div>
-          {% endif %}
         {% elif vm.insights and vm.insights.ai_status == 'error' %}
           <div style="background:rgba(224,92,58,0.08); border:1px solid rgba(224,92,58,0.2); border-radius:6px; padding:12px 16px; font-size:12px; color:var(--urgent);">
             <strong>Generation failed.</strong>
@@ -581,7 +561,6 @@ function regenerateAiSummary(id) {
       }
 
       const esc = s => (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-      const items = (data.action_items || []).map(i => `<li style="margin-bottom:4px;">${esc(i)}</li>`).join('');
       let html = '';
       if (data.intent) {
         html += `
@@ -591,16 +570,6 @@ function regenerateAiSummary(id) {
       html += `
         <div style="font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--sub); margin-bottom:6px;">Summary</div>
         <div style="font-size:13.5px; line-height:1.65; color:var(--vanilla); margin-bottom:18px; white-space:pre-wrap;">${esc(data.summary)}</div>`;
-      if (items) {
-        html += `
-          <div style="font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--sub); margin-bottom:8px;">Action Items</div>
-          <ul style="margin:0 0 18px; padding-left:20px; font-size:13px; line-height:1.7; color:var(--vanilla);">${items}</ul>`;
-      }
-      if (data.suggested_response) {
-        html += `
-          <div style="font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--sub); margin-bottom:6px;">Suggested Response</div>
-          <div style="font-size:13px; line-height:1.65; color:var(--sub); padding:12px 14px; border:1px solid var(--border-m); border-radius:4px; background:rgba(0,0,0,0.18); white-space:pre-wrap; font-style:italic;">${esc(data.suggested_response)}</div>`;
-      }
       body.innerHTML = html;
 
       if (time && data.duration_ms != null) {
