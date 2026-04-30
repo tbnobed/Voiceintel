@@ -267,7 +267,13 @@ def _ensure_insights_columns():
     if "ai_summary" not in cols:
         statements.append("ALTER TABLE insights ADD COLUMN ai_summary TEXT")
     if "ai_intent" not in cols:
-        statements.append("ALTER TABLE insights ADD COLUMN ai_intent VARCHAR(300)")
+        statements.append("ALTER TABLE insights ADD COLUMN ai_intent TEXT")
+    else:
+        # Existing deployments created ai_intent as VARCHAR(300); widen it to
+        # TEXT so longer Phi-3 outputs don't crash the pipeline. Postgres
+        # accepts ALTER COLUMN TYPE; SQLite ignores VARCHAR length anyway so
+        # we just skip the failure on that backend.
+        statements.append("ALTER TABLE insights ALTER COLUMN ai_intent TYPE TEXT")
     if "ai_action_items" not in cols:
         # JSON on Postgres, TEXT-with-JSON on SQLite — both accept this DDL.
         statements.append("ALTER TABLE insights ADD COLUMN ai_action_items JSON")

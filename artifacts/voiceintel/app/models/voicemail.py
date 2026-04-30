@@ -237,7 +237,7 @@ class Insight(db.Model):
     # "success" when the model returned a usable response, "error" on failure
     # (with details in ai_error), "skipped" when there was no transcript.
     ai_summary            = db.Column(db.Text)
-    ai_intent             = db.Column(db.String(300))
+    ai_intent             = db.Column(db.Text)
     ai_action_items       = db.Column(db.JSON)
     ai_suggested_response = db.Column(db.Text)
     ai_status             = db.Column(db.String(20))   # pending|success|error|skipped|None

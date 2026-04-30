@@ -1,0 +1,131 @@
+': 1634, 'ai_generated_at': datetime.datetime(2026, 4, 30, 6, 54, 22, 736991), 'insights_id': 83}]
+app-1           | (Background on this error at: https://sqlalche.me/e/20/9h9h) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+app-1           | Traceback (most recent call last):
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+app-1           |     self.dialect.do_execute(
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+app-1           |     cursor.execute(statement, parameters)
+app-1           | psycopg2.errors.StringDataRightTruncation: value too long for type character varying(300)
+app-1           |
+app-1           |
+app-1           | The above exception was the direct cause of the following exception:
+app-1           |
+app-1           | Traceback (most recent call last):
+app-1           |   File "/app/app/services/pipeline.py", line 153, in process_email_items
+app-1           |     db.session.commit()
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/scoping.py", line 597, in commit
+app-1           |     return self._proxied.commit()
+app-1           |            ^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2028, in commit
+app-1           |     trans.commit(_to_root=True)
+app-1           |   File "<string>", line 2, in commit
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+app-1           |     ret_value = fn(self, *arg, **kw)
+app-1           |                 ^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1313, in commit
+app-1           |     self._prepare_impl()
+app-1           |   File "<string>", line 2, in _prepare_impl
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+app-1           |     ret_value = fn(self, *arg, **kw)
+app-1           |                 ^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1288, in _prepare_impl
+app-1           |     self.session.flush()
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4352, in flush
+app-1           |     self._flush(objects)
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4487, in _flush
+app-1           |     with util.safe_reraise():
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 146, in __exit__
+app-1           |     raise exc_value.with_traceback(exc_tb)
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4448, in _flush
+app-1           |     flush_context.execute()
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+app-1           |     rec.execute(self)
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+app-1           |     util.preloaded.orm_persistence.save_obj(
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 85, in save_obj
+app-1           |     _emit_update_statements(
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 912, in _emit_update_statements
+app-1           |     c = connection.execute(
+app-1           |         ^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1418, in execute
+app-1           |     return meth(
+app-1           |            ^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+app-1           |     return connection._execute_clauseelement(
+app-1           |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+app-1           |     ret = self._execute_context(
+app-1           |           ^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+app-1           |     return self._exec_single_context(
+app-1           |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+app-1           |     self._handle_dbapi_exception(
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+app-1           |     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+app-1           |     self.dialect.do_execute(
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+app-1           |     cursor.execute(statement, parameters)
+app-1           | sqlalchemy.exc.DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(300)
+app-1           |
+app-1           | [SQL: UPDATE insights SET ai_summary=%(ai_summary)s, ai_intent=%(ai_intent)s, ai_action_items=%(ai_action_items)s::JSON, ai_suggested_response=%(ai_suggested_response)s, ai_status=%(ai_status)s, ai_duration_ms=%(ai_duration_ms)s, ai_generated_at=%(ai_generated_at)s WHERE insights.id = %(insights_id)s]
+app-1           | [parameters: {'ai_summary': "Christine from Springfield, Virginia expressed deep remorse for her repeated sins and fear of losing salvation; she seeks God's mercy and forgiveness ... (718 characters truncated) ... p you as we pray for His guidance on this journey back towards Him (2 Corinthians 5:7). Blessings from all of us at Washington Z Va Church Community.", 'ai_intent': "Seeking divine intervention to regain spiritual standing. ACTION ITEMS: - Encourage the team member or a designated individual within the church comm ... (559 characters truncated) ... p you as we pray for His guidance on this journey back towards Him (2 Corinthians 5:7). Blessings from all of us at Washington Z Va Church Community.", 'ai_action_items': '["Encourage the team member or a designated individual within the church community to reach out personally with Christine, offering her support throu ... (492 characters truncated) ... you as we pray for His guidance on this journey back towards Him (2 Corinthians 5:7). Blessings from all of us at Washington Z Va Church Community."]', 'ai_suggested_response': "Dear Christine, we are deeply moved by your heartfelt confession and understand that you're seeking forgiveness for past actions. Please know that Go ... (292 characters truncated) ... p you as we pray for His guidance on this journey back towards Him (2 Corinthians 5:7). Blessings from all of us at Washington Z Va Church Community.", 'ai_status': 'success', 'ai_duration_ms': 1634, 'ai_generated_at': datetime.datetime(2026, 4, 30, 6, 54, 22, 736991), 'insights_id': 83}]
+app-1           | (Background on this error at: https://sqlalche.me/e/20/9h9h)
+app-1           |
+app-1           | During handling of the above exception, another exception occurred:
+app-1           |
+app-1           | Traceback (most recent call last):
+app-1           |   File "/app/app/services/pipeline.py", line 159, in process_email_items
+app-1           |     logger.warning(f"AI summary failed for vm {voicemail.id}: {ai_err}")
+app-1           |                                                ^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/attributes.py", line 566, in __get__
+app-1           |     return self.impl.get(state, dict_)  # type: ignore[no-any-return]
+app-1           |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/attributes.py", line 1086, in get
+app-1           |     value = self._fire_loader_callables(state, key, passive)
+app-1           |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/attributes.py", line 1116, in _fire_loader_callables
+app-1           |     return state._load_expired(state, passive)
+app-1           |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/state.py", line 803, in _load_expired
+app-1           |     self.manager.expired_attribute_loader(self, toload, passive)
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 1670, in load_scalar_attributes
+app-1           |     result = load_on_ident(
+app-1           |              ^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 509, in load_on_ident
+app-1           |     return load_on_pk_identity(
+app-1           |            ^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 694, in load_on_pk_identity
+app-1           |     session.execute(
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2362, in execute
+app-1           |     return self._execute_internal(
+app-1           |            ^^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2237, in _execute_internal
+app-1           |     conn = self._connection_for_bind(bind)
+app-1           |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2106, in _connection_for_bind
+app-1           |     return trans._connection_for_bind(engine, execution_options)
+app-1           |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app-1           |   File "<string>", line 2, in _connection_for_bind
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 103, in _go
+app-1           |     self._raise_for_prerequisite_state(fn.__name__, current_state)
+app-1           |   File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 973, in _raise_for_prerequisite_state
+app-1           |     raise sa_exc.PendingRollbackError(
+app-1           | sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(300)
+app-1           |
+app-1           | [SQL: UPDATE insights SET ai_summary=%(ai_summary)s, ai_intent=%(ai_intent)s, ai_action_items=%(ai_action_items)s::JSON, ai_suggested_response=%(ai_suggested_response)s, ai_status=%(ai_status)s, ai_duration_ms=%(ai_duration_ms)s, ai_generated_at=%(ai_generated_at)s WHERE insights.id = %(insights_id)s]
+app-1           | [parameters: {'ai_summary': "Christine from Springfield, Virginia expressed deep remorse for her repeated sins and fear of losing salvation; she seeks God's mercy and forgiveness ... (718 characters truncated) ... p you as we pray for His guidance on this journey back towards Him (2 Corinthians 5:7). Blessings from all of us at Washington Z Va Church Community.", 'ai_intent': "Seeking divine intervention to regain spiritual standing. ACTION ITEMS: - Encourage the team member or a designated individual within the church comm ... (559 characters truncated) ... p you as we pray for His guidance on this journey back towards Him (2 Corinthians 5:7). Blessings from all of us at Washington Z Va Church Community.", 'ai_action_items': '["Encourage the team member or a designated individual within the church community to reach out personally with Christine, offering her support throu ... (492 characters truncated) ... you as we pray for His guidance on this journey back towards Him (2 Corinthians 5:7). Blessings from all of us at Washington Z Va Church Community."]', 'ai_suggested_response': "Dear Christine, we are deeply moved by your heartfelt confession and understand that you're seeking forgiveness for past actions. Please know that Go ... (292 characters truncated) ... p you as we pray for His guidance on this journey back towards Him (2 Corinthians 5:7). Blessings from all of us at Washington Z Va Church Community.", 'ai_status': 'success', 'ai_duration_ms': 1634, 'ai_generated_at': datetime.datetime(2026, 4, 30, 6, 54, 22, 736991), 'insights_id': 83}]
+app-1           | (Background on this error at: https://sqlalche.me/e/20/9h9h) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+ollama-1        | [GIN] 2026/04/30 - 06:54:23 | 200 |      32.999µs |       127.0.0.1 | HEAD     "/"
+ollama-1        | [GIN] 2026/04/30 - 06:54:23 | 200 |      348.57µs |       127.0.0.1 | GET      "/api/tags"
+app-1           | 192.168.200.193 - - [30/Apr/2026:06:54:28 +0000] "GET /voicemails/poll HTTP/1.1" 200 52 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1           | 192.168.200.193 - - [30/Apr/2026:06:54:28 +0000] "GET /voicemails HTTP/1.1" 200 91572 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1           | 192.168.200.193 - - [30/Apr/2026:06:54:28 +0000] "GET /static/logo.png HTTP/1.1" 304 0 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1           | 192.168.200.193 - - [30/Apr/2026:06:54:28 +0000] "GET /voicemails/poll HTTP/1.1" 302 251 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+app-1           | 192.168.200.193 - - [30/Apr/2026:06:54:28 +0000] "GET /login?next=%2Fvoicemails%2Fpoll HTTP/1.1" 200 4411 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+ollama-1        | [GIN] 2026/04/30 - 06:54:33 | 200 |      39.239µs |       127.0.0.1 | HEAD     "/"
+ollama-1        | [GIN] 2026/04/30 - 06:54:33 | 200 |     544.319µs |       127.0.0.1 | GET      "/api/tags"
+app-1           | 192.168.200.193 - - [30/Apr/2026:06:54:34 +0000] "GET /voicemails/poll HTTP/1.1" 200 52 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+app-1           | 192.168.200.193 - - [30/Apr/2026:06:54:35 +0000] "GET /voicemails/poll HTTP/1.1" 302 251 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+app-1           | 192.168.200.193 - - [30/Apr/2026:06:54:35 +0000] "GET /login?next=%2Fvoicemails%2Fpoll HTTP/1.1" 200 4411 "https://voice-ai.obtv.io/voicemails" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"

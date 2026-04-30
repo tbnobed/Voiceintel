@@ -205,8 +205,15 @@ def generate_and_store(voicemail) -> dict:
             db.session.rollback()
             insight = Insight.query.filter_by(voicemail_id=voicemail.id).one()
 
+    # Defensive trim — even though ai_intent is now TEXT, keep it short so the
+    # UI stays readable. Phi-3 sometimes ignores the "one sentence" instruction
+    # and dumps action items into the intent field.
+    intent_val = result.get("intent") or None
+    if intent_val and len(intent_val) > 500:
+        intent_val = intent_val[:497].rstrip() + "…"
+
     insight.ai_summary            = result.get("summary") or None
-    insight.ai_intent             = result.get("intent") or None
+    insight.ai_intent             = intent_val
     insight.ai_action_items       = result.get("action_items") or None
     insight.ai_suggested_response = result.get("suggested_response") or None
     insight.ai_status             = result.get("status")
