@@ -185,8 +185,13 @@
             {% else %}<span style="color:var(--muted);">—</span>{% endif %}
           </td>
           <td style="max-width:160px;">
-            {% if ci.caller_name %}
-              <span style="font-weight:500; color:var(--text);">{{ ci.caller_name }}</span>
+            {% set _display_name = vm.display_caller_name %}
+            {% set _carrier_label = vm.carrier_caller_label %}
+            {% if _display_name %}
+              <span style="font-weight:500; color:var(--text);">{{ _display_name }}</span>
+              {% if _carrier_label %}
+                <div title="Caller ID from carrier" style="font-size:10px; color:var(--muted); font-style:italic; margin-top:2px;">({{ _carrier_label }})</div>
+              {% endif %}
             {% else %}
               <span style="color:var(--muted); font-style:italic;">Unknown</span>
             {% endif %}

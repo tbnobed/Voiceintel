@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% set ci = vm.caller_info %}
-{% block title %}{{ ci.caller_name or vm.subject or 'Voicemail' }} — VoiceIntel{% endblock %}
+{% set _title_name = vm.display_caller_name %}
+{% block title %}{{ _title_name or vm.subject or 'Voicemail' }} — VoiceIntel{% endblock %}
 
 {% block breadcrumb %}
   <a href="/voicemails" style="color:var(--muted);">Voicemails</a>
   <span class="sep">›</span>
-  <span>{{ ci.caller_name or (vm.subject or 'Detail')[:44] }}</span>
+  <span>{{ _title_name or (vm.subject or 'Detail')[:44] }}</span>
 {% endblock %}
 
 {% block content %}
@@ -55,9 +56,14 @@
         </form>
         {% endif %}
 
-        {% if ci.caller_name %}
+        {% set _display_name = vm.display_caller_name %}
+        {% set _carrier_label = vm.carrier_caller_label %}
+        {% if _display_name %}
           <h1 style="font-family:'DM Serif Display',Georgia,serif; font-size:22px; font-weight:400; color:var(--vanilla); letter-spacing:-.3px; margin-bottom:6px; line-height:1.3;">
-            {{ ci.caller_name }}
+            {{ _display_name }}
+            {% if _carrier_label %}
+              <span title="Caller ID from carrier" style="font-family:Inter,sans-serif; font-size:12px; font-weight:400; color:var(--muted); font-style:italic; margin-left:6px;">({{ _carrier_label }})</span>
+            {% endif %}
           </h1>
           <div style="display:flex; flex-wrap:wrap; align-items:center; gap:16px; font-size:13px; color:var(--muted);">
             {% if ci.phone %}

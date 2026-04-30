@@ -75,6 +75,52 @@ def parse_voicemail_subject(subject: str) -> dict:
     return result
 
 
+# Carrier-supplied "caller names" that are really placeholders for
+# unknown callers. When the carrier sends one of these (or a city/state
+# location instead of an actual name), we prefer the AI-extracted name
+# from the transcript ("Hi, my name is …") if we have one.
+_GENERIC_CALLER_NAMES = {
+    "wireless caller", "unknown", "unknown caller", "unknown number",
+    "unknown name", "no caller id", "no name", "name unavailable",
+    "anonymous", "anonymous caller", "restricted", "private",
+    "private caller", "private number", "blocked", "blocked caller",
+    "caller id blocked", "out of area", "unavailable", "toll free call",
+    "spam risk", "potential spam", "scam likely",
+}
+
+
+def _is_generic_caller_name(name) -> bool:
+    """True if the carrier-supplied name is a placeholder rather than an
+    actual caller name (e.g. 'Wireless Caller', 'Anonymous', 'Los Angeles
+    Ca'). City/state strings come through title-cased like 'Los Angeles
+    Ca' / 'Houston Tx' — detected by the trailing 2-letter US-state token.
+    """
+    if not name:
+        return True
+    s = name.strip()
+    if not s:
+        return True
+    if s.lower() in _GENERIC_CALLER_NAMES:
+        return True
+    # City/state pattern: two or more title-cased tokens ending in a
+    # 2-letter US state abbreviation. The subject parser already title-
+    # cases the carrier's ALL-CAPS string, so "LOS ANGELES CA" arrives
+    # here as "Los Angeles Ca".
+    parts = s.split()
+    if len(parts) >= 2:
+        last = parts[-1].upper()
+        US_STATES = {
+            "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI",
+            "ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN",
+            "MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH",
+            "OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA",
+            "WV","WI","WY","PR","VI","GU","AS","MP",
+        }
+        if last in US_STATES and len(last) == 2:
+            return True
+    return False
+
+
 class AnalyticsInsight(db.Model):
     """
     Cached output of the hourly background AI-insights job. We always read the
@@ -164,6 +210,44 @@ class Voicemail(db.Model):
         return parse_voicemail_subject(self.subject)
 
     @property
+    def display_caller_name(self) -> str | None:
+        """Best caller-name to show in the UI. Prefers the carrier-supplied
+        name when it looks like an actual person/business, falls back to the
+        AI-extracted name from the transcript when the carrier sent only a
+        generic placeholder ('Wireless Caller', 'Anonymous', 'Los Angeles
+        Ca', etc.). Returns None if neither source has a usable name.
+        """
+        carrier = (self.caller_info or {}).get("caller_name")
+        ai_name = (
+            self.insights.ai_caller_name
+            if self.insights and self.insights.ai_caller_name
+            else None
+        )
+        if carrier and not _is_generic_caller_name(carrier):
+            return carrier
+        if ai_name:
+            return ai_name
+        return carrier or None
+
+    @property
+    def carrier_caller_label(self) -> str | None:
+        """The carrier's caller name when we're overriding it with the
+        AI-extracted name — used to render a small parenthetical so the
+        original label isn't lost. Returns None when carrier name isn't
+        being overridden (or when there's nothing useful to show)."""
+        carrier = (self.caller_info or {}).get("caller_name")
+        if not carrier:
+            return None
+        ai_name = (
+            self.insights.ai_caller_name
+            if self.insights and self.insights.ai_caller_name
+            else None
+        )
+        if ai_name and _is_generic_caller_name(carrier):
+            return carrier
+        return None
+
+    @property
     def active_callback(self):
         """The most relevant callback to surface in list views.
 
@@ -192,6 +276,9 @@ class Voicemail(db.Model):
             "processing_status": self.processing_status,
             "category": self.category_obj.name if self.category_obj else None,
             "is_urgent": self.is_urgent,
+            "caller_name": self.display_caller_name,
+            "carrier_caller_name": (self.caller_info or {}).get("caller_name"),
+            "ai_caller_name": self.insights.ai_caller_name if self.insights else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "transcript_preview": (
                 self.transcript.text[:200] + "..." if self.transcript and self.transcript.text and len(self.transcript.text) > 200
@@ -247,6 +334,11 @@ class Insight(db.Model):
     ai_intent             = db.Column(db.Text)
     ai_action_items       = db.Column(db.JSON)
     ai_suggested_response = db.Column(db.Text)
+    # Caller's spoken name as extracted from the transcript by Phi-3
+    # ("Hi, my name is David Gorman" → "David Gorman"). Often differs from
+    # `voicemails.sender` / parsed subject when the carrier sent only a
+    # generic placeholder like "Wireless Caller" or a city/state.
+    ai_caller_name        = db.Column(db.String(120))
     ai_status             = db.Column(db.String(20))   # pending|success|error|skipped|None
     ai_error              = db.Column(db.Text)
     ai_duration_ms        = db.Column(db.Integer)
@@ -267,6 +359,7 @@ class Insight(db.Model):
             "ai_intent": self.ai_intent,
             "ai_action_items": self.ai_action_items,
             "ai_suggested_response": self.ai_suggested_response,
+            "ai_caller_name": self.ai_caller_name,
             "ai_status": self.ai_status,
             "ai_generated_at": self.ai_generated_at.isoformat() if self.ai_generated_at else None,
         }

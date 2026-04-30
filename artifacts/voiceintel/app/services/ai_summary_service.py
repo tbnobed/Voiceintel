@@ -49,6 +49,11 @@ def _build_prompt(transcript: str, caller_name: Optional[str], caller_phone: Opt
         "You are a voicemail analyst. Read the transcript below and respond "
         "in EXACTLY this format — do not add any other sections, headings, "
         "or commentary.\n\n"
+        "CALLER NAME: The caller's full name as they introduce themselves "
+        "in the transcript (e.g. \"Hi, my name is David Gorman\" → "
+        "\"David Gorman\"). If they do not state a name, write exactly "
+        "\"Unknown\". Never guess; never use a city, business, or generic "
+        "label (\"Wireless Caller\") as the name.\n"
         "SUMMARY: One or two sentences in plain English describing what "
         f"{caller_label} said and why they called.\n"
         "INTENT: A short phrase (5-10 words) capturing the caller's primary goal.\n"
@@ -64,21 +69,69 @@ def _build_prompt(transcript: str, caller_name: Optional[str], caller_phone: Opt
 
 
 # Regexes are tolerant of optional bold markers and trailing punctuation/colons.
-_RE_SUMMARY  = re.compile(r"(?:\*\*\s*)?SUMMARY\s*(?:\*\*)?\s*:\s*(.+?)(?=\n\s*(?:\*\*\s*)?(?:INTENT|ACTION ITEMS|SUGGESTED RESPONSE)\s*(?:\*\*)?\s*:|\Z)", re.IGNORECASE | re.DOTALL)
-_RE_INTENT   = re.compile(r"(?:\*\*\s*)?INTENT\s*(?:\*\*)?\s*:\s*(.+?)(?=\n\s*(?:\*\*\s*)?(?:ACTION ITEMS|SUGGESTED RESPONSE|SUMMARY)\s*(?:\*\*)?\s*:|\Z)", re.IGNORECASE | re.DOTALL)
-_RE_ACTIONS  = re.compile(r"(?:\*\*\s*)?ACTION ITEMS\s*(?:\*\*)?\s*:\s*(.+?)(?=\n\s*(?:\*\*\s*)?(?:SUGGESTED RESPONSE|SUMMARY|INTENT)\s*(?:\*\*)?\s*:|\Z)", re.IGNORECASE | re.DOTALL)
+# Each section is bounded by the next labeled section (or end of text), so the
+# CALLER NAME label is included in the lookahead alternation alongside the
+# pre-existing four.
+_SECTION_LOOKAHEAD = r"(?:CALLER NAME|SUMMARY|INTENT|ACTION ITEMS|SUGGESTED RESPONSE)"
+_RE_NAME     = re.compile(rf"(?:\*\*\s*)?CALLER NAME\s*(?:\*\*)?\s*:\s*(.+?)(?=\n\s*(?:\*\*\s*)?{_SECTION_LOOKAHEAD}\s*(?:\*\*)?\s*:|\Z)", re.IGNORECASE | re.DOTALL)
+_RE_SUMMARY  = re.compile(rf"(?:\*\*\s*)?SUMMARY\s*(?:\*\*)?\s*:\s*(.+?)(?=\n\s*(?:\*\*\s*)?{_SECTION_LOOKAHEAD}\s*(?:\*\*)?\s*:|\Z)", re.IGNORECASE | re.DOTALL)
+_RE_INTENT   = re.compile(rf"(?:\*\*\s*)?INTENT\s*(?:\*\*)?\s*:\s*(.+?)(?=\n\s*(?:\*\*\s*)?{_SECTION_LOOKAHEAD}\s*(?:\*\*)?\s*:|\Z)", re.IGNORECASE | re.DOTALL)
+_RE_ACTIONS  = re.compile(rf"(?:\*\*\s*)?ACTION ITEMS\s*(?:\*\*)?\s*:\s*(.+?)(?=\n\s*(?:\*\*\s*)?{_SECTION_LOOKAHEAD}\s*(?:\*\*)?\s*:|\Z)", re.IGNORECASE | re.DOTALL)
 _RE_RESPONSE = re.compile(r"(?:\*\*\s*)?SUGGESTED RESPONSE\s*(?:\*\*)?\s*:\s*(.+?)\Z", re.IGNORECASE | re.DOTALL)
 # Match bullet rows like  "- foo" or "* foo" or "1. foo".
 _RE_BULLET   = re.compile(r"^\s*(?:[-*•]|\d+\.)\s*(.+?)\s*$", re.MULTILINE)
 
+# Tokens the model sometimes returns for CALLER NAME when the caller didn't
+# state one — anything matching these (case-insensitively, after stripping
+# punctuation) becomes None instead of being persisted.
+_NAME_PLACEHOLDERS = {
+    "unknown", "unknown caller", "n/a", "na", "none", "not stated",
+    "not provided", "not given", "not specified", "not mentioned",
+    "anonymous", "no name", "no name given", "no name provided",
+    "the caller", "caller", "wireless caller", "unavailable",
+}
+
+
+def _normalise_caller_name(raw: str) -> Optional[str]:
+    """Clean up the model's CALLER NAME output. Returns None when the model
+    emitted a placeholder ('Unknown', 'N/A', 'Anonymous', …), an empty
+    string, or something obviously not a name (>120 chars, multi-line)."""
+    if not raw:
+        return None
+    name = _clean(raw)
+    if not name:
+        return None
+    # Reject multi-sentence / multi-line outputs — those are model run-on,
+    # not a name.
+    name = name.splitlines()[0].strip()
+    # Strip surrounding parens/brackets/quotes the model occasionally adds.
+    name = name.strip("()[]<>\"' ")
+    # Drop trailing punctuation.
+    name = name.rstrip(".,;:")
+    if not name:
+        return None
+    # Reject placeholders.
+    bare = re.sub(r"[^\w\s/]", "", name).strip().lower()
+    if bare in _NAME_PLACEHOLDERS:
+        return None
+    # Length cap mirrors the column width.
+    if len(name) > 120:
+        name = name[:120].rstrip()
+    return name
+
 
 def _parse_response(text: str) -> dict:
-    """Extract the four labeled sections from the model output. Missing
-    sections come back as empty strings/lists rather than None so the UI
-    can render a single uniform shape."""
+    """Extract the labeled sections from the model output. Missing
+    sections come back as empty strings/lists/None rather than absent keys
+    so the UI can render a single uniform shape."""
     text = (text or "").strip()
-    out = {"summary": "", "intent": "", "action_items": [], "suggested_response": ""}
+    out = {
+        "summary": "", "intent": "", "action_items": [],
+        "suggested_response": "", "caller_name": None,
+    }
 
+    if m := _RE_NAME.search(text):
+        out["caller_name"] = _normalise_caller_name(m.group(1))
     if m := _RE_SUMMARY.search(text):
         out["summary"] = _clean(m.group(1))
     if m := _RE_INTENT.search(text):
@@ -121,6 +174,7 @@ def generate_summary(
         return {
             "status": "skipped",
             "summary": "", "intent": "", "action_items": [], "suggested_response": "",
+            "caller_name": None,
             "error_message": "No transcript text to summarise.",
             "duration_ms": 0,
         }
@@ -162,6 +216,7 @@ def generate_summary(
         return {
             "status": "error",
             "summary": "", "intent": "", "action_items": [], "suggested_response": "",
+            "caller_name": None,
             "error_message": f"{err_type}: {err_msg}",
             "duration_ms": int(time.time() * 1000) - started_ms,
         }
@@ -216,6 +271,7 @@ def generate_and_store(voicemail) -> dict:
     insight.ai_intent             = intent_val
     insight.ai_action_items       = result.get("action_items") or None
     insight.ai_suggested_response = result.get("suggested_response") or None
+    insight.ai_caller_name        = result.get("caller_name") or None
     insight.ai_status             = result.get("status")
     insight.ai_error              = result.get("error_message")
     insight.ai_duration_ms        = result.get("duration_ms")

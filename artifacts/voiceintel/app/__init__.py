@@ -306,6 +306,12 @@ def _ensure_insights_columns():
         statements.append("ALTER TABLE insights ADD COLUMN ai_action_items JSON")
     if "ai_suggested_response" not in cols:
         statements.append("ALTER TABLE insights ADD COLUMN ai_suggested_response TEXT")
+    if "ai_caller_name" not in cols:
+        # Caller's spoken name extracted by Phi-3 from the transcript when
+        # the carrier-supplied caller-ID is generic ("Wireless Caller", a
+        # city/state, "Anonymous", etc.). 120 chars comfortably covers
+        # full names plus business names.
+        statements.append("ALTER TABLE insights ADD COLUMN ai_caller_name VARCHAR(120)")
     if "ai_status" not in cols:
         statements.append("ALTER TABLE insights ADD COLUMN ai_status VARCHAR(20)")
     if "ai_error" not in cols:

@@ -71,7 +71,7 @@
       </td>
       <td>
         <a href="/voicemails/{{ cb.voicemail.id }}#callbacks" style="color:var(--vanilla); font-weight:500;">
-          {{ ci.caller_name or cb.voicemail.subject or '(no subject)' }}
+          {{ cb.voicemail.display_caller_name or cb.voicemail.subject or '(no subject)' }}
         </a>
         {% if ci.phone %}
         <div style="font-size:11px; color:var(--muted); margin-top:2px;">{{ ci.phone }}</div>
