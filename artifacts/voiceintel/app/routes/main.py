@@ -739,6 +739,10 @@ def analytics():
             nm = vm.display_caller_name
             if nm:
                 g["name"] = nm
+    # Only surface callers who have left at least this many voicemails. Keeps
+    # the card focused on actually-frequent callers and avoids cluttering it
+    # with one-offs.
+    FREQUENT_CALLER_MIN_COUNT = 5
     # Sort by count desc, then most-recent desc as a deterministic tiebreaker.
     # Keep `last_received` as a raw datetime so the `localtime` Jinja filter
     # can render it in DISPLAY_TZ.
@@ -752,7 +756,7 @@ def analytics():
             "last_vm_id": g["last_vm_id"],
         }
         for d, g in sorted(
-            fc_groups.items(),
+            (item for item in fc_groups.items() if item[1]["count"] >= FREQUENT_CALLER_MIN_COUNT),
             key=lambda item: (-item[1]["count"], -(item[1]["last_received"].timestamp() if item[1]["last_received"] else 0)),
         )[:10]
     ]
