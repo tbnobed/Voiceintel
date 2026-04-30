@@ -403,7 +403,10 @@
     .pg-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
 
     /* Detail layout */
-    .detail-grid { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
+    .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+    @media (max-width: 1100px) {
+      .detail-grid { grid-template-columns: 1fr; }
+    }
 
     /* Metadata rows */
     .meta-row {
