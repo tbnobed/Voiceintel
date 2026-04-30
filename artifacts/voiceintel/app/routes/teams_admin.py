@@ -230,9 +230,14 @@ def remove_member(team_id, user_id):
 @teams_admin_bp.route("/<int:team_id>/rules/add", methods=["POST"])
 @login_required
 def add_rule(team_id):
-    _required()
+    # Routing rules are evaluated globally by priority and decide which team
+    # incoming voicemails get assigned to. A supervisor with rule-write access
+    # could craft a broad/high-priority rule (e.g. keyword 'a' or sender_domain
+    # 'gmail.com') to siphon foreign voicemails into their own team and
+    # escalate visibility — so all rule mutations are admin-only.
+    if not current_user.is_admin:
+        abort(403)
     team = Team.query.get_or_404(team_id)
-    _team_access_required(team)
     kind = request.form.get("kind", "")
     pattern = request.form.get("pattern", "").strip()
     priority = request.form.get("priority", type=int) or 100
@@ -259,9 +264,10 @@ def add_rule(team_id):
 @teams_admin_bp.route("/rules/<int:rule_id>/toggle", methods=["POST"])
 @login_required
 def toggle_rule(rule_id):
-    _required()
+    # Admin-only — see add_rule for rationale.
+    if not current_user.is_admin:
+        abort(403)
     rule = RoutingRule.query.get_or_404(rule_id)
-    _team_access_required(rule.team)
     rule.is_active = not rule.is_active
     db.session.commit()
     return redirect(url_for("teams_admin.team_detail", team_id=rule.team_id) + "#rules")
@@ -270,9 +276,10 @@ def toggle_rule(rule_id):
 @teams_admin_bp.route("/rules/<int:rule_id>/delete", methods=["POST"])
 @login_required
 def delete_rule(rule_id):
-    _required()
+    # Admin-only — see add_rule for rationale.
+    if not current_user.is_admin:
+        abort(403)
     rule = RoutingRule.query.get_or_404(rule_id)
-    _team_access_required(rule.team)
     team_id = rule.team_id
     db.session.delete(rule)
     db.session.commit()

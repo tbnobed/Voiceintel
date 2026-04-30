@@ -11,7 +11,10 @@
   <p class="page-sub">Trends, insights, and patterns across all voicemails</p>
 </div>
 
-<!-- ── AI Insights card (auto-generated hourly by background scheduler) ──── -->
+<!-- ── AI Insights card (auto-generated hourly by background scheduler) ────
+     Hidden for non-admins because the cached insight is generated from every
+     transcript globally and would otherwise leak themes from other teams. -->
+{% if current_user.is_admin %}
 <div class="card" style="margin-bottom:20px; border-color:rgba(247,206,91,0.25);">
   <div class="card-head">
     <span class="card-head-title" style="color:var(--accent);">
@@ -46,6 +49,7 @@
     {% endif %}
   </div>
 </div>
+{% endif %}
 
 <!-- ── Stats strip ────────────────────────────────────────────────────────── -->
 <div class="stats-grid" style="margin-bottom:20px; grid-template-columns:repeat(5,1fr);">

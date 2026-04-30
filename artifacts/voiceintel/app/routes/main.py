@@ -229,10 +229,17 @@ def voicemail_list():
             if ids else []
         )
 
-    # Admins/supervisors get the full team list for the bulk-assign action bar.
+    # Admins see every team in the bulk-assign action bar; supervisors are
+    # restricted to teams they belong to.
     bulk_assign_teams = []
-    if current_user.is_admin or current_user.is_supervisor:
+    if current_user.is_admin:
         bulk_assign_teams = Team.query.order_by(Team.name).all()
+    elif current_user.is_supervisor:
+        ids = user_team_ids(current_user)
+        bulk_assign_teams = (
+            Team.query.filter(Team.id.in_(ids)).order_by(Team.name).all()
+            if ids else []
+        )
     # Pass can_bulk as a top-level template var so every Jinja block (content
     # AND scripts) can see it. A `{% set %}` declared inside a block is scoped
     # to that block and won't be visible in {% block scripts %}.
@@ -266,19 +273,44 @@ def voicemail_detail(vm_id):
         abort(403)
     q = request.args.get("q", "").strip()
     # Active users who can be assigned a callback (admin/supervisor/agent),
-    # for the assignment dropdown shown to admins/supervisors.
+    # for the assignment dropdown shown to admins/supervisors. Supervisors
+    # only see themselves + active agents on one of their teams.
     assignable_users = []
     if current_user.can_assign_callbacks:
-        assignable_users = (
-            User.query
-            .filter(User.is_active.is_(True), User.role.in_(("admin", "supervisor", "agent")))
-            .order_by(User.name)
-            .all()
-        )
-    # All teams (admins/supervisors only) for the manual-override dropdown.
+        if current_user.is_admin:
+            assignable_users = (
+                User.query
+                .filter(User.is_active.is_(True), User.role.in_(("admin", "supervisor", "agent")))
+                .order_by(User.name)
+                .all()
+            )
+        else:
+            sup_team_ids = user_team_ids(current_user)
+            base = User.query.filter(User.is_active.is_(True))
+            if sup_team_ids:
+                shared_agents = (
+                    base.filter(User.role == "agent")
+                        .filter(User.teams.any(Team.id.in_(sup_team_ids)))
+                )
+                # Always include the supervisor themselves.
+                assignable_users = (
+                    shared_agents.union(base.filter(User.id == current_user.id))
+                                 .order_by(User.name)
+                                 .all()
+                )
+            else:
+                assignable_users = base.filter(User.id == current_user.id).all()
+    # Teams shown in the manual-override dropdown. Admins see every team;
+    # supervisors are restricted to teams they belong to.
     all_teams = []
-    if current_user.is_admin or current_user.is_supervisor:
+    if current_user.is_admin:
         all_teams = Team.query.order_by(Team.name).all()
+    elif current_user.is_supervisor:
+        ids = user_team_ids(current_user)
+        all_teams = (
+            Team.query.filter(Team.id.in_(ids)).order_by(Team.name).all()
+            if ids else []
+        )
     return render_template(
         "voicemail_detail.html",
         vm=vm, q=q,
@@ -377,6 +409,15 @@ def voicemail_set_team(vm_id):
     if not (current_user.is_admin or current_user.is_supervisor):
         abort(403)
     vm = Voicemail.query.get_or_404(vm_id)
+    # Supervisors can only re-team voicemails they're allowed to see.
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
+    # Supervisors can only assign to teams they belong to (and can only clear
+    # a voicemail that's currently on one of their teams or unrouted, which
+    # the can_view check above already enforces).
+    sup_team_ids = None
+    if current_user.is_supervisor and not current_user.is_admin:
+        sup_team_ids = set(user_team_ids(current_user))
     raw = request.form.get("team_id", "").strip()
     if raw == "" or raw == "none":
         vm.team_id = None
@@ -391,6 +432,9 @@ def voicemail_set_team(vm_id):
         team = Team.query.get(tid)
         if not team:
             flash("Team not found.", "error")
+            return redirect(url_for("main.voicemail_detail", vm_id=vm.id))
+        if sup_team_ids is not None and team.id not in sup_team_ids:
+            flash("You can only assign voicemails to teams you belong to.", "error")
             return redirect(url_for("main.voicemail_detail", vm_id=vm.id))
         vm.team_id = team.id
         vm.team_locked = True
@@ -433,12 +477,22 @@ def voicemails_bulk_set_team():
         if not target_team:
             flash("Team not found.", "error")
             return redirect(request.referrer or url_for("main.voicemail_list"))
+        # Supervisors can only assign to teams they belong to.
+        if (
+            current_user.is_supervisor and not current_user.is_admin
+            and target_team.id not in set(user_team_ids(current_user))
+        ):
+            flash("You can only assign voicemails to teams you belong to.", "error")
+            return redirect(request.referrer or url_for("main.voicemail_list"))
 
-    # Only operate on voicemails the user can actually see (defence in depth —
-    # admin/supervisor see all anyway, but we apply scope_voicemails so this
-    # endpoint behaves consistently if the role check is ever relaxed).
+    # Only operate on voicemails the user can actually see — admins see all,
+    # supervisors are now restricted to their own teams (+ unrouted). We lock
+    # the rows for the duration of the transaction (SELECT ... FOR UPDATE)
+    # and re-evaluate the scope predicate inside the lock so a voicemail that
+    # races out of the supervisor's scope between selection and commit cannot
+    # be overwritten.
     base_q = Voicemail.query.filter(Voicemail.id.in_(vm_ids))
-    base_q = scope_voicemails(base_q, current_user)
+    base_q = scope_voicemails(base_q, current_user).with_for_update()
     vms = base_q.all()
 
     updated = 0
@@ -452,6 +506,8 @@ def voicemails_bulk_set_team():
         updated += 1
     if updated:
         db.session.commit()
+    else:
+        db.session.rollback()
 
     if clearing:
         flash(f"Cleared team on {updated} voicemail{'s' if updated != 1 else ''}. Auto-routing will re-evaluate.", "success")
@@ -468,6 +524,8 @@ def voicemails_bulk_set_team():
 @login_required
 def add_voicemail_note(vm_id):
     vm = Voicemail.query.get_or_404(vm_id)
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
     body = request.form.get("body", "").strip()
     if not body:
         flash("Note cannot be empty.", "error")
@@ -486,7 +544,11 @@ def delete_voicemail_note(vm_id, note_id):
     note = VoicemailNote.query.get_or_404(note_id)
     if note.voicemail_id != vm_id:
         abort(404)
-    # Author, admins, and supervisors can delete a note.
+    # Must be allowed to see the parent voicemail in the first place.
+    if not can_view_voicemail(note.voicemail, current_user):
+        abort(403)
+    # Author, admins, and supervisors can delete a note (supervisors only on
+    # voicemails they can see — already enforced above).
     if note.author_id != current_user.id and not current_user.is_admin and not current_user.is_supervisor:
         abort(403)
     db.session.delete(note)
@@ -515,91 +577,118 @@ def analytics():
     tz_name = os.environ.get("DISPLAY_TZ", "America/Chicago")
     received_local = func.timezone(tz_name, func.timezone("UTC", Voicemail.received_at))
 
-    total        = Voicemail.query.count()
-    week_count   = Voicemail.query.filter(Voicemail.received_at >= week_ago).count()
-    month_count  = Voicemail.query.filter(Voicemail.received_at >= month_ago).count()
-    urgent_count = Voicemail.query.filter_by(is_urgent=True).count()
+    # Every aggregation below is scoped to the voicemails this user is allowed
+    # to see — admins see everything, supervisors see only their teams (+
+    # unrouted). For Insight-based aggregations we join through Voicemail so
+    # scope_voicemails can apply its team filter.
+    total        = scope_voicemails(Voicemail.query, current_user).count()
+    week_count   = scope_voicemails(
+        Voicemail.query.filter(Voicemail.received_at >= week_ago), current_user,
+    ).count()
+    month_count  = scope_voicemails(
+        Voicemail.query.filter(Voicemail.received_at >= month_ago), current_user,
+    ).count()
+    urgent_count = scope_voicemails(
+        Voicemail.query.filter_by(is_urgent=True), current_user,
+    ).count()
 
     # Average duration (seconds)
-    avg_dur_row = db.session.query(func.avg(Voicemail.duration)).filter(
+    avg_dur_q = db.session.query(func.avg(Voicemail.duration)).filter(
         Voicemail.duration.isnot(None)
-    ).scalar()
-    avg_duration = round(avg_dur_row or 0)
+    )
+    avg_dur_q = scope_voicemails(avg_dur_q, current_user)
+    avg_duration = round(avg_dur_q.scalar() or 0)
 
     # 30-day daily trend (bucketed in DISPLAY_TZ)
-    daily_rows = (
+    daily_q = (
         db.session.query(
             func.date(received_local).label("day"),
             func.count(Voicemail.id).label("cnt"),
         )
         .filter(Voicemail.received_at >= month_ago)
-        .group_by(func.date(received_local))
-        .order_by("day")
-        .all()
     )
+    daily_q = scope_voicemails(daily_q, current_user)
+    daily_rows = daily_q.group_by(func.date(received_local)).order_by("day").all()
     daily_trend = [{"day": str(r.day), "count": r.cnt} for r in daily_rows]
 
-    # Sentiment distribution
-    sentiment_rows = (
+    # Sentiment distribution — joined to Voicemail for scoping.
+    sent_q = (
         db.session.query(Insight.sentiment, func.count(Insight.id))
-        .group_by(Insight.sentiment)
-        .all()
+        .join(Voicemail, Voicemail.id == Insight.voicemail_id)
     )
+    sent_q = scope_voicemails(sent_q, current_user)
+    sentiment_rows = sent_q.group_by(Insight.sentiment).all()
     sentiment_dist = {s or "neutral": c for s, c in sentiment_rows}
 
     # Category distribution — include the id so the analytics page can link
     # each row to /voicemails?category=<id> for drill-down.
-    cat_rows = (
+    cat_q = (
         db.session.query(Category.id, Category.name, func.count(Voicemail.id))
         .join(Voicemail, Voicemail.category_id == Category.id, isouter=True)
-        .group_by(Category.id, Category.name)
-        .order_by(func.count(Voicemail.id).desc())
-        .all()
+    )
+    cat_q = scope_voicemails(cat_q, current_user)
+    cat_rows = (
+        cat_q.group_by(Category.id, Category.name)
+             .order_by(func.count(Voicemail.id).desc())
+             .all()
     )
     category_dist = [
         {"id": cid, "name": n, "count": c} for cid, n, c in cat_rows if c > 0
     ]
 
-    # Top 20 keywords with frequency
+    # Top 20 keywords with frequency — scope insights via voicemail join.
+    kw_q = (
+        db.session.query(Insight)
+        .join(Voicemail, Voicemail.id == Insight.voicemail_id)
+        .filter(Insight.keywords.isnot(None))
+    )
+    kw_q = scope_voicemails(kw_q, current_user)
     all_kw: list = []
-    for ins in Insight.query.filter(Insight.keywords.isnot(None)).all():
+    for ins in kw_q.all():
         if ins.keywords:
             all_kw.extend(_filter_keywords(ins.keywords))
     kw_counter = Counter(all_kw)
     top_keywords = [{"word": w, "count": c} for w, c in kw_counter.most_common(20)]
 
     # Hourly call distribution (0-23, bucketed in DISPLAY_TZ)
-    hour_rows = (
+    hour_q = (
         db.session.query(
             func.extract("hour", received_local).label("hr"),
             func.count(Voicemail.id).label("cnt"),
         )
         .filter(Voicemail.received_at.isnot(None))
-        .group_by("hr")
-        .order_by("hr")
-        .all()
     )
+    hour_q = scope_voicemails(hour_q, current_user)
+    hour_rows = hour_q.group_by("hr").order_by("hr").all()
     hourly = {int(r.hr): r.cnt for r in hour_rows}
     hourly_dist = [{"hour": h, "count": hourly.get(h, 0)} for h in range(24)]
 
-    # Urgency keywords across all insights
+    # Urgency keywords across all insights — scope via voicemail join.
+    urg_q = (
+        db.session.query(Insight)
+        .join(Voicemail, Voicemail.id == Insight.voicemail_id)
+        .filter(Insight.urgency_keywords.isnot(None))
+    )
+    urg_q = scope_voicemails(urg_q, current_user)
     urg_kw: list = []
-    for ins in Insight.query.filter(Insight.urgency_keywords.isnot(None)).all():
+    for ins in urg_q.all():
         if ins.urgency_keywords:
             urg_kw.extend(ins.urgency_keywords)
     top_urgency_kw = [{"word": w, "count": c} for w, c in Counter(urg_kw).most_common(10)]
 
     # Processing status breakdown
-    status_rows = (
+    status_q = (
         db.session.query(Voicemail.processing_status, func.count(Voicemail.id))
-        .group_by(Voicemail.processing_status)
-        .all()
     )
+    status_q = scope_voicemails(status_q, current_user)
+    status_rows = status_q.group_by(Voicemail.processing_status).all()
     status_dist = {s: c for s, c in status_rows}
 
-    # Latest cached AI insight (generated hourly by the background scheduler).
+    # Latest cached AI insight is generated from ALL voicemails globally by
+    # the background scheduler, so we only show it to admins. Supervisors
+    # would otherwise see themes derived from other teams' transcripts.
     from app.services.insights_service import get_latest_insight
-    latest_insight = get_latest_insight()
+    latest_insight = get_latest_insight() if current_user.is_admin else None
 
     return render_template(
         "analytics.html",
@@ -626,7 +715,13 @@ def analytics_insights():
     Return the most recent cached AI insight as JSON. The actual generation
     runs hourly in a background scheduler (see app.services.insights_service),
     so this endpoint is instant and never blocks on Ollama.
+
+    The cached insight is generated from every transcript globally, so we
+    only expose it to admins to avoid leaking other teams' themes to
+    supervisors.
     """
+    if not current_user.is_admin:
+        abort(403)
     from app.services.insights_service import get_latest_insight
     row = get_latest_insight()
     if row is None:
@@ -648,22 +743,27 @@ def analytics_insights():
 @login_required
 def voicemail_poll():
     """
-    Lightweight endpoint for live-update polling.
-    Returns the total count plus the most-recently-created voicemail's id and
-    status. An optional ?id= param also returns the status of a specific
-    voicemail (used by the detail page while transcription is in progress).
+    Lightweight endpoint for live-update polling. All values are scoped to
+    voicemails the caller can see, so a supervisor's "new voicemail" toast
+    only fires for activity on their teams.
     """
-    latest = Voicemail.query.order_by(desc(Voicemail.created_at)).first()
+    scoped = scope_voicemails(Voicemail.query, current_user)
+    latest = scoped.order_by(desc(Voicemail.created_at)).first()
     payload = {
-        "total": Voicemail.query.count(),
+        "total": scoped.count(),
         "latest_id": latest.id if latest else None,
         "latest_status": latest.processing_status if latest else None,
     }
-    # Detail-page targeted check.
+    # Detail-page targeted check — only return status for voicemails the
+    # caller is allowed to see; otherwise pretend it doesn't exist.
     vm_id = request.args.get("id", type=int)
     if vm_id:
         vm = Voicemail.query.get(vm_id)
-        payload["vm_status"] = vm.processing_status if vm else None
+        payload["vm_status"] = (
+            vm.processing_status
+            if vm and can_view_voicemail(vm, current_user)
+            else None
+        )
     return jsonify(payload)
 
 
@@ -676,6 +776,9 @@ def voicemail_delete(vm_id):
         flash("You don't have permission to delete voicemails.", "error")
         return redirect(url_for("main.voicemail_detail", vm_id=vm_id))
     vm = Voicemail.query.get_or_404(vm_id)
+    # Supervisors can only delete voicemails they can actually see.
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
     # Delete audio files from disk
     for path in (vm.original_path, vm.converted_path):
         if path and os.path.isfile(path):
@@ -691,7 +794,13 @@ def voicemail_delete(vm_id):
 @main_bp.route("/voicemails/<int:vm_id>/status", methods=["POST"])
 @login_required
 def voicemail_set_status(vm_id):
+    # Status changes affect downstream pipeline behaviour, so restrict to
+    # admins/supervisors and require they can see the voicemail.
+    if not (current_user.is_admin or current_user.is_supervisor):
+        abort(403)
     vm = Voicemail.query.get_or_404(vm_id)
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
     new_status = request.form.get("status", "").strip()
     allowed = {"pending", "processing", "completed", "error"}
     if new_status in allowed:

@@ -20,6 +20,9 @@ from app.models.user import User
 from app.models.voicemail import (
     Voicemail, Callback, CALLBACK_STATUSES, CALLBACK_PRIORITIES,
 )
+from app.utils.team_scope import (
+    scope_voicemails, can_view_voicemail, user_team_ids, is_unrestricted,
+)
 
 logger = logging.getLogger(__name__)
 tasks_bp = Blueprint("tasks", __name__)
@@ -42,10 +45,45 @@ def _parse_due(value: str):
 
 
 def _can_modify_callback(cb: Callback) -> bool:
-    """Assignee can update their own task; supervisors/admins can update any."""
-    if current_user.is_admin or current_user.is_supervisor:
+    """
+    Admins can update any callback. Non-admins can update a callback only if
+    they can still view the underlying voicemail — this also covers the
+    assignee case, because an assignee for a voicemail that has since been
+    moved to a team they don't belong to should lose access. Without this,
+    a stale assignment would let a supervisor modify a callback on a foreign
+    team's voicemail.
+    """
+    if current_user.is_admin:
         return True
-    return cb.assignee_id == current_user.id
+    if not can_view_voicemail(cb.voicemail, current_user):
+        return False
+    # In-scope: either assignee or supervisor over this voicemail's team.
+    return cb.assignee_id == current_user.id or current_user.is_supervisor
+
+
+def _supervisor_assignable_user_ids() -> set:
+    """
+    User IDs a supervisor may assign callbacks to: themselves, plus any
+    active agent who shares a team with them. Admins skip this filter.
+    """
+    from app.models.team import Team
+    team_ids = user_team_ids(current_user)
+    ids = {current_user.id}
+    if not team_ids:
+        return ids
+    rows = (
+        db.session.query(User.id)
+        .join(User.teams)
+        .filter(
+            User.is_active.is_(True),
+            User.role == "agent",
+            Team.id.in_(team_ids),
+        )
+        .distinct()
+        .all()
+    )
+    ids.update(uid for (uid,) in rows)
+    return ids
 
 
 def _safe_next(value: str, fallback: str) -> str:
@@ -72,10 +110,19 @@ def task_list():
     q = Callback.query
 
     if view == "all" and (current_user.is_admin or current_user.is_supervisor):
-        pass  # no assignee filter
+        # Supervisors see callbacks on voicemails routed to one of their teams
+        # (or unrouted). Admins see everything.
+        if not is_unrestricted(current_user):
+            q = q.join(Voicemail, Voicemail.id == Callback.voicemail_id)
+            q = scope_voicemails(q, current_user)
     else:
         view = "mine"
         q = q.filter(Callback.assignee_id == current_user.id)
+        # Hide stale assignments where the underlying voicemail has been
+        # moved to a team the user is no longer on. Admins skip this filter.
+        if not is_unrestricted(current_user):
+            q = q.join(Voicemail, Voicemail.id == Callback.voicemail_id)
+            q = scope_voicemails(q, current_user)
 
     if status_filter == "open":
         q = q.filter(Callback.status.in_(("pending", "in_progress")))
@@ -95,16 +142,25 @@ def task_list():
         Callback.created_at.desc(),
     ).all()
 
-    # Counts for the header tabs
-    mine_open = Callback.query.filter(
+    # Counts for the header tabs — same scoping as the list above so the
+    # number doesn't promise callbacks that the list won't actually show.
+    mine_q = Callback.query.filter(
         Callback.assignee_id == current_user.id,
         Callback.status.in_(("pending", "in_progress")),
-    ).count()
+    )
+    if not is_unrestricted(current_user):
+        mine_q = mine_q.join(Voicemail, Voicemail.id == Callback.voicemail_id)
+        mine_q = scope_voicemails(mine_q, current_user)
+    mine_open = mine_q.count()
     all_open = None
     if current_user.is_admin or current_user.is_supervisor:
-        all_open = Callback.query.filter(
+        all_q = Callback.query.filter(
             Callback.status.in_(("pending", "in_progress"))
-        ).count()
+        )
+        if not is_unrestricted(current_user):
+            all_q = all_q.join(Voicemail, Voicemail.id == Callback.voicemail_id)
+            all_q = scope_voicemails(all_q, current_user)
+        all_open = all_q.count()
 
     return render_template(
         "tasks.html",
@@ -126,6 +182,9 @@ def create_callback(vm_id):
     if not current_user.can_assign_callbacks:
         abort(403)
     vm = Voicemail.query.get_or_404(vm_id)
+    # Supervisors can only assign callbacks on voicemails they can see.
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
 
     raw_assignee = request.form.get("assignee_id", "").strip()
     try:
@@ -138,6 +197,12 @@ def create_callback(vm_id):
     if not assignee or not assignee.is_active or not assignee.can_be_assigned_callback:
         flash("That user cannot be assigned a callback.", "error")
         return redirect(url_for("main.voicemail_detail", vm_id=vm.id))
+    # Supervisors may only assign callbacks to themselves or to active agents
+    # who share at least one of their teams.
+    if current_user.is_supervisor and not current_user.is_admin:
+        if assignee.id not in _supervisor_assignable_user_ids():
+            flash("You can only assign callbacks to agents on your teams.", "error")
+            return redirect(url_for("main.voicemail_detail", vm_id=vm.id))
 
     priority = request.form.get("priority", "normal")
     if priority not in CALLBACK_PRIORITIES:
@@ -179,11 +244,18 @@ def update_callback(cb_id):
 
     # Supervisors/admins can also reassign and change priority/notes from the list view.
     if current_user.is_admin or current_user.is_supervisor:
+        sup_pool = (
+            None if current_user.is_admin
+            else _supervisor_assignable_user_ids()
+        )
         new_assignee = request.form.get("assignee_id", "").strip()
         if new_assignee:
             try:
                 u = User.query.get(int(new_assignee))
-                if u and u.is_active and u.can_be_assigned_callback:
+                if (
+                    u and u.is_active and u.can_be_assigned_callback
+                    and (sup_pool is None or u.id in sup_pool)
+                ):
                     cb.assignee_id = u.id
             except (TypeError, ValueError):
                 pass
@@ -209,6 +281,12 @@ def delete_callback(cb_id):
     if not current_user.can_assign_callbacks:
         abort(403)
     cb = Callback.query.get_or_404(cb_id)
+    # Supervisors can only delete callbacks on voicemails they can see.
+    if (
+        current_user.is_supervisor and not current_user.is_admin
+        and not can_view_voicemail(cb.voicemail, current_user)
+    ):
+        abort(403)
     vm_id = cb.voicemail_id
     db.session.delete(cb)
     db.session.commit()

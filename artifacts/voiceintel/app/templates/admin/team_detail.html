@@ -88,7 +88,9 @@
   </div>
 </div>
 
-<!-- ── Routing rules ────────────────────────────────────────────────── -->
+<!-- ── Routing rules (admin-only — supervisors managing their own team
+     should not be able to siphon foreign voicemails via routing rules) ──── -->
+{% if current_user.is_admin %}
 <div class="card" id="rules" style="margin-top:16px;">
   <div class="card-head">
     <span class="card-head-title">Routing Rules</span>
@@ -159,4 +161,5 @@
     </form>
   </div>
 </div>
+{% endif %}
 {% endblock %}

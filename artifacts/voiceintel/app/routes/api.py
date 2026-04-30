@@ -1,13 +1,14 @@
 import os
 import threading
-from flask import Blueprint, request, jsonify, current_app
-from flask_login import login_required
+from flask import Blueprint, request, jsonify, current_app, abort
+from flask_login import login_required, current_user
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
 from collections import Counter
 
 from app import db
 from app.models.voicemail import Voicemail, Transcript, Insight, Category, Setting
+from app.utils.team_scope import scope_voicemails, can_view_voicemail
 
 api_bp = Blueprint("api", __name__)
 
@@ -18,31 +19,47 @@ def stats():
     today = datetime.utcnow().date()
     week_ago = datetime.utcnow() - timedelta(days=7)
 
-    total = Voicemail.query.count()
-    today_count = Voicemail.query.filter(func.date(Voicemail.received_at) == today).count()
-    urgent_count = Voicemail.query.filter_by(is_urgent=True).count()
-    pending_count = Voicemail.query.filter_by(processing_status="pending").count()
+    # All counts scoped to the user's visible voicemails (admins see all).
+    total = scope_voicemails(Voicemail.query, current_user).count()
+    today_count = scope_voicemails(
+        Voicemail.query.filter(func.date(Voicemail.received_at) == today),
+        current_user,
+    ).count()
+    urgent_count = scope_voicemails(
+        Voicemail.query.filter_by(is_urgent=True), current_user,
+    ).count()
+    pending_count = scope_voicemails(
+        Voicemail.query.filter_by(processing_status="pending"), current_user,
+    ).count()
 
-    category_dist = (
+    cat_q = (
         db.session.query(Category.name, func.count(Voicemail.id))
         .join(Voicemail, Voicemail.category_id == Category.id, isouter=True)
-        .group_by(Category.name)
-        .all()
     )
+    cat_q = scope_voicemails(cat_q, current_user)
+    category_dist = cat_q.group_by(Category.name).all()
 
-    daily_trend = (
+    trend_q = (
         db.session.query(
             func.date(Voicemail.received_at).label("day"),
             func.count(Voicemail.id).label("count"),
         )
         .filter(Voicemail.received_at >= week_ago)
-        .group_by(func.date(Voicemail.received_at))
-        .order_by("day")
-        .all()
+    )
+    trend_q = scope_voicemails(trend_q, current_user)
+    daily_trend = (
+        trend_q.group_by(func.date(Voicemail.received_at))
+               .order_by("day").all()
     )
 
+    kw_q = (
+        db.session.query(Insight)
+        .join(Voicemail, Voicemail.id == Insight.voicemail_id)
+        .filter(Insight.keywords.isnot(None))
+    )
+    kw_q = scope_voicemails(kw_q, current_user)
     all_kw = []
-    for ins in Insight.query.filter(Insight.keywords.isnot(None)).limit(200).all():
+    for ins in kw_q.limit(200).all():
         if ins.keywords:
             all_kw.extend(ins.keywords)
     top_keywords = [{"word": w, "count": c} for w, c in Counter(all_kw).most_common(15)]
@@ -76,6 +93,9 @@ def list_voicemails():
     if urgency == "urgent":
         query = query.filter(Voicemail.is_urgent == True)
 
+    # Scope to voicemails the caller can see (admins see all).
+    query = scope_voicemails(query, current_user)
+
     pagination = query.order_by(desc(Voicemail.received_at)).paginate(
         page=page, per_page=per_page, error_out=False
     )
@@ -92,6 +112,8 @@ def list_voicemails():
 @login_required
 def get_voicemail(vm_id):
     vm = Voicemail.query.get_or_404(vm_id)
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
     data = vm.to_dict()
     if vm.transcript:
         data["transcript"] = vm.transcript.to_dict()
@@ -103,6 +125,13 @@ def get_voicemail(vm_id):
 @api_bp.route("/voicemails/<int:vm_id>/reprocess", methods=["POST"])
 @login_required
 def reprocess(vm_id):
+    vm = Voicemail.query.get_or_404(vm_id)
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
+    # Reprocess is an expensive mutation — restrict to admins/supervisors who
+    # can see the voicemail. Agents/viewers can read but not reprocess.
+    if not (current_user.is_admin or current_user.is_supervisor):
+        abort(403)
     app = current_app._get_current_object()
 
     def _do():
@@ -121,13 +150,16 @@ def search():
     if not q:
         return jsonify({"results": [], "query": q})
 
-    matches = (
+    match_q = (
         Voicemail.query
         .join(Transcript, Voicemail.id == Transcript.voicemail_id)
         .filter(Transcript.text.ilike(f"%{q}%"))
-        .order_by(desc(Voicemail.received_at))
-        .limit(50)
-        .all()
+    )
+    match_q = scope_voicemails(match_q, current_user)
+    matches = (
+        match_q.order_by(desc(Voicemail.received_at))
+               .limit(50)
+               .all()
     )
 
     results = []
