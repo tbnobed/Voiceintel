@@ -16,13 +16,28 @@ api_bp = Blueprint("api", __name__)
 @api_bp.route("/stats")
 @login_required
 def stats():
-    today = datetime.utcnow().date()
+    # "Today" is the calendar day in DISPLAY_TZ (default America/Chicago) so
+    # a 9pm Central voicemail isn't bucketed into tomorrow's UTC date. The
+    # daily-trend query below uses the same TZ conversion for consistency
+    # with the dashboard tile.
+    tz_name = os.environ.get("DISPLAY_TZ", "America/Chicago")
+    try:
+        from zoneinfo import ZoneInfo
+        local_now = datetime.now(ZoneInfo(tz_name))
+    except Exception:
+        # Bad DISPLAY_TZ: fall back to UTC for both the Python "now" and the
+        # SQL conversion below, so the tile and the trend chart still agree.
+        current_app.logger.warning("Invalid DISPLAY_TZ %r — falling back to UTC", tz_name)
+        tz_name = "UTC"
+        local_now = datetime.utcnow()
+    today = local_now.date()
     week_ago = datetime.utcnow() - timedelta(days=7)
+    received_local = func.timezone(tz_name, func.timezone("UTC", Voicemail.received_at))
 
     # All counts scoped to the user's visible voicemails (admins see all).
     total = scope_voicemails(Voicemail.query, current_user).count()
     today_count = scope_voicemails(
-        Voicemail.query.filter(func.date(Voicemail.received_at) == today),
+        Voicemail.query.filter(func.date(received_local) == today),
         current_user,
     ).count()
     urgent_count = scope_voicemails(
@@ -41,14 +56,14 @@ def stats():
 
     trend_q = (
         db.session.query(
-            func.date(Voicemail.received_at).label("day"),
+            func.date(received_local).label("day"),
             func.count(Voicemail.id).label("count"),
         )
         .filter(Voicemail.received_at >= week_ago)
     )
     trend_q = scope_voicemails(trend_q, current_user)
     daily_trend = (
-        trend_q.group_by(func.date(Voicemail.received_at))
+        trend_q.group_by(func.date(received_local))
                .order_by("day").all()
     )
 

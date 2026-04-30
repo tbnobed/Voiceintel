@@ -28,8 +28,27 @@ main_bp = Blueprint("main", __name__)
 @main_bp.route("/")
 @login_required
 def dashboard():
-    today = datetime.utcnow().date()
+    # All times in DB are stored as naive UTC (datetime.utcnow). For the
+    # "Today" tile and the daily-trend chart we want a calendar day in the
+    # display timezone (DISPLAY_TZ, default America/Chicago) so a 9pm
+    # Central voicemail lands on the right local day, not the next UTC day.
+    tz_name = os.environ.get("DISPLAY_TZ", "America/Chicago")
+    try:
+        from zoneinfo import ZoneInfo
+        local_now = datetime.now(ZoneInfo(tz_name))
+    except Exception:
+        # Bad DISPLAY_TZ: fall back to UTC for both the Python "now" and the
+        # SQL conversion below, so the tile and the trend chart still agree.
+        current_app.logger.warning("Invalid DISPLAY_TZ %r — falling back to UTC", tz_name)
+        tz_name = "UTC"
+        local_now = datetime.utcnow()
+    today = local_now.date()
     week_ago = datetime.utcnow() - timedelta(days=7)
+
+    # SQL expression that converts the stored UTC timestamp into the
+    # configured display timezone; used for date-bucketing "today" and the
+    # 7-day trend so both agree.
+    received_local = func.timezone(tz_name, func.timezone("UTC", Voicemail.received_at))
 
     # Scope all dashboard queries to the voicemails this user is allowed to
     # see — agents/viewers only see their teams (+ unrouted), supervisors and
@@ -38,7 +57,7 @@ def dashboard():
 
     total = base.count()
     today_count = scope_voicemails(
-        Voicemail.query.filter(func.date(Voicemail.received_at) == today),
+        Voicemail.query.filter(func.date(received_local) == today),
         current_user,
     ).count()
     urgent_count = scope_voicemails(
@@ -52,10 +71,8 @@ def dashboard():
     cat_dist_q = scope_voicemails(cat_dist_q, current_user)
     category_dist = cat_dist_q.group_by(Category.name).all()
 
-    # Bucket by display timezone so a 9pm Central call lands on the right day,
-    # not in the next UTC day.
-    tz_name = os.environ.get("DISPLAY_TZ", "America/Chicago")
-    received_local = func.timezone(tz_name, func.timezone("UTC", Voicemail.received_at))
+    # `received_local` (defined above) buckets by display timezone so a
+    # 9pm Central call lands on the right day, not the next UTC day.
     trend_q = db.session.query(
         func.date(received_local).label("day"),
         func.count(Voicemail.id).label("count"),
