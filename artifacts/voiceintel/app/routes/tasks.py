@@ -46,13 +46,20 @@ def _parse_due(value: str):
 
 def _can_modify_callback(cb: Callback) -> bool:
     """
-    Admins can update any callback. Non-admins can update a callback only if
-    they can still view the underlying voicemail — this also covers the
-    assignee case, because an assignee for a voicemail that has since been
-    moved to a team they don't belong to should lose access. Without this,
-    a stale assignment would let a supervisor modify a callback on a foreign
-    team's voicemail.
+    Admins can update any callback EXCEPT when its voicemail has been soft-
+    deleted — for those, admins must restore (or purge) via the Deleted
+    folder rather than mutating callback state from the regular task views.
+    Non-admins can update a callback only if they can still view the
+    underlying voicemail — this also covers the assignee case, because an
+    assignee for a voicemail that has since been moved to a team they don't
+    belong to should lose access. Without this, a stale assignment would
+    let a supervisor modify a callback on a foreign team's voicemail.
     """
+    # Soft-deleted voicemails are off-limits for callback mutations from the
+    # task inbox / detail page — for everyone, including admins. The only
+    # supported flows for trashed voicemails are restore and purge.
+    if cb.voicemail is None or cb.voicemail.deleted_at is not None:
+        return False
     if current_user.is_admin:
         return True
     if not can_view_voicemail(cb.voicemail, current_user):
@@ -107,22 +114,18 @@ def task_list():
     view = request.args.get("view", "mine")
     status_filter = request.args.get("status", "open")  # open | all | <status>
 
-    q = Callback.query
+    # Always join Voicemail and run through scope_voicemails. For non-admins
+    # this enforces team scoping; for admins it still strips out callbacks
+    # whose underlying voicemail has been soft-deleted, since soft-deleted
+    # voicemails must be invisible everywhere except the Deleted folder.
+    q = Callback.query.join(Voicemail, Voicemail.id == Callback.voicemail_id)
+    q = scope_voicemails(q, current_user)
 
     if view == "all" and (current_user.is_admin or current_user.is_supervisor):
-        # Supervisors see callbacks on voicemails routed to one of their teams
-        # (or unrouted). Admins see everything.
-        if not is_unrestricted(current_user):
-            q = q.join(Voicemail, Voicemail.id == Callback.voicemail_id)
-            q = scope_voicemails(q, current_user)
+        pass  # show every (in-scope, non-deleted) callback
     else:
         view = "mine"
         q = q.filter(Callback.assignee_id == current_user.id)
-        # Hide stale assignments where the underlying voicemail has been
-        # moved to a team the user is no longer on. Admins skip this filter.
-        if not is_unrestricted(current_user):
-            q = q.join(Voicemail, Voicemail.id == Callback.voicemail_id)
-            q = scope_voicemails(q, current_user)
 
     if status_filter == "open":
         q = q.filter(Callback.status.in_(("pending", "in_progress")))
@@ -144,22 +147,26 @@ def task_list():
 
     # Counts for the header tabs — same scoping as the list above so the
     # number doesn't promise callbacks that the list won't actually show.
-    mine_q = Callback.query.filter(
-        Callback.assignee_id == current_user.id,
-        Callback.status.in_(("pending", "in_progress")),
+    # Always join Voicemail + scope so soft-deleted callbacks vanish for
+    # admins too.
+    mine_q = (
+        Callback.query
+        .join(Voicemail, Voicemail.id == Callback.voicemail_id)
+        .filter(
+            Callback.assignee_id == current_user.id,
+            Callback.status.in_(("pending", "in_progress")),
+        )
     )
-    if not is_unrestricted(current_user):
-        mine_q = mine_q.join(Voicemail, Voicemail.id == Callback.voicemail_id)
-        mine_q = scope_voicemails(mine_q, current_user)
+    mine_q = scope_voicemails(mine_q, current_user)
     mine_open = mine_q.count()
     all_open = None
     if current_user.is_admin or current_user.is_supervisor:
-        all_q = Callback.query.filter(
-            Callback.status.in_(("pending", "in_progress"))
+        all_q = (
+            Callback.query
+            .join(Voicemail, Voicemail.id == Callback.voicemail_id)
+            .filter(Callback.status.in_(("pending", "in_progress")))
         )
-        if not is_unrestricted(current_user):
-            all_q = all_q.join(Voicemail, Voicemail.id == Callback.voicemail_id)
-            all_q = scope_voicemails(all_q, current_user)
+        all_q = scope_voicemails(all_q, current_user)
         all_open = all_q.count()
 
     return render_template(
@@ -281,6 +288,10 @@ def delete_callback(cb_id):
     if not current_user.can_assign_callbacks:
         abort(403)
     cb = Callback.query.get_or_404(cb_id)
+    # Soft-deleted voicemails are off-limits even for admins from this route
+    # — restore or purge via the Deleted folder instead.
+    if cb.voicemail is None or cb.voicemail.deleted_at is not None:
+        abort(403)
     # Supervisors can only delete callbacks on voicemails they can see.
     if (
         current_user.is_supervisor and not current_user.is_admin

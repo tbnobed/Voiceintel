@@ -129,11 +129,18 @@ class Voicemail(db.Model):
     team_id = db.Column(db.Integer, db.ForeignKey("teams.id", ondelete="SET NULL"), index=True)
     # When True, the team was set manually and routing rules will not overwrite it.
     team_locked = db.Column(db.Boolean, default=False, nullable=False)
+    # Soft-delete: when set, the voicemail is hidden from every normal query
+    # (list, detail, analytics, API, callbacks, polling) and only appears in
+    # the admin-only Deleted folder where it can be restored or permanently
+    # purged. The `deleted_by_id` records who moved it there.
+    deleted_at = db.Column(db.DateTime, index=True)
+    deleted_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     category_obj = db.relationship("Category", back_populates="voicemails")
     team = db.relationship("Team", back_populates="voicemails")
+    deleted_by = db.relationship("User", foreign_keys=[deleted_by_id])
     transcript = db.relationship("Transcript", back_populates="voicemail", uselist=False, cascade="all, delete-orphan")
     insights = db.relationship("Insight", back_populates="voicemail", uselist=False, cascade="all, delete-orphan")
     callbacks = db.relationship(

@@ -36,16 +36,21 @@ def _build_prompt() -> tuple[str | None, str | None]:
     week_ago  = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
 
-    total = Voicemail.query.count()
+    # Exclude soft-deleted voicemails from every aggregate the AI summarises.
+    not_deleted = Voicemail.deleted_at.is_(None)
+
+    total = Voicemail.query.filter(not_deleted).count()
     if total == 0:
         return None, "No voicemail data to analyse yet."
 
-    urgent_count = Voicemail.query.filter_by(is_urgent=True).count()
-    week_count   = Voicemail.query.filter(Voicemail.received_at >= week_ago).count()
-    month_count  = Voicemail.query.filter(Voicemail.received_at >= month_ago).count()
+    urgent_count = Voicemail.query.filter(not_deleted, Voicemail.is_urgent == True).count()
+    week_count   = Voicemail.query.filter(not_deleted, Voicemail.received_at >= week_ago).count()
+    month_count  = Voicemail.query.filter(not_deleted, Voicemail.received_at >= month_ago).count()
 
     sentiment_rows = (
         db.session.query(Insight.sentiment, func.count(Insight.id))
+        .join(Voicemail, Voicemail.id == Insight.voicemail_id)
+        .filter(not_deleted)
         .group_by(Insight.sentiment).all()
     )
     sentiment_dist = {s or "neutral": c for s, c in sentiment_rows}
@@ -53,11 +58,18 @@ def _build_prompt() -> tuple[str | None, str | None]:
     cat_rows = (
         db.session.query(Category.name, func.count(Voicemail.id))
         .join(Voicemail, Voicemail.category_id == Category.id, isouter=True)
+        .filter((Voicemail.id.is_(None)) | not_deleted)
         .group_by(Category.name).order_by(func.count(Voicemail.id).desc()).limit(5).all()
     )
 
     all_kw: list = []
-    for ins in Insight.query.filter(Insight.keywords.isnot(None)).limit(200).all():
+    kw_q = (
+        db.session.query(Insight)
+        .join(Voicemail, Voicemail.id == Insight.voicemail_id)
+        .filter(Insight.keywords.isnot(None), not_deleted)
+        .limit(200)
+    )
+    for ins in kw_q.all():
         if ins.keywords:
             all_kw.extend(_filter_keywords(ins.keywords))
     top_kw = [w for w, _ in Counter(all_kw).most_common(15)]
@@ -65,7 +77,7 @@ def _build_prompt() -> tuple[str | None, str | None]:
     recent_vms = (
         Voicemail.query
         .join(Transcript, Voicemail.id == Transcript.voicemail_id)
-        .filter(Transcript.text.isnot(None))
+        .filter(not_deleted, Transcript.text.isnot(None))
         .order_by(desc(Voicemail.received_at))
         .limit(12)
         .all()

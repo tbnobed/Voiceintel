@@ -101,6 +101,25 @@ def process_email_items(app, items: list):
                 db.session.commit()
                 logger.info(f"Voicemail record created id={voicemail.id}: {item['filename']}")
 
+                # Defensive: if an admin soft-deleted between record creation
+                # and now (rare but possible during reprocessing), skip every
+                # remaining downstream stage. Treat refresh failure as 'skip'
+                # so we never proceed against an unknown row state.
+                try:
+                    db.session.refresh(voicemail)
+                except Exception as refresh_err:
+                    logger.warning(
+                        f"Could not refresh vm {voicemail.id} after initial commit "
+                        f"({refresh_err}); skipping pipeline."
+                    )
+                    continue
+                if getattr(voicemail, "deleted_at", None) is not None:
+                    logger.info(
+                        f"Skipping pipeline for vm {voicemail.id}: "
+                        f"soft-deleted before transcription"
+                    )
+                    continue
+
                 # ── First-pass routing (recipient/sender/phone rules) ─────────
                 try:
                     from app.services import routing_service
@@ -147,6 +166,23 @@ def process_email_items(app, items: list):
                 db.session.commit()
                 logger.info(f"Processed voicemail id={voicemail.id}: {item['filename']} status={voicemail.processing_status}")
 
+                # Re-check soft-delete state before AI summary, second-pass
+                # routing, and trigger notifications. Soft-deleted voicemails
+                # must not generate outbound emails or further mutations.
+                # Treat refresh failure as 'skip' — better to drop side
+                # effects than to act on a row whose state we can't confirm.
+                try:
+                    db.session.refresh(voicemail)
+                except Exception as refresh_err:
+                    logger.warning(
+                        f"Could not refresh vm {voicemail.id} before post-processing "
+                        f"({refresh_err}); skipping AI summary + triggers."
+                    )
+                    continue
+                if getattr(voicemail, "deleted_at", None) is not None:
+                    logger.info(f"Skipping post-processing for vm {voicemail.id}: soft-deleted mid-pipeline")
+                    continue
+
                 # ── Per-voicemail AI summary (Phi-3 via Ollama) ──────────────
                 # Best-effort — a model timeout/outage must NOT mark the
                 # voicemail itself as failed. The summary card on the detail
@@ -166,6 +202,25 @@ def process_email_items(app, items: list):
                             db.session.rollback()
                         except Exception:
                             pass
+
+                # AI summary is the slowest stage (Phi-3 can take 10-30s),
+                # so re-check soft-delete state once more before second-pass
+                # routing and trigger notifications. This closes the TOCTOU
+                # window where an admin could soft-delete during AI summary.
+                try:
+                    db.session.refresh(voicemail)
+                except Exception as refresh_err:
+                    logger.warning(
+                        f"Could not refresh vm {voicemail.id} before triggers "
+                        f"({refresh_err}); skipping routing + triggers."
+                    )
+                    continue
+                if getattr(voicemail, "deleted_at", None) is not None:
+                    logger.info(
+                        f"Skipping routing + triggers for vm {voicemail.id}: "
+                        f"soft-deleted during AI summary"
+                    )
+                    continue
 
                 # ── Second-pass routing (gives keyword rules a chance) ───────
                 try:

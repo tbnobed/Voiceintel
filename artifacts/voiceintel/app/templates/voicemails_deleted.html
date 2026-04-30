@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Deleted — VoiceIntel{% endblock %}
+
+{% block breadcrumb %}
+  <a href="/voicemails">Voicemails</a>
+  <span class="sep">·</span>
+  <span>Deleted</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
+  <div>
+    <h1 class="page-title">Deleted Voicemails</h1>
+    <p class="page-sub">
+      {{ pagination.total }} item{{ 's' if pagination.total != 1 }} in the trash.
+      Restore puts a voicemail back into the main list. Permanent delete removes
+      the audio files and database record and cannot be undone.
+    </p>
+  </div>
+</div>
+
+{% if voicemails %}
+<div class="card" style="margin-bottom: 20px;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Deleted</th>
+        <th>Deleted by</th>
+        <th>Caller</th>
+        <th>Phone</th>
+        <th>Team</th>
+        <th>Received</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for vm in voicemails %}
+        {% set ci = vm.caller_info %}
+        <tr>
+          <td style="white-space:nowrap;">
+            <div style="font-size:13px; font-weight:500;">{{ vm.deleted_at | localtime('%b %d, %Y') }}</div>
+            <div style="font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums;">{{ vm.deleted_at | localtime('%I:%M %p') }}</div>
+          </td>
+          <td>
+            {% if vm.deleted_by %}
+              <span style="font-size:13px;">{{ vm.deleted_by.username or vm.deleted_by.email }}</span>
+            {% else %}
+              <span style="color:var(--muted); font-size:12px;">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="font-size:13px; font-weight:500;">{{ ci.caller_name or vm.subject or '(unknown)' }}</div>
+          </td>
+          <td style="font-variant-numeric:tabular-nums; font-size:13px;">{{ ci.phone or '—' }}</td>
+          <td>
+            {% if vm.team %}
+              <span style="font-size:12px; padding:2px 8px; border:1px solid var(--border); border-radius:6px;">{{ vm.team.name }}</span>
+            {% else %}
+              <span style="color:var(--muted); font-size:12px;">unrouted</span>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap;">
+            {% if vm.received_at %}
+              <div style="font-size:12px;">{{ vm.received_at | localtime('%b %d, %Y') }}</div>
+              <div style="font-size:11px; color:var(--muted);">{{ vm.received_at | localtime('%I:%M %p') }}</div>
+            {% else %}
+              <span style="color:var(--muted);">—</span>
+            {% endif %}
+          </td>
+          <td style="text-align:right; white-space:nowrap; padding-right:14px;">
+            <form method="POST" action="{{ url_for('main.voicemail_restore', vm_id=vm.id) }}" style="display:inline;">
+              <button type="submit" class="btn btn-ghost" style="padding:4px 10px; font-size:12px;"
+                      title="Move this voicemail back to the main list">
+                Restore
+              </button>
+            </form>
+            <form method="POST" action="{{ url_for('main.voicemail_purge', vm_id=vm.id) }}" style="display:inline;"
+                  onsubmit="return confirm('Permanently delete this voicemail? Audio files and database record will be gone forever — this cannot be undone.');">
+              <button type="submit" class="btn"
+                      style="padding:4px 10px; font-size:12px; background:#3A1414; border:1px solid #6B1F1F; color:#F0B4B4;"
+                      title="Permanently remove this voicemail (audio + database)">
+                Delete forever
+              </button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pagination.pages > 1 %}
+<div class="pagination">
+  {% if pagination.has_prev %}
+    <a href="{{ url_for('main.voicemails_deleted', page=pagination.prev_num) }}" class="pg-btn">‹</a>
+  {% endif %}
+  {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+    {% if p %}
+      <a href="{{ url_for('main.voicemails_deleted', page=p) }}" class="pg-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
+    {% else %}
+      <span style="padding: 0 4px; color:var(--muted);">…</span>
+    {% endif %}
+  {% endfor %}
+  {% if pagination.has_next %}
+    <a href="{{ url_for('main.voicemails_deleted', page=pagination.next_num) }}" class="pg-btn">›</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="card" style="text-align:center; padding:48px 24px;">
+  <div style="font-size:14px; color:var(--muted);">The Deleted folder is empty.</div>
+</div>
+{% endif %}
+{% endblock %}

@@ -284,6 +284,12 @@
        lives in the sticky action bar but POSTs through this same form via the
        `form="bulk-team-form"` attribute on its inputs. -->
   </form>
+  {# Sibling form for bulk-delete. Empty body — the row checkboxes are
+     mirrored into hidden <input>s by JS at submit time so the same selection
+     drives both bulk actions without needing nested forms. #}
+  {% if can_bulk_delete %}
+  <form id="bulk-delete-form" method="POST" action="{{ url_for('main.voicemails_bulk_delete') }}" style="display:none;"></form>
+  {% endif %}
   {% endif %}
 </div>
 
@@ -299,6 +305,7 @@
     <strong id="bulk-selected-count" style="color:var(--accent);">0</strong>
     <span style="color:var(--muted);">selected</span>
   </span>
+  {% if can_bulk_assign %}
   <span style="width:1px; height:22px; background:var(--border);"></span>
   <label style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Assign to team</label>
   <select name="team_id" form="bulk-team-form" class="filter-select" style="min-width:170px; margin:0;">
@@ -311,6 +318,15 @@
           onclick="return confirm('Apply team change to the selected voicemails? This will lock them from auto-routing (or unlock if clearing).');">
     Apply
   </button>
+  {% endif %}
+  {% if can_bulk_delete %}
+  <span style="width:1px; height:22px; background:var(--border);"></span>
+  <button type="button" id="bulk-delete-btn" class="btn"
+          style="background:#3A1414; border:1px solid #6B1F1F; color:#F0B4B4;"
+          title="Move selected voicemails to the Deleted folder">
+    Delete
+  </button>
+  {% endif %}
   <button type="button" id="bulk-cancel" class="btn btn-ghost" title="Clear selection">Cancel</button>
 </div>
 {% endif %}
@@ -464,6 +480,33 @@
     cancelBtn.addEventListener("click", function () {
       checks().forEach(function (c) { c.checked = false; });
       refresh();
+    });
+  }
+
+  // Bulk-delete: copy the current checkbox selection into the hidden
+  // delete form and submit. The delete form lives outside the table form
+  // so the row checkboxes (which belong to the team-assign form) need to
+  // be mirrored as plain hidden inputs at submit time.
+  var deleteBtn  = document.getElementById("bulk-delete-btn");
+  var deleteForm = document.getElementById("bulk-delete-form");
+  if (deleteBtn && deleteForm) {
+    deleteBtn.addEventListener("click", function () {
+      var sel = checks().filter(function (c) { return c.checked; });
+      if (sel.length === 0) return;
+      var msg = "Move " + sel.length + " voicemail" + (sel.length === 1 ? "" : "s") +
+                " to the Deleted folder? This can be restored by an admin.";
+      if (!window.confirm(msg)) return;
+      // Reset any previous mirrored ids before adding the current selection.
+      Array.prototype.slice.call(deleteForm.querySelectorAll("input[name='vm_ids']"))
+        .forEach(function (n) { n.parentNode.removeChild(n); });
+      sel.forEach(function (c) {
+        var hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "vm_ids";
+        hidden.value = c.value;
+        deleteForm.appendChild(hidden);
+      });
+      deleteForm.submit();
     });
   }
 

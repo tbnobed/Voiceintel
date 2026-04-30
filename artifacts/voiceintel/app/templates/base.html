@@ -535,6 +535,14 @@
         </a>
       </li>
       {% endif %}
+      {% if current_user.is_authenticated and current_user.is_admin %}
+      <li>
+        <a href="/voicemails/deleted" class="nav-link {{ 'active' if request.endpoint == 'main.voicemails_deleted' else '' }}">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><polyline points="2.5,4 4,4 13.5,4"/><path d="M5.5 4V2.5h5V4"/><path d="M3.5 4l1 9.5h7l1-9.5"/><line x1="6.5" y1="6.5" x2="6.5" y2="11.5"/><line x1="9.5" y1="6.5" x2="9.5" y2="11.5"/></svg>
+          Deleted
+        </a>
+      </li>
+      {% endif %}
       {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_supervisor) %}
       <li style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-m);">
         <a href="/admin/" class="nav-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.') else '' }}">

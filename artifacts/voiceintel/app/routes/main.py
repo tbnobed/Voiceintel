@@ -66,17 +66,15 @@ def dashboard():
                            .order_by("day").all()
     ]
 
-    # Keywords from insights — scope by joining to voicemails.
-    if is_unrestricted(current_user):
-        insights_with_kw = Insight.query.filter(Insight.keywords.isnot(None)).limit(100).all()
-    else:
-        ins_q = (
-            db.session.query(Insight)
-            .join(Voicemail, Voicemail.id == Insight.voicemail_id)
-            .filter(Insight.keywords.isnot(None))
-        )
-        ins_q = scope_voicemails(ins_q, current_user)
-        insights_with_kw = ins_q.limit(100).all()
+    # Keywords from insights — scope by joining to voicemails so soft-deleted
+    # rows (and team scoping) are honoured uniformly for every role.
+    ins_q = (
+        db.session.query(Insight)
+        .join(Voicemail, Voicemail.id == Insight.voicemail_id)
+        .filter(Insight.keywords.isnot(None))
+    )
+    ins_q = scope_voicemails(ins_q, current_user)
+    insights_with_kw = ins_q.limit(100).all()
     all_keywords = []
     for ins in insights_with_kw:
         if ins.keywords:
@@ -243,7 +241,11 @@ def voicemail_list():
     # Pass can_bulk as a top-level template var so every Jinja block (content
     # AND scripts) can see it. A `{% set %}` declared inside a block is scoped
     # to that block and won't be visible in {% block scripts %}.
-    can_bulk = bool(bulk_assign_teams) and (current_user.is_admin or current_user.is_supervisor)
+    # `can_bulk` gates the row checkboxes and action bar — anyone who can do
+    # *any* bulk op (assign team OR delete) needs them.
+    can_bulk_assign = bool(bulk_assign_teams) and (current_user.is_admin or current_user.is_supervisor)
+    can_bulk_delete = current_user.is_admin or current_user.is_supervisor
+    can_bulk = can_bulk_assign or can_bulk_delete
 
     return render_template(
         "voicemails.html",
@@ -253,6 +255,8 @@ def voicemail_list():
         available_teams=available_teams,
         bulk_assign_teams=bulk_assign_teams,
         can_bulk=can_bulk,
+        can_bulk_assign=can_bulk_assign,
+        can_bulk_delete=can_bulk_delete,
         team_filter=team_filter,
         q=q,
         category_id=category_id,
@@ -770,25 +774,137 @@ def voicemail_poll():
 @main_bp.route("/voicemails/<int:vm_id>/delete", methods=["POST"])
 @login_required
 def voicemail_delete(vm_id):
-    # Only admins and supervisors can delete voicemails — this also cascades
-    # to callbacks and notes, so it must be tightly restricted.
+    # Soft-delete: mark the voicemail as moved to the admin Deleted folder.
+    # Audio files and DB rows are preserved so an admin can restore it. Only
+    # admins and supervisors can move voicemails to the trash; anyone else
+    # gets bounced. Supervisors are scoped to voicemails they can see.
     if not (current_user.is_admin or current_user.is_supervisor):
         flash("You don't have permission to delete voicemails.", "error")
         return redirect(url_for("main.voicemail_detail", vm_id=vm_id))
     vm = Voicemail.query.get_or_404(vm_id)
-    # Supervisors can only delete voicemails they can actually see.
     if not can_view_voicemail(vm, current_user):
         abort(403)
-    # Delete audio files from disk
+    if vm.deleted_at is None:
+        vm.deleted_at = datetime.utcnow()
+        vm.deleted_by_id = current_user.id
+        db.session.commit()
+    flash("Voicemail moved to the Deleted folder.", "success")
+    return redirect(url_for("main.voicemail_list"))
+
+
+@main_bp.route("/voicemails/bulk/delete", methods=["POST"])
+@login_required
+def voicemails_bulk_delete():
+    """
+    Soft-delete every selected voicemail in one shot. Mirrors the permission
+    rules of the per-row delete: admins and supervisors only, scoped to rows
+    they can actually see.
+    """
+    if not (current_user.is_admin or current_user.is_supervisor):
+        abort(403)
+    raw_ids = request.form.getlist("vm_ids")
+    vm_ids = []
+    for raw in raw_ids:
+        try:
+            vm_ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    if not vm_ids:
+        flash("No voicemails selected.", "error")
+        return redirect(request.referrer or url_for("main.voicemail_list"))
+
+    # SELECT ... FOR UPDATE inside the user's scope so a supervisor cannot
+    # trash a row that races out of their team mid-request.
+    base_q = Voicemail.query.filter(Voicemail.id.in_(vm_ids))
+    base_q = scope_voicemails(base_q, current_user).with_for_update()
+    vms = base_q.all()
+
+    now = datetime.utcnow()
+    deleted = 0
+    for vm in vms:
+        if vm.deleted_at is None:
+            vm.deleted_at = now
+            vm.deleted_by_id = current_user.id
+            deleted += 1
+    if deleted:
+        db.session.commit()
+    else:
+        db.session.rollback()
+    flash(
+        f"Moved {deleted} voicemail{'s' if deleted != 1 else ''} to the Deleted folder.",
+        "success",
+    )
+    return redirect(request.referrer or url_for("main.voicemail_list"))
+
+
+# ---------------------------------------------------------------------------
+# Admin-only Deleted folder (list / restore / permanently purge)
+# ---------------------------------------------------------------------------
+
+@main_bp.route("/voicemails/deleted")
+@login_required
+def voicemails_deleted():
+    if not current_user.is_admin:
+        abort(403)
+    page = request.args.get("page", 1, type=int)
+    per_page = 25
+    pagination = (
+        scope_voicemails(Voicemail.query, current_user, include_deleted=True)
+        .filter(Voicemail.deleted_at.isnot(None))
+        .order_by(desc(Voicemail.deleted_at))
+        .paginate(page=page, per_page=per_page, error_out=False)
+    )
+    return render_template(
+        "voicemails_deleted.html",
+        voicemails=pagination.items,
+        pagination=pagination,
+    )
+
+
+@main_bp.route("/voicemails/<int:vm_id>/restore", methods=["POST"])
+@login_required
+def voicemail_restore(vm_id):
+    if not current_user.is_admin:
+        abort(403)
+    vm = Voicemail.query.get_or_404(vm_id)
+    if vm.deleted_at is not None:
+        vm.deleted_at = None
+        vm.deleted_by_id = None
+        db.session.commit()
+        flash("Voicemail restored.", "success")
+    return redirect(request.referrer or url_for("main.voicemails_deleted"))
+
+
+@main_bp.route("/voicemails/<int:vm_id>/purge", methods=["POST"])
+@login_required
+def voicemail_purge(vm_id):
+    """Permanently delete a soft-deleted voicemail — DB rows + audio files."""
+    if not current_user.is_admin:
+        abort(403)
+    vm = Voicemail.query.get_or_404(vm_id)
+    if vm.deleted_at is None:
+        # Refuse to permanently delete something that hasn't been trashed
+        # first — forces the explicit two-step flow.
+        flash("Voicemail must be in the Deleted folder before it can be purged.", "error")
+        return redirect(url_for("main.voicemail_detail", vm_id=vm.id))
+    # Resolve relative audio paths the same way serve_audio() does so we
+    # actually find the files no matter what cwd the worker is using.
+    base = os.path.dirname(current_app.root_path)
     for path in (vm.original_path, vm.converted_path):
-        if path and os.path.isfile(path):
+        if not path:
+            continue
+        full_path = path if os.path.isabs(path) else os.path.join(base, path)
+        if os.path.isfile(full_path):
             try:
-                os.remove(path)
+                os.remove(full_path)
             except Exception as e:
-                current_app.logger.warning(f"Could not delete file {path}: {e}")
+                current_app.logger.warning(f"Could not delete file {full_path}: {e}")
+        else:
+            current_app.logger.info(f"Purge: audio file already missing: {full_path}")
     db.session.delete(vm)
     db.session.commit()
-    return redirect(url_for("main.voicemail_list"))
+    flash("Voicemail permanently deleted.", "success")
+    return redirect(url_for("main.voicemails_deleted"))
 
 
 @main_bp.route("/voicemails/<int:vm_id>/status", methods=["POST"])

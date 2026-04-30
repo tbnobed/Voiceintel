@@ -64,11 +64,21 @@ def create_app():
             return {}
         ctx = {}
         try:
-            from app.models.voicemail import Callback
-            ctx["open_task_count"] = Callback.query.filter(
-                Callback.assignee_id == current_user.id,
-                Callback.status.in_(("pending", "in_progress")),
-            ).count()
+            from app.models.voicemail import Callback, Voicemail
+            from app.utils.team_scope import scope_voicemails
+            # Join Voicemail so the sidebar badge always agrees with the
+            # /tasks page: soft-deleted voicemails' callbacks must NOT
+            # count, and non-admins are still team-scoped.
+            badge_q = (
+                db.session.query(Callback)
+                .join(Voicemail, Voicemail.id == Callback.voicemail_id)
+                .filter(
+                    Callback.assignee_id == current_user.id,
+                    Callback.status.in_(("pending", "in_progress")),
+                )
+            )
+            badge_q = scope_voicemails(badge_q, current_user)
+            ctx["open_task_count"] = badge_q.count()
         except Exception:
             ctx["open_task_count"] = 0
         # Pending-invite badge is only relevant to user managers.
@@ -240,6 +250,14 @@ def _ensure_voicemails_columns():
         statements.append(
             "ALTER TABLE voicemails ADD COLUMN team_locked BOOLEAN NOT NULL DEFAULT FALSE"
         )
+    # Soft-delete columns for the admin Deleted folder.
+    if "deleted_at" not in cols:
+        statements.append("ALTER TABLE voicemails ADD COLUMN deleted_at TIMESTAMP")
+        statements.append(
+            "CREATE INDEX IF NOT EXISTS ix_voicemails_deleted_at ON voicemails (deleted_at)"
+        )
+    if "deleted_by_id" not in cols:
+        statements.append("ALTER TABLE voicemails ADD COLUMN deleted_by_id INTEGER")
 
     if not statements:
         return
