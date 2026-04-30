@@ -39,11 +39,11 @@
 <div class="grid-2-1" style="margin-bottom: 16px; align-items: stretch;">
 
   <!-- Trend chart -->
-  <div class="card">
+  <div class="card" style="display:flex; flex-direction:column;">
     <div class="card-head">
       <span class="card-head-title">Daily Volume — 7 Days</span>
     </div>
-    <div class="card-body" style="height: 220px; position: relative; padding: 16px 20px 12px;">
+    <div class="card-body" style="flex:1; min-height:220px; position:relative; padding:16px 20px 12px;">
       {% if daily_trend %}
         <canvas id="trendChart" style="position:absolute; inset:16px 20px 12px 20px; width:calc(100% - 40px) !important; height:calc(100% - 28px) !important;"></canvas>
       {% else %}
