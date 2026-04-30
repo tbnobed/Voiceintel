@@ -113,6 +113,11 @@ STOPWORDS = {
     "haven't", "hadn't", "don't", "doesn't", "didn't", "won't",
     "wouldn't", "shouldn't", "couldn't", "can't", "cannot", "shan't",
     "mustn't",
+    # Bare contraction stems — survive when apostrophe-aware tokenization
+    # fails (e.g. "don't" → "don" + "t"). Listed here as a safety net.
+    "don", "didn", "won", "doesn", "isn", "aren", "wasn", "weren",
+    "hasn", "haven", "hadn", "wouldn", "shouldn", "couldn", "mustn",
+    "shan", "ain",
     # Misc commonly stripped
     "there", "here", "where", "when", "why", "how", "what", "who",
     "whom", "whose", "which",
@@ -204,8 +209,14 @@ def _match_keywords(text_lower: str, patterns: list[str]) -> int:
 def extract_keywords(text: str, top_n: int = 10) -> list[str]:
     if not text:
         return []
-    words = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
-    filtered = [w for w in words if w not in STOPWORDS]
+    # Normalize curly apostrophes (often emitted by Whisper) to straight ones
+    # so the contraction-aware tokenizer below sees a single token like
+    # "don't" instead of splitting on the apostrophe and producing "don".
+    normalized = text.lower().replace("\u2019", "'").replace("\u02bc", "'")
+    # Keep apostrophes inside words: matches "don't", "you're", "John's", etc.
+    # The full contraction is then caught by the STOPWORDS set.
+    words = re.findall(r"[a-zA-Z]+(?:'[a-zA-Z]+)?", normalized)
+    filtered = [w for w in words if len(w) >= 3 and w not in STOPWORDS]
     counter = Counter(filtered)
     return [word for word, _ in counter.most_common(top_n)]
 
