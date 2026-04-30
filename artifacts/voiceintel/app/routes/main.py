@@ -160,11 +160,25 @@ def voicemail_list():
         # phone + name here), and sender. Subject + sender matter for the
         # Frequent Callers analytics card, which links to ?q=<digits>.
         like = f"%{q}%"
-        query = query.filter(or_(
+        clauses = [
             Transcript.text.ilike(like),
             Voicemail.subject.ilike(like),
             Voicemail.sender.ilike(like),
-        ))
+        ]
+        # If the query looks like a phone number (mostly digits, length ≥7),
+        # also match against the digit-stripped subject/sender so a query
+        # like "5305728897" finds subjects containing "(530) 572-8897" or
+        # "+1 530-572-8897". Postgres regexp_replace is used here.
+        q_digits = re.sub(r"\D+", "", q)
+        if len(q_digits) >= 7 and len(q_digits) >= len(q) - 4:
+            digit_pat = f"%{q_digits}%"
+            clauses.append(
+                func.regexp_replace(Voicemail.subject, r"\D", "", "g").ilike(digit_pat)
+            )
+            clauses.append(
+                func.regexp_replace(Voicemail.sender, r"\D", "", "g").ilike(digit_pat)
+            )
+        query = query.filter(or_(*clauses))
 
     if category_id:
         query = query.filter(Voicemail.category_id == category_id)
