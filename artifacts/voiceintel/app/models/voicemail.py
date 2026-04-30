@@ -11,6 +11,15 @@ def parse_voicemail_subject(subject: str) -> dict:
     Handles formats such as:
       "New Voice Message from FAULKNER R. (262) 968-2401 on 04/24/2026 11:25 AM"
       "Fw: New Voice Message from FOURROUX EILEEN (225) 907-3484 on 04/26/2026 15:39"
+      "FW: Urgent Voice Message from LOS ANGELES CA (213) 700-7967 on 04/29/2026 9:10 PM"
+      "Voice Mail from JOHN DOE (555) 123-4567"
+
+    The leading adjective ("New", "Urgent", "Important", etc.) is optional —
+    carriers and forwarding rules add or strip these inconsistently. The
+    body word can be "Message", "Mail", or "Voicemail". When the caller's
+    name isn't known the carrier typically sends a city/state location
+    (e.g. "LOS ANGELES CA") in its place; we still populate it because that
+    is more useful than "Unknown".
 
     Returns a dict with keys: caller_name, phone, call_date, call_time.
     Any unrecognised field is None.
@@ -19,14 +28,22 @@ def parse_voicemail_subject(subject: str) -> dict:
     if not subject:
         return result
 
-    # Strip common prefixes (Fw:, Re:, Fwd:)
-    cleaned = re.sub(r"^(Fw:|Re:|Fwd:)\s*", "", subject.strip(), flags=re.IGNORECASE)
+    # Strip stacked common prefixes (Fw:, Re:, Fwd:) — e.g. "Fw: Re: New …".
+    cleaned = subject.strip()
+    for _ in range(4):
+        new = re.sub(r"^(?:Fw:|Re:|Fwd:)\s*", "", cleaned, flags=re.IGNORECASE)
+        if new == cleaned:
+            break
+        cleaned = new
 
-    # Match "New Voice Message from <name> <phone> on <date> <time>"
+    # Match "[<adjective(s)>] Voice (Message|Mail) from <name> <phone> [on <date> [<time>]]".
+    # The adjective group is non-greedy and bounded by the literal "voice" that
+    # follows, so it can't over-consume into the name.
     pattern = re.compile(
-        r"new\s+voice\s+message\s+from\s+"
+        r"(?:\b\w+\s+)*?"                                        # optional "New", "Urgent", "Important", …
+        r"voice\s*(?:message|mail|voicemail)\s+from\s+"          # body word, allow no space ("voicemail")
         r"(?P<name>.+?)\s+"
-        r"(?P<phone>\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4})"
+        r"(?P<phone>\+?\d{0,2}[\s.\-]?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4})"
         r"(?:\s+on\s+"
         r"(?P<date>\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4})"
         r"(?:\s+(?P<time>\d{1,2}:\d{2}(?:\s*[APap][Mm])?))?"
