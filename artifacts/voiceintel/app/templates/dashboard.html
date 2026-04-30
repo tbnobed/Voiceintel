@@ -230,9 +230,9 @@ function copyWebhookUrl() {
     new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: trend.map(d => d[0]),
+        labels: trend.map(d => d.day.slice(5)),
         datasets: [{
-          data: trend.map(d => d[1]),
+          data: trend.map(d => d.count),
           backgroundColor: 'rgba(247,206,91,0.18)',
           borderColor: 'rgba(247,206,91,0.6)',
           borderWidth: 1,
