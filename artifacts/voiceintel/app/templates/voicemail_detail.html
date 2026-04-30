@@ -327,17 +327,15 @@
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
                 <label style="margin:0;">Due (optional)</label>
                 <button type="button" id="due-clear-btn"
-                        style="background:transparent; border:none; color:var(--muted); font-size:11px; cursor:pointer; padding:0;">
+                        style="background:transparent; border:none; color:var(--muted); font-size:11px; cursor:pointer; padding:0; display:none;">
                   Clear
                 </button>
               </div>
-              <!-- Hidden input is what the form actually submits; flatpickr
-                   writes the formatted value (`Y-m-dTH:i`) here. -->
-              <input type="hidden" name="due_at" id="due-at-input" />
-              <div id="due-at-calendar"></div>
-              <div id="due-at-display" style="font-size:11px; color:var(--muted); margin-top:6px; min-height:14px;">
-                No due date set
-              </div>
+              <!-- flatpickr attaches to this input and opens a popup calendar
+                   on click. The form posts the value as `due_at`. -->
+              <input type="text" name="due_at" id="due-at-input" class="filter-input"
+                     placeholder="Click to pick a date and time…" readonly
+                     style="cursor:pointer; background-color:rgba(0,0,0,0.18);" />
             </div>
             <div class="filter-group">
               <label>Instructions (optional)</label>
@@ -647,68 +645,47 @@ function regenerateAiSummary(id) {
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/themes/dark.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <style>
-  /* Trim flatpickr so its inline calendar feels native to VoiceIntel.
-     It defaults to ~307px wide and a bright white surface in dark mode —
-     we override the surface and keep the gold accent consistent. */
-  #due-at-calendar .flatpickr-calendar.inline {
-    background: rgba(0,0,0,0.25);
+  /* Tweak flatpickr's popup calendar so its dark theme matches VoiceIntel. */
+  .flatpickr-calendar {
+    background: #1a1612;
     border: 1px solid var(--border-m);
-    border-radius: 4px;
-    box-shadow: none;
-    width: 100%;
-    max-width: 100%;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     font-size: 12px;
   }
-  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.selected,
-  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.selected:hover {
+  .flatpickr-calendar .flatpickr-day.selected,
+  .flatpickr-calendar .flatpickr-day.selected:hover {
     background: var(--accent);
     border-color: var(--accent);
     color: #000;
   }
-  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.today {
-    border-color: var(--accent);
-  }
-  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day {
-    color: var(--vanilla);
-  }
-  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.flatpickr-disabled,
-  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.prevMonthDay,
-  #due-at-calendar .flatpickr-calendar.inline .flatpickr-day.nextMonthDay {
+  .flatpickr-calendar .flatpickr-day.today { border-color: var(--accent); }
+  .flatpickr-calendar .flatpickr-day { color: var(--vanilla); }
+  .flatpickr-calendar .flatpickr-day.flatpickr-disabled,
+  .flatpickr-calendar .flatpickr-day.prevMonthDay,
+  .flatpickr-calendar .flatpickr-day.nextMonthDay {
     color: var(--muted);
   }
-  #due-at-calendar .dayContainer { width: 100%; min-width: 0; max-width: 100%; }
-  /* Make the calendar's day grid stretch to fill the column width */
-  #due-at-calendar .flatpickr-days { width: 100%; }
 </style>
 <script>
 (function () {
-  var hidden  = document.getElementById('due-at-input');
-  var display = document.getElementById('due-at-display');
-  var clear   = document.getElementById('due-clear-btn');
-  if (!hidden || !window.flatpickr) return;
+  var input = document.getElementById('due-at-input');
+  var clear = document.getElementById('due-clear-btn');
+  if (!input || !window.flatpickr) return;
 
-  // dateFormat must match what _parse_due() in routes/tasks.py understands:
-  //   "%Y-%m-%dT%H:%M"  →  flatpickr's "Y-m-d\\TH:i"
-  var fp = flatpickr('#due-at-calendar', {
-    inline: true,
+  // flatpickr stores the machine-readable value (Y-m-dTH:i — what
+  // _parse_due() in routes/tasks.py expects) on the real input; altInput
+  // shows the user-friendly version in the visible textbox.
+  var fp = flatpickr(input, {
     enableTime: true,
     time_24hr: false,
     minuteIncrement: 15,
     minDate: 'today',
     dateFormat: "Y-m-d\\TH:i",
-    altInput: false,
-    onChange: function (selectedDates, dateStr) {
-      hidden.value = dateStr || '';
-      if (selectedDates.length) {
-        display.textContent = 'Due ' + selectedDates[0].toLocaleString(undefined, {
-          weekday: 'short', month: 'short', day: 'numeric',
-          hour: 'numeric', minute: '2-digit',
-        });
-        display.style.color = 'var(--vanilla)';
-      } else {
-        display.textContent = 'No due date set';
-        display.style.color = 'var(--muted)';
-      }
+    altInput: true,
+    altInputClass: 'filter-input',
+    altFormat: 'D, M j  ·  h:i K',
+    onChange: function (selectedDates) {
+      clear.style.display = selectedDates.length ? 'inline' : 'none';
     },
   });
 
