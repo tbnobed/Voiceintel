@@ -1,0 +1,27 @@
+obtv-admin@voiceai-svr1:~/Voiceintel/artifacts/voiceintel$ docker compose logs ollama | grep -iE 'cuda|gpu|nvidia|library|inference|compute'
+WARN[0000] /home/obtv-admin/Voiceintel/artifacts/voiceintel/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion
+ollama-1  | time=2026-04-29T23:54:04.775Z level=INFO source=routes.go:1762 msg="server config" env="map[CUDA_VISIBLE_DEVICES: GGML_VK_VISIBLE_DEVICES: GPU_DEVICE_ORDINAL: HIP_VISIBLE_DEVICES: HSA_OVERRIDE_GFX_VERSION: HTTPS_PROXY: HTTP_PROXY: NO_PROXY: OLLAMA_CONTEXT_LENGTH:0 OLLAMA_DEBUG:INFO OLLAMA_DEBUG_LOG_REQUESTS:false OLLAMA_EDITOR: OLLAMA_FLASH_ATTENTION:false OLLAMA_GPU_OVERHEAD:0 OLLAMA_HOST:http://0.0.0.0:11434 OLLAMA_KEEP_ALIVE:2562047h47m16.854775807s OLLAMA_KV_CACHE_TYPE: OLLAMA_LLM_LIBRARY: OLLAMA_LOAD_TIMEOUT:5m0s OLLAMA_MAX_LOADED_MODELS:0 OLLAMA_MAX_QUEUE:512 OLLAMA_MODELS:/root/.ollama/models OLLAMA_MULTIUSER_CACHE:false OLLAMA_NEW_ENGINE:false OLLAMA_NOHISTORY:false OLLAMA_NOPRUNE:false OLLAMA_NO_CLOUD:false OLLAMA_NUM_PARALLEL:1 OLLAMA_ORIGINS:[http://localhost https://localhost http://localhost:* https://localhost:* http://127.0.0.1 https://127.0.0.1 http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0 https://0.0.0.0 http://0.0.0.0:* https://0.0.0.0:* app://* file://* tauri://* vscode-webview://* vscode-file://*] OLLAMA_REMOTES:[ollama.com] OLLAMA_SCHED_SPREAD:false OLLAMA_VULKAN:false ROCR_VISIBLE_DEVICES: http_proxy: https_proxy: no_proxy:]"
+ollama-1  | time=2026-04-29T23:54:04.776Z level=INFO source=runner.go:67 msg="discovering available GPUs..."
+ollama-1  | time=2026-04-29T23:54:04.971Z level=INFO source=types.go:42 msg="inference compute" id=GPU-cab9ee49-2a14-c47c-fbfd-eb46cf1bce4b filter_id="" library=CUDAcompute=8.9 name=CUDA0 description="NVIDIA GeForce RTX 4070" libdirs=ollama,cuda_v12 driver=12.2 pci_id=0000:01:00.0 type=discrete total="12.0 GiB" available="11.7 GiB"
+obtv-admin@voiceai-svr1:~/Voiceintel/artifacts/voiceintel$ nvidia-smi
+Thu Apr 30 00:04:40 2026
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 535.288.01             Driver Version: 535.288.01   CUDA Version: 12.2     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA GeForce RTX 4070        Off | 00000000:01:00.0 Off |                  N/A |
+|  0%   45C    P8              11W / 200W |   3312MiB / 12282MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|    0   N/A  N/A      7252      C   /usr/local/bin/python3.11                  3306MiB |
++---------------------------------------------------------------------------------------+
+obtv-admin@voiceai-svr1:~/Voiceintel/artifacts/voiceintel$
