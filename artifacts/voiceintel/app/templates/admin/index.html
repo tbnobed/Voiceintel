@@ -158,9 +158,15 @@
   const frame  = document.getElementById('qa-modal-frame');
   const title  = document.getElementById('qa-modal-title');
 
+  let originPath = null;       // path of the page we opened the modal on
+  let initialLoaded = false;   // skip the first iframe load event
+  let needsRefresh = false;    // reload outer page on close after a successful action
+
   function openQA(url, label) {
     title.textContent = label || 'Quick Action';
-    // Append embed=1 so base.html hides the sidebar/topbar inside the iframe.
+    originPath = url.split('?')[0];
+    initialLoaded = false;
+    needsRefresh = false;
     const sep = url.includes('?') ? '&' : '?';
     frame.src = url + sep + 'embed=1';
     modal.hidden = false;
@@ -171,7 +177,26 @@
     modal.hidden = true;
     frame.src = 'about:blank';
     document.body.style.overflow = '';
+    if (needsRefresh) {
+      needsRefresh = false;
+      window.location.reload();
+    }
   }
+
+  // When the iframe navigates to any path other than the original (e.g. the
+  // server redirects to the listing page after submit, or the user clicks
+  // Cancel which links back to the listing page), close the modal. Form
+  // validation errors re-render the same path and stay open.
+  frame.addEventListener('load', () => {
+    if (!frame.src || frame.src === 'about:blank') return;
+    if (!initialLoaded) { initialLoaded = true; return; }
+    let path = null;
+    try { path = frame.contentWindow.location.pathname; } catch (e) { /* cross-origin */ }
+    if (path === null || path !== originPath) {
+      needsRefresh = true;  // an action likely succeeded — refresh dashboard counts
+      closeQA();
+    }
+  });
 
   document.querySelectorAll('.qa-btn').forEach(btn => {
     btn.addEventListener('click', () => openQA(btn.dataset.url, btn.dataset.title));
