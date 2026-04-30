@@ -275,6 +275,86 @@ def voicemail_detail(vm_id):
 # Manual team override (admin/supervisor only)
 # ---------------------------------------------------------------------------
 
+@main_bp.route("/voicemails/<int:vm_id>/ai-summary", methods=["POST"])
+@login_required
+def voicemail_regenerate_ai_summary(vm_id):
+    """
+    Re-run the per-voicemail AI summary on demand. Available to anyone who
+    can view the voicemail; the cost is small (~3-5s of GPU time) and the
+    feature is most useful to the agent reading the voicemail.
+
+    Returns JSON so the page can update inline without a full reload.
+    """
+    vm = Voicemail.query.get_or_404(vm_id)
+    if not can_view_voicemail(vm, current_user):
+        abort(403)
+    # Read-only viewers can see summaries that the pipeline produced
+    # automatically, but should not be able to trigger expensive GPU work.
+    if not (current_user.is_admin or current_user.is_supervisor or current_user.is_agent):
+        abort(403)
+    if not vm.transcript or not vm.transcript.text:
+        return jsonify({"ok": False, "error": "No transcript available to summarise."}), 400
+
+    # Cheap in-flight debounce: if another regeneration was kicked off less than
+    # 60 seconds ago for this voicemail, refuse rather than burn GPU twice and
+    # risk last-write-wins stomping. The pipeline path doesn't go through here,
+    # so it's not affected.
+    ins = vm.insights
+    if ins and ins.ai_status == "pending" and ins.ai_generated_at:
+        age = (datetime.utcnow() - ins.ai_generated_at).total_seconds()
+        if 0 <= age < 60:
+            return jsonify({
+                "ok": False,
+                "error": "A summary is already being generated. Please wait a few seconds.",
+            }), 409
+
+    # Mark pending so a concurrent caller sees the debounce window. Use a
+    # separate transaction so the marker is durable before the slow model call.
+    from sqlalchemy.exc import IntegrityError
+    from app.models.voicemail import Insight as _Insight
+    if ins is None:
+        try:
+            ins = _Insight(voicemail_id=vm.id, ai_status="pending", ai_generated_at=datetime.utcnow())
+            db.session.add(ins)
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            ins = _Insight.query.filter_by(voicemail_id=vm.id).one()
+            ins.ai_status = "pending"
+            ins.ai_generated_at = datetime.utcnow()
+            db.session.commit()
+    else:
+        ins.ai_status = "pending"
+        ins.ai_generated_at = datetime.utcnow()
+        db.session.commit()
+
+    try:
+        from app.services import ai_summary_service
+        result = ai_summary_service.generate_and_store(vm)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"AI summary regen failed for vm {vm.id}: {e}", exc_info=True)
+        return jsonify({"ok": False, "error": f"{type(e).__name__}: {e}"}), 500
+
+    if result.get("status") != "success":
+        return jsonify({
+            "ok": False,
+            "error": result.get("error_message") or "Model returned no usable output.",
+            "status": result.get("status"),
+        }), 502
+
+    return jsonify({
+        "ok": True,
+        "status": "success",
+        "summary":            result.get("summary"),
+        "intent":             result.get("intent"),
+        "action_items":       result.get("action_items") or [],
+        "suggested_response": result.get("suggested_response"),
+        "duration_ms":        result.get("duration_ms"),
+    })
+
+
 @main_bp.route("/voicemails/<int:vm_id>/team", methods=["POST"])
 @login_required
 def voicemail_set_team(vm_id):

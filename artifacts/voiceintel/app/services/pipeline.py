@@ -142,6 +142,26 @@ def process_email_items(app, items: list):
                 db.session.commit()
                 logger.info(f"Processed voicemail id={voicemail.id}: {item['filename']}")
 
+                # ── Per-voicemail AI summary (Phi-3 via Ollama) ──────────────
+                # Best-effort — a model timeout/outage must NOT mark the
+                # voicemail itself as failed. The summary card on the detail
+                # page will show the error and offer a Regenerate button.
+                if transcription.get("text"):
+                    try:
+                        from app.services import ai_summary_service
+                        ai_result = ai_summary_service.generate_and_store(voicemail)
+                        db.session.commit()
+                        logger.info(
+                            f"AI summary for vm {voicemail.id}: status={ai_result['status']} "
+                            f"in {ai_result.get('duration_ms', 0)} ms"
+                        )
+                    except Exception as ai_err:
+                        logger.warning(f"AI summary failed for vm {voicemail.id}: {ai_err}")
+                        try:
+                            db.session.rollback()
+                        except Exception:
+                            pass
+
                 # ── Second-pass routing (gives keyword rules a chance) ───────
                 try:
                     from app.services import routing_service
@@ -236,6 +256,23 @@ def reprocess_voicemail(app, voicemail_id):
 
         vm.processing_status = "error" if transcription.get("error") else "completed"
         db.session.commit()
+
+        # ── Regenerate the AI summary too (best-effort) ─────────────────
+        if transcription.get("text"):
+            try:
+                from app.services import ai_summary_service
+                ai_result = ai_summary_service.generate_and_store(vm)
+                db.session.commit()
+                logger.info(
+                    f"AI summary for vm {vm.id}: status={ai_result['status']} "
+                    f"in {ai_result.get('duration_ms', 0)} ms"
+                )
+            except Exception as ai_err:
+                logger.warning(f"AI summary failed for vm {vm.id}: {ai_err}")
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
 
         # Run automation triggers on reprocessed voicemail too
         try:

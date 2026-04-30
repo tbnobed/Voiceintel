@@ -81,6 +81,7 @@ def create_app():
     with app.app_context():
         db.create_all()
         _ensure_voicemails_columns()
+        _ensure_insights_columns()
         _seed_categories()
         _seed_admin_user()
 
@@ -170,6 +171,56 @@ def _ensure_voicemails_columns():
         statements.append(
             "ALTER TABLE voicemails ADD COLUMN team_locked BOOLEAN NOT NULL DEFAULT FALSE"
         )
+
+    if not statements:
+        return
+
+    with db.engine.begin() as conn:
+        for stmt in statements:
+            try:
+                conn.execute(text(stmt))
+                log.info(f"Schema guard: applied '{stmt}'")
+            except Exception as e:
+                log.warning(f"Schema guard: '{stmt}' failed: {e}")
+
+
+def _ensure_insights_columns():
+    """
+    Idempotent boot guard for the per-voicemail AI summary feature.
+    Adds the `ai_*` columns to the existing `insights` table if they are
+    missing. No-op once the columns exist. Safe on Postgres and SQLite.
+    """
+    import logging as _logging
+    from sqlalchemy import inspect, text
+    log = _logging.getLogger(__name__)
+
+    try:
+        insp = inspect(db.engine)
+        if "insights" not in insp.get_table_names():
+            return  # First boot — db.create_all() already made the columns.
+        cols = {c["name"] for c in insp.get_columns("insights")}
+    except Exception as e:
+        log.warning(f"Schema guard: could not inspect insights table: {e}")
+        return
+
+    statements = []
+    if "ai_summary" not in cols:
+        statements.append("ALTER TABLE insights ADD COLUMN ai_summary TEXT")
+    if "ai_intent" not in cols:
+        statements.append("ALTER TABLE insights ADD COLUMN ai_intent VARCHAR(300)")
+    if "ai_action_items" not in cols:
+        # JSON on Postgres, TEXT-with-JSON on SQLite — both accept this DDL.
+        statements.append("ALTER TABLE insights ADD COLUMN ai_action_items JSON")
+    if "ai_suggested_response" not in cols:
+        statements.append("ALTER TABLE insights ADD COLUMN ai_suggested_response TEXT")
+    if "ai_status" not in cols:
+        statements.append("ALTER TABLE insights ADD COLUMN ai_status VARCHAR(20)")
+    if "ai_error" not in cols:
+        statements.append("ALTER TABLE insights ADD COLUMN ai_error TEXT")
+    if "ai_duration_ms" not in cols:
+        statements.append("ALTER TABLE insights ADD COLUMN ai_duration_ms INTEGER")
+    if "ai_generated_at" not in cols:
+        statements.append("ALTER TABLE insights ADD COLUMN ai_generated_at TIMESTAMP")
 
     if not statements:
         return

@@ -214,6 +214,20 @@ class Insight(db.Model):
     category = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # ── LLM-generated per-voicemail summary (Phi-3 mini via Ollama) ──────
+    # Populated after transcription completes by ai_summary_service. Status
+    # tracks the most recent generation attempt: "pending" while in flight,
+    # "success" when the model returned a usable response, "error" on failure
+    # (with details in ai_error), "skipped" when there was no transcript.
+    ai_summary            = db.Column(db.Text)
+    ai_intent             = db.Column(db.String(300))
+    ai_action_items       = db.Column(db.JSON)
+    ai_suggested_response = db.Column(db.Text)
+    ai_status             = db.Column(db.String(20))   # pending|success|error|skipped|None
+    ai_error              = db.Column(db.Text)
+    ai_duration_ms        = db.Column(db.Integer)
+    ai_generated_at       = db.Column(db.DateTime)
+
     voicemail = db.relationship("Voicemail", back_populates="insights")
 
     def to_dict(self):
@@ -225,6 +239,12 @@ class Insight(db.Model):
             "sentiment_score": self.sentiment_score,
             "urgency_keywords": self.urgency_keywords,
             "category": self.category,
+            "ai_summary": self.ai_summary,
+            "ai_intent": self.ai_intent,
+            "ai_action_items": self.ai_action_items,
+            "ai_suggested_response": self.ai_suggested_response,
+            "ai_status": self.ai_status,
+            "ai_generated_at": self.ai_generated_at.isoformat() if self.ai_generated_at else None,
         }
 
 
