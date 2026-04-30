@@ -107,8 +107,25 @@ class TranscriptionService:
                 f"lang={result['language']}, segments={len(segments_list)}"
             )
         except Exception as e:
-            logger.error(f"Transcription error for {file_path}: {e}")
-            result["error"] = str(e)
-            result["processing_time"] = round(time.time() - start, 2)
+            # faster-whisper raises "max() arg is an empty sequence" (and a few
+            # similar internal errors) when its VAD filter trims the entire
+            # clip — i.e. there is no detectable speech. Treat that as a clean
+            # no-speech result rather than a hard transcription error so the
+            # pipeline marks the voicemail as "no_speech" instead of "error".
+            msg = str(e)
+            no_speech_signatures = (
+                "max() arg is an empty sequence",
+                "min() arg is an empty sequence",
+                "empty sequence",
+            )
+            if any(sig in msg for sig in no_speech_signatures):
+                logger.info(f"No speech detected in {file_path} (VAD trimmed all audio)")
+                result["text"] = ""
+                result["segments"] = []
+                result["processing_time"] = round(time.time() - start, 2)
+            else:
+                logger.error(f"Transcription error for {file_path}: {e}")
+                result["error"] = msg
+                result["processing_time"] = round(time.time() - start, 2)
 
         return result
