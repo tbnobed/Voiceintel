@@ -1,0 +1,98 @@
+obtv-admin@voiceai-svr1:~/Voiceintel/artifacts/voiceintel$ docker system df
+docker system df -v   # verbose: per-image, per-volume, per-container breakdown
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          5         3         18.48GB   340.9MB (1%)
+Containers      4         3         2.023MB   4.096kB (0%)
+Local Volumes   4         4         6.365GB   0B (0%)
+Build Cache     63        0         4.811GB   4.811GB
+Images space usage:
+
+REPOSITORY       TAG                       IMAGE ID       CREATED         SIZE      SHARED SIZE   UNIQUE SIZE   CONTAINERS
+voiceintel-app   latest                    21680d7d83e8   5 minutes ago   4.61GB    0B            4.61GB        1
+ollama/ollama    latest                    05ab093b257a   2 days ago      10.1GB    0B            10.08GB       2
+postgres         16-alpine                 4e6e670bb069   9 days ago      395MB     0B            395.4MB       1
+hello-world      latest                    f9078146db2e   5 weeks ago     25.9kB    0B            25.87kB       0
+nvidia/cuda      12.2.0-base-ubuntu22.04   ecdf8549dd5f   2 years ago     341MB     0B            340.9MB       0
+
+Containers space usage:
+
+CONTAINER ID   IMAGE                COMMAND                   LOCAL VOLUMES   SIZE      CREATED         STATUS                     NAMES
+4aa7fe3691c2   voiceintel-app       "gunicorn --bind 0.0…"    2               1.78MB    5 minutes ago   Up 4 minutes               voiceintel-app-1
+d3aeaad318f5   ollama/ollama        "/bin/sh -c 'set -e\n…"   0               4.1kB     29 hours ago    Exited (0) 4 minutes ago   voiceintel-model-warmer-1
+68ec977205ad   postgres:16-alpine   "docker-entrypoint.s…"    1               20.5kB    29 hours ago    Up 16 minutes (healthy)    voiceintel-db-1
+f676e6553c87   ollama/ollama        "/bin/ollama serve"       1               217kB     29 hours ago    Up 16 minutes (healthy)    voiceintel-ollama-1
+
+Local Volumes space usage:
+
+VOLUME NAME              LINKS     SIZE
+voiceintel_db_data       1         67.71MB
+voiceintel_model_cache   1         3.092GB
+voiceintel_ollama_data   1         2.176GB
+voiceintel_app_storage   1         1.029GB
+
+Build cache usage: 4.811GB
+
+CACHE ID       CACHE TYPE     SIZE      CREATED         LAST USED       USAGE     SHARED
+u1fjdfcmdg5e   regular        117MB     29 hours ago    29 hours ago    1         false
+z69kubf07648   regular        6.23MB    29 hours ago    29 hours ago    1         false
+wkx8n5sq22l8   regular        62.8MB    29 hours ago    29 hours ago    1         false
+e38z7fntp0fl   source.local   8.19kB    29 hours ago    29 hours ago    1         false
+kr45liqz621v   source.local   4.1kB     29 hours ago    29 hours ago    1         false
+702aiqn13bjh   regular        16.6kB    29 hours ago    29 hours ago    1         false
+yjrzv6211dgb   regular        632MB     29 hours ago    29 hours ago    1         false
+n7zzm3xukv3o   regular        8.29kB    29 hours ago    29 hours ago    1         false
+of0yuket5pcf   regular        12.9kB    29 hours ago    29 hours ago    1         false
+5rfxtpii5fed   regular        8.76MB    29 hours ago    29 hours ago    1         false
+qtpcpxodkm1p   regular        16.5kB    29 hours ago    29 hours ago    1         false
+qgw2dul6m28b   source.local   5.18MB    29 hours ago    29 hours ago    1         false
+1749nc94d3dx   regular        3.62GB    29 hours ago    29 hours ago    1         false
+rb2m1zxqbkkk   regular        16.5kB    28 hours ago    28 hours ago    1         false
+mbv6umtab81a   regular        8.83MB    28 hours ago    28 hours ago    1         false
+y7c6lngrrk2z   regular        16.5kB    28 hours ago    28 hours ago    1         false
+fiurb32mc2lz   regular        8.87MB    28 hours ago    28 hours ago    1         false
+s9lx61oja4mc   regular        8.87MB    25 hours ago    25 hours ago    1         false
+xeg7j1ezw3gm   regular        16.5kB    25 hours ago    25 hours ago    1         false
+41asup2agc4j   regular        8.87MB    24 hours ago    24 hours ago    1         false
+uxe7kncpb378   regular        16.5kB    24 hours ago    24 hours ago    1         false
+ipm57l6q57jw   regular        16.5kB    24 hours ago    24 hours ago    1         false
+2mresalj2u8o   regular        8.87MB    24 hours ago    24 hours ago    1         false
+qvn7ybnwlbrg   regular        8.87MB    24 hours ago    24 hours ago    1         false
+ythyxlbnou30   regular        16.5kB    24 hours ago    24 hours ago    1         false
+p76eg5t3dj2t   regular        16.5kB    23 hours ago    23 hours ago    1         false
+nrr3ajqc86nz   regular        8.87MB    23 hours ago    23 hours ago    1         false
+hb5vg1ol49qq   regular        8.87MB    23 hours ago    23 hours ago    1         false
+vppaehegbdgs   regular        16.5kB    23 hours ago    23 hours ago    1         false
+om7zpc0e0gf0   regular        8.87MB    23 hours ago    23 hours ago    1         false
+wypascm1aanx   regular        16.5kB    23 hours ago    23 hours ago    1         false
+mumhzj5pre1n   regular        8.87MB    23 hours ago    23 hours ago    1         false
+x14zmiv3wgle   regular        16.5kB    23 hours ago    23 hours ago    1         false
+ic5r0ushv7xy   regular        8.88MB    22 hours ago    22 hours ago    1         false
+27kg95igtkbv   regular        16.5kB    22 hours ago    22 hours ago    1         false
+zt5casppm1as   regular        8.88MB    22 hours ago    22 hours ago    1         false
+eb2qfm7cm1dl   regular        16.5kB    22 hours ago    22 hours ago    1         false
+yk1ix5vsjbmj   regular        8.89MB    22 hours ago    22 hours ago    1         false
+isa1f8b319la   regular        16.5kB    22 hours ago    22 hours ago    1         false
+7wxv5k6sz38m   regular        8.89MB    22 hours ago    22 hours ago    1         false
+k4e4now9g4om   regular        16.5kB    22 hours ago    22 hours ago    1         false
+pbbxrpfionlc   regular        8.89MB    22 hours ago    22 hours ago    1         false
+ytji9krp8ntw   regular        16.5kB    22 hours ago    22 hours ago    1         false
+raao098i4od2   regular        16.5kB    22 hours ago    22 hours ago    1         false
+xrvaiqjjxwkk   regular        8.89MB    22 hours ago    22 hours ago    1         false
+psrxidj8p719   regular        16.5kB    22 hours ago    22 hours ago    1         false
+ne8dr0ut7l8i   regular        8.89MB    22 hours ago    22 hours ago    1         false
+lkgbfy23baki   regular        8.9MB     22 hours ago    22 hours ago    1         false
+l6xj4wxfnywy   regular        16.5kB    22 hours ago    22 hours ago    1         false
+4yq51ll712y2   regular        16.5kB    12 hours ago    12 hours ago    1         false
+73l6znrr40az   regular        5.74MB    12 hours ago    12 hours ago    1         false
+ojf6zafdoivt   regular        5.74MB    10 hours ago    10 hours ago    1         false
+4nrhziu5bgov   regular        16.5kB    10 hours ago    9 hours ago     2         false
+1muplo0uklpn   regular        16.5kB    9 hours ago     9 hours ago     1         false
+o4kdad8t0n2k   regular        5.74MB    9 hours ago     9 hours ago     1         false
+iriihj09q115   regular        164MB     29 hours ago    8 hours ago     23        false
+viupvubg41k4   regular        5.75MB    8 hours ago     8 hours ago     1         false
+xnqs51lr1dgv   regular        16.5kB    8 hours ago     8 hours ago     1         false
+s9edirmfhhff   regular        5.75MB    5 minutes ago   5 minutes ago   1         false
+qxzh0s5uo5v6   source.local   8.19kB    28 hours ago    5 minutes ago   24        false
+fvn8qq7koit7   source.local   3.55MB    28 hours ago    5 minutes ago   24        false
+ssd1lvdat2d8   source.local   4.1kB     28 hours ago    5 minutes ago   24        false
+6b62cbl7dz7r   regular        16.5kB    5 minutes ago   5 minutes ago   1         false
