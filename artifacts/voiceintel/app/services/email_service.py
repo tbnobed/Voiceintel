@@ -1,9 +1,35 @@
+import atexit
 import os
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 logger = logging.getLogger(__name__)
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".ogg", ".aac", ".flac", ".wma"}
+
+# Hard ceiling for outbound SendGrid API calls. The SendGrid Python SDK
+# (sendgrid==6.x) does not expose a connection/read timeout, so a stalled
+# TCP socket to api.sendgrid.com would block sg.send() forever — and that
+# call is invoked from inside the voicemail pipeline thread which holds a
+# DB session, so a single hung send can permanently leak a pool slot.
+# We wrap sg.send() in a small executor and enforce a wall-clock timeout.
+# The executor itself uses daemon threads (default for ThreadPoolExecutor on
+# CPython 3.9+) and is shut down at interpreter exit so a stuck send doesn't
+# block gunicorn's graceful shutdown forever.
+_SENDGRID_HTTP_TIMEOUT = 30.0
+_sendgrid_executor = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="sendgrid-http"
+)
+
+
+@atexit.register
+def _shutdown_sendgrid_executor() -> None:
+    # wait=False + cancel_futures=True drops anything still queued; in-flight
+    # send() calls are abandoned (their sockets will be reaped by the OS).
+    try:
+        _sendgrid_executor.shutdown(wait=False, cancel_futures=True)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +127,21 @@ def send_notification_email(to: str, subject: str, body: str, html_body: str = "
             message.add_content(Content("text/html", html_body))
 
         sg = SendGridAPIClient(api_key=cfg["api_key"])
-        response = sg.send(message)
+        # Hard wall-clock timeout — see _SENDGRID_HTTP_TIMEOUT comment.
+        future = _sendgrid_executor.submit(sg.send, message)
+        try:
+            response = future.result(timeout=_SENDGRID_HTTP_TIMEOUT)
+        except FuturesTimeoutError:
+            # The underlying SDK thread will keep blocking until the OS
+            # eventually closes the socket, but this calling thread is now
+            # free to release its DB session and return.
+            future.cancel()
+            logger.error(
+                f"SendGrid send to {recipients} timed out after "
+                f"{_SENDGRID_HTTP_TIMEOUT:.0f}s — abandoning request"
+            )
+            return False
+
         logger.info(
             f"SendGrid email sent to {recipients}: "
             f"status={response.status_code}"

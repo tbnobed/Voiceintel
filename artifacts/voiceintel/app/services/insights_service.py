@@ -189,7 +189,10 @@ def generate_and_store_insight() -> AnalyticsInsight:
 
     try:
         from openai import OpenAI
-        client = OpenAI(base_url=ollama_url, api_key="ollama", timeout=600.0)
+        # 60s is plenty for Phi-3 Mini on the configured prompt and keeps a
+        # stuck Ollama from blocking the hourly scheduler thread for 10 min
+        # (which previously also held a DB session the whole time).
+        client = OpenAI(base_url=ollama_url, api_key="ollama", timeout=60.0)
 
         # Non-streaming — we're a background job, latency doesn't matter.
         resp = client.chat.completions.create(

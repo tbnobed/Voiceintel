@@ -1,5 +1,4 @@
 import os
-import threading
 from flask import Blueprint, request, jsonify, current_app, abort
 from flask_login import login_required, current_user
 from sqlalchemy import func, desc
@@ -8,6 +7,7 @@ from collections import Counter
 
 from app import db
 from app.models.voicemail import Voicemail, Transcript, Insight, Category, Setting
+from app.services import task_runner
 from app.utils.team_scope import scope_voicemails, can_view_voicemail
 
 api_bp = Blueprint("api", __name__)
@@ -153,8 +153,11 @@ def reprocess(vm_id):
         from app.services.pipeline import reprocess_voicemail
         reprocess_voicemail(app, vm_id)
 
-    thread = threading.Thread(target=_do, daemon=True)
-    thread.start()
+    if not task_runner.submit(_do):
+        return jsonify({
+            "status": "overloaded",
+            "pending": task_runner.pending_count(),
+        }), 503
     return jsonify({"status": "started", "voicemail_id": vm_id})
 
 
@@ -205,8 +208,11 @@ def trigger_poll():
         from app.services.pipeline import run_ingestion_pipeline
         run_ingestion_pipeline(app)
 
-    thread = threading.Thread(target=_do, daemon=True)
-    thread.start()
+    if not task_runner.submit(_do):
+        return jsonify({
+            "status": "overloaded",
+            "pending": task_runner.pending_count(),
+        }), 503
     return jsonify({"status": "started"})
 
 
@@ -248,7 +254,15 @@ def sendgrid_inbound():
         from app.services.pipeline import process_email_items
         process_email_items(app, items)
 
-    threading.Thread(target=_process, daemon=True).start()
+    # Returning 503 on overflow tells SendGrid Inbound Parse to retry the
+    # delivery (it retries 5xx for up to ~3 days), so no voicemails are
+    # silently dropped during a backlog.
+    if not task_runner.submit(_process):
+        return jsonify({
+            "status": "overloaded",
+            "pending": task_runner.pending_count(),
+            "capacity": task_runner.queue_capacity(),
+        }), 503
 
     return jsonify({
         "status": "accepted",
@@ -259,4 +273,8 @@ def sendgrid_inbound():
 
 @api_bp.route("/health")
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({
+        "status": "ok",
+        "queue_pending": task_runner.pending_count(),
+        "queue_capacity": task_runner.queue_capacity(),
+    })

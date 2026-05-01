@@ -86,6 +86,38 @@ Both are safe on Postgres and SQLite. Add new columns to the matching helper
 when extending one of those tables again, or introduce a real Alembic
 migration if the schema keeps growing.
 
+### Concurrency / freeze hardening (May 2026)
+Production was freezing after ~6 hours of running. Five root causes were
+identified and fixed:
+
+1. **Stale Postgres connections.** `app/__init__.py` now sets
+   `SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 1800}`
+   on non-SQLite URIs. Without this, idle TCP sockets dropped by Docker /
+   the network silently turned into deadlocks the next time SQLAlchemy
+   handed them out. Skipped for SQLite where the options aren't applicable.
+2. **`faster-whisper` is not thread-safe.** `app/services/transcription_service.py`
+   now serialises both model load (`_MODEL_LOAD_LOCK`, double-checked) and
+   inference (`_TRANSCRIBE_LOCK`, wraps the segment generator consumption).
+3. **Unbounded thread spawning per webhook.** `app/services/task_runner.py`
+   provides a single daemon worker fed by a bounded `queue.Queue(maxsize=200)`.
+   `app/routes/api.py` /webhook/inbound, /reprocess, and /poll all submit
+   through it; queue overflow returns HTTP 503 (SendGrid Inbound Parse
+   retries 5xx for ~3 days). `/api/health` exposes `queue_pending` /
+   `queue_capacity`.
+4. **No timeout on SendGrid API calls.** `app/services/email_service.py`
+   wraps `sg.send()` in a small ThreadPoolExecutor with a 30s
+   `future.result(timeout=...)` so a stalled TCP socket can't permanently
+   leak DB sessions in the pipeline thread. Executor is shut down via
+   `atexit`.
+5. **10-minute Ollama timeout in the hourly insights scheduler.**
+   `app/services/insights_service.py` lowered to 60s. Boot-kick
+   `threading.Timer` in `app/__init__.py` is now marked daemon.
+
+Open follow-up: faster-whisper/CTranslate2 inference still has no wall-clock
+timeout. A genuinely hung decode would block the single pipeline worker
+indefinitely. Subprocess isolation is the right long-term fix; for now the
+risk is bounded by the lock + 503 backpressure.
+
 ## Stack (Node.js/TypeScript monorepo)
 
 - **Monorepo tool**: pnpm workspaces

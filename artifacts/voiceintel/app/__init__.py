@@ -15,6 +15,18 @@ def create_app():
     app.config["SECRET_KEY"] = os.environ.get("SESSION_SECRET", "dev-secret-key-change-me")
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///voiceintel.db")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    # Connection-pool hardening. Without these, idle Postgres connections
+    # silently die after a few hours (Docker/firewall TCP idle timeouts) and
+    # SQLAlchemy hands the dead socket to the next caller, who then blocks on
+    # the OS read until kernel TCP keepalive fires (~2 hours). pool_pre_ping
+    # validates the connection with a cheap SELECT 1 before reuse, and
+    # pool_recycle proactively reopens connections older than 30 minutes.
+    # Skip for SQLite — these options aren't applicable.
+    if not app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "pool_pre_ping": True,
+            "pool_recycle": 1800,
+        }
     app.config["WHISPER_MODEL"] = os.environ.get("WHISPER_MODEL", "base")
     app.config["STORAGE_DIR"] = os.environ.get("STORAGE_DIR", "storage")
     storage_dir = app.config["STORAGE_DIR"]
@@ -217,7 +229,10 @@ def _start_insights_scheduler(app):
 
     # Kick off an initial run shortly after boot so the page has fresh data.
     # Delayed 60s so the model warmer container has time to load Phi-3 first.
-    threading.Timer(60.0, _job).start()
+    # Marked daemon so a worker shutdown during the 60s window doesn't block.
+    boot_kick = threading.Timer(60.0, _job)
+    boot_kick.daemon = True
+    boot_kick.start()
 
 
 def _ensure_voicemails_columns():
