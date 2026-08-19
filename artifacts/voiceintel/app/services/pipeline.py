@@ -163,12 +163,49 @@ def process_email_items(app, items: list):
 
                 # ── Transcription (slow — runs after first commit) ────────────
                 transcription = transcriber.transcribe(converted_path or item["saved_path"])
+                speaker_segments = None
+                speaker_label_error = None
+
+                # Five9 uploads are stereo: each channel is transcribed
+                # independently so roles come from deterministic channel
+                # mapping, not speaker-diarization guesswork. Email voicemails
+                # and existing records remain on the normal mixed transcript.
+                if item.get("source") == "sftp":
+                    try:
+                        stereo_result = transcriber.transcribe_stereo_channels(
+                            item["saved_path"],
+                            processed_dir,
+                            app.config.get("FIVE9_AGENT_CHANNEL", "left"),
+                        )
+                        speaker_segments = stereo_result.get("speaker_segments") or None
+                        speaker_label_error = stereo_result.get("error")
+                        if speaker_segments:
+                            logger.info(
+                                "Stereo speaker labels for vm %s: %d turns",
+                                voicemail.id,
+                                len(speaker_segments),
+                            )
+                        elif speaker_label_error:
+                            logger.info(
+                                "Stereo speaker labels unavailable for vm %s: %s",
+                                voicemail.id,
+                                speaker_label_error,
+                            )
+                    except Exception as speaker_exc:
+                        speaker_label_error = f"Stereo speaker labeling failed: {speaker_exc}"
+                        logger.warning(
+                            "Stereo speaker labeling failed for vm %s: %s",
+                            voicemail.id,
+                            speaker_exc,
+                        )
 
                 transcript = Transcript(
                     voicemail_id=voicemail.id,
                     text=transcription.get("text"),
                     language=transcription.get("language"),
                     segments=transcription.get("segments"),
+                    speaker_segments=speaker_segments,
+                    speaker_label_error=speaker_label_error,
                     processing_time=transcription.get("processing_time"),
                     error=transcription.get("error"),
                 )

@@ -173,13 +173,33 @@
     <!-- Transcript card -->
     <div class="card">
       <div class="card-head">
-        <span class="card-head-title">Transcript</span>
+        <span class="card-head-title">
+          {{ 'Agent & Caller Transcript' if vm.transcript and vm.transcript.speaker_segments else 'Transcript' }}
+        </span>
         {% if vm.transcript and vm.transcript.language %}
           <span style="font-size:10px; font-weight:600; letter-spacing:.06em; color:var(--muted); text-transform:uppercase;">{{ vm.transcript.language }}</span>
         {% endif %}
       </div>
       <div class="card-body" style="padding: 24px 28px;">
-        {% if vm.transcript and vm.transcript.text %}
+        {% if vm.transcript and (vm.transcript.text or vm.transcript.speaker_segments) %}
+          {% if vm.transcript.speaker_segments %}
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            {% for seg in vm.transcript.speaker_segments %}
+              {% set is_agent = seg.speaker == 'agent' %}
+              <div style="border:1px solid {{ 'rgba(247,206,91,0.24)' if is_agent else 'rgba(116,185,255,0.22)' }}; border-left:3px solid {{ 'var(--accent)' if is_agent else '#74b9ff' }}; border-radius:6px; padding:11px 13px; background:{{ 'rgba(247,206,91,0.035)' if is_agent else 'rgba(116,185,255,0.035)' }};">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
+                  <span style="font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:{{ 'var(--accent)' if is_agent else '#9dcbff' }};">
+                    {{ 'Agent' if is_agent else 'Caller' }}{% if is_agent and vm.agent %} · {{ vm.agent }}{% endif %}
+                  </span>
+                  <span style="margin-left:auto; font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums;">
+                    {{ '%d:%02d'|format(seg.start|int // 60, seg.start|int % 60) }}
+                  </span>
+                </div>
+                <div style="font-size:13.5px; line-height:1.65; color:var(--vanilla); white-space:pre-wrap;">{{ seg.text }}</div>
+              </div>
+            {% endfor %}
+          </div>
+          {% else %}
           <div class="transcript-body">
             {% if q %}
               {% set text = vm.transcript.text %}
@@ -189,6 +209,12 @@
               {{ vm.transcript.text }}
             {% endif %}
           </div>
+          {% endif %}
+          {% if vm.source == 'sftp' and vm.transcript.speaker_label_error %}
+            <div style="margin-top:14px; padding:9px 11px; border:1px solid var(--border-m); border-radius:5px; font-size:11px; color:var(--muted);">
+              Agent/Caller labels unavailable for this recording. The mixed transcript is shown instead.
+            </div>
+          {% endif %}
           {% if vm.transcript.processing_time %}
             <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-m); font-size:11px; color:var(--muted);">
               Transcribed in {{ vm.transcript.processing_time }}s
@@ -211,16 +237,22 @@
     </div>
 
     <!-- Segments -->
-    {% if vm.transcript and vm.transcript.segments and vm.transcript.segments|length > 0 %}
+    {% if vm.transcript and ((vm.transcript.segments and vm.transcript.segments|length > 0) or (vm.transcript.speaker_segments and vm.transcript.speaker_segments|length > 0)) %}
+    {% set timeline_segments = vm.transcript.speaker_segments or vm.transcript.segments %}
     <div class="card">
       <div class="card-head">
         <span class="card-head-title">Timeline</span>
-        <span style="font-size:11px; color:var(--muted);">{{ vm.transcript.segments|length }} segments</span>
+        <span style="font-size:11px; color:var(--muted);">{{ timeline_segments|length }} segments</span>
       </div>
       <div style="padding: 4px 20px 12px; max-height: 280px; overflow-y: auto;">
-        {% for seg in vm.transcript.segments %}
+        {% for seg in timeline_segments %}
           <div class="segment">
             <span class="seg-t">{{ '%d:%02d'|format(seg.start|int // 60, seg.start|int % 60) }}</span>
+            {% if seg.speaker %}
+              <span style="font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:{{ 'var(--accent)' if seg.speaker == 'agent' else '#9dcbff' }};">
+                {{ 'Agent' if seg.speaker == 'agent' else 'Caller' }}
+              </span>
+            {% endif %}
             <span class="seg-txt">{{ seg.text }}</span>
           </div>
         {% endfor %}

@@ -153,3 +153,96 @@ class TranscriptionService:
                 result["processing_time"] = round(time.time() - start, 2)
 
         return result
+
+    def transcribe_stereo_channels(
+        self,
+        file_path: str,
+        output_dir: str,
+        agent_channel: str = "left",
+    ) -> dict:
+        """
+        Transcribe each channel of a stereo call independently and return
+        timestamped Agent/Caller turns. Speaker roles come from the channel
+        mapping, not an AI guess.
+
+        The caller should preserve the normal mixed-channel transcript when
+        this method returns an error or no speaker segments.
+        """
+        from app.services import audio_service
+
+        agent_channel = (agent_channel or "left").lower()
+        if agent_channel not in {"left", "right"}:
+            return {
+                "speaker_segments": [],
+                "error": (
+                    f"Invalid Five9 agent channel {agent_channel!r}; "
+                    "configure 'left' or 'right'."
+                ),
+            }
+
+        paths, split_error = audio_service.split_stereo_channels(file_path, output_dir)
+        if split_error:
+            return {"speaker_segments": [], "error": split_error}
+
+        caller_channel = "right" if agent_channel == "left" else "left"
+        channel_roles = {
+            agent_channel: "agent",
+            caller_channel: "caller",
+        }
+        speaker_segments = []
+        errors = []
+
+        try:
+            for channel in ("left", "right"):
+                channel_result = self.transcribe(paths[channel])
+                if channel_result.get("error"):
+                    errors.append(f"{channel.title()} channel: {channel_result['error']}")
+                    continue
+                for segment in channel_result.get("segments") or []:
+                    if not (segment.get("text") or "").strip():
+                        continue
+                    speaker_segments.append({
+                        "start": segment["start"],
+                        "end": segment["end"],
+                        "text": segment["text"],
+                        "speaker": channel_roles[channel],
+                    })
+        finally:
+            for path in paths.values():
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+
+        speaker_segments.sort(
+            key=lambda segment: (
+                segment["start"],
+                0 if segment["speaker"] == "agent" else 1,
+                segment["end"],
+            )
+        )
+        # A partial channel result must never replace the complete mixed
+        # transcript in the UI. If either channel fails, callers retain the
+        # existing unlabeled transcript and receive a visible fallback notice.
+        if errors:
+            return {
+                "speaker_segments": [],
+                "error": "; ".join(errors),
+            }
+        if not speaker_segments:
+            return {
+                "speaker_segments": [],
+                "error": "; ".join(errors) or "No speech found in either stereo channel.",
+            }
+
+        logger.info(
+            "Stereo speaker transcription completed for %s — %d labeled turns "
+            "(agent channel=%s)",
+            file_path,
+            len(speaker_segments),
+            agent_channel,
+        )
+        return {
+            "speaker_segments": speaker_segments,
+            "error": "; ".join(errors) if errors else None,
+        }

@@ -143,6 +143,9 @@ services:
       # Examples: America/Chicago, America/Los_Angeles, America/New_York,
       #           Europe/London, Australia/Sydney
       DISPLAY_TZ:           ${DISPLAY_TZ:-America/Chicago}
+      # Stereo Five9 recordings are labelled by channel. Set to "right" if
+      # the Five9 tenant sends agent speech on the right channel.
+      FIVE9_AGENT_CHANNEL:  ${FIVE9_AGENT_CHANNEL:-left}
 
     volumes:
       # Audio files — persisted across container restarts

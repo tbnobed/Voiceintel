@@ -52,6 +52,83 @@ def convert_audio(input_path, output_dir):
         raise RuntimeError("FFmpeg conversion timed out (>120s)")
 
 
+def get_audio_channel_count(file_path):
+    """Return the channel count for the first audio stream, or None on failure."""
+    try:
+        cmd = [
+            "ffprobe",
+            "-v", "error",
+            "-select_streams", "a:0",
+            "-show_entries", "stream=channels",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            file_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            return int(result.stdout.strip())
+    except (FileNotFoundError, ValueError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+def split_stereo_channels(input_path, output_dir):
+    """
+    Extract left and right audio channels as independent mono 16kHz WAV files.
+
+    Returns (paths, error), where paths is {"left": ..., "right": ...}.
+    This deliberately does not guess on mono, multi-channel, or unreadable
+    audio: callers can retain their existing unlabeled transcript instead.
+    """
+    channel_count = get_audio_channel_count(input_path)
+    if channel_count != 2:
+        if channel_count is None:
+            return None, "Could not determine audio channel layout."
+        return None, f"Expected stereo audio; found {channel_count} channel(s)."
+
+    os.makedirs(output_dir, exist_ok=True)
+    base = os.path.splitext(os.path.basename(input_path))[0]
+    paths = {
+        "left": os.path.join(output_dir, f"{base}_left_channel.wav"),
+        "right": os.path.join(output_dir, f"{base}_right_channel.wav"),
+    }
+
+    try:
+        for label, channel_index in (("left", 0), ("right", 1)):
+            cmd = [
+                "ffmpeg",
+                "-i", input_path,
+                "-map", "0:a:0",
+                "-filter:a", f"pan=mono|c0=c{channel_index}",
+                "-ac", "1",
+                "-ar", "16000",
+                "-acodec", "pcm_s16le",
+                "-y",
+                paths[label],
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.strip() or "FFmpeg channel extraction failed.")
+    except FileNotFoundError:
+        return None, "FFmpeg is unavailable for stereo channel extraction."
+    except subprocess.TimeoutExpired:
+        return None, "Stereo channel extraction timed out."
+    except Exception as exc:
+        for path in paths.values():
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        return None, f"Stereo channel extraction failed: {exc}"
+
+    logger.info("Extracted stereo channels from %s", input_path)
+    return paths, None
+
+
 def _convert_with_ffmpeg_python(input_path, output_path):
     try:
         import ffmpeg

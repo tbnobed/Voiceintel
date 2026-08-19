@@ -302,6 +302,11 @@ class Transcript(db.Model):
     text = db.Column(db.Text)
     language = db.Column(db.String(10))
     segments = db.Column(db.JSON)
+    # Timestamped Agent/Caller turns extracted only from new stereo Five9
+    # recordings. Legacy and mono recordings keep this NULL and render the
+    # existing mixed transcript unchanged.
+    speaker_segments = db.Column(db.JSON)
+    speaker_label_error = db.Column(db.Text)
     processing_time = db.Column(db.Float)
     error = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -315,6 +320,8 @@ class Transcript(db.Model):
             "text": self.text,
             "language": self.language,
             "segments": self.segments,
+            "speaker_segments": self.speaker_segments,
+            "speaker_label_error": self.speaker_label_error,
             "processing_time": self.processing_time,
             "error": self.error,
         }

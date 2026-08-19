@@ -28,6 +28,9 @@ def create_app():
             "pool_recycle": 1800,
         }
     app.config["WHISPER_MODEL"] = os.environ.get("WHISPER_MODEL", "base")
+    # Five9 stereo recordings use deterministic channel roles. Change this to
+    # "right" if the Five9 tenant emits agent speech on the right channel.
+    app.config["FIVE9_AGENT_CHANNEL"] = os.environ.get("FIVE9_AGENT_CHANNEL", "left").lower()
     app.config["STORAGE_DIR"] = os.environ.get("STORAGE_DIR", "storage")
     storage_dir = app.config["STORAGE_DIR"]
     os.makedirs(os.path.join(storage_dir, "voicemails"), exist_ok=True)
@@ -115,6 +118,7 @@ def create_app():
         db.create_all()
         _ensure_voicemails_columns()
         _ensure_insights_columns()
+        _ensure_transcript_columns()
         _seed_categories()
         _seed_five9_teams()
         _seed_admin_user()
@@ -404,6 +408,43 @@ def _ensure_insights_columns():
                 log.info(f"Schema guard: applied '{stmt}'")
             except Exception as e:
                 log.warning(f"Schema guard: '{stmt}' failed: {e}")
+
+
+def _ensure_transcript_columns():
+    """
+    Add optional stereo-speaker columns for deployments which already have a
+    transcripts table. No historical data is populated; new Five9 recordings
+    receive labels as they are ingested.
+    """
+    import logging as _logging
+    from sqlalchemy import inspect, text
+    log = _logging.getLogger(__name__)
+
+    try:
+        insp = inspect(db.engine)
+        if "transcripts" not in insp.get_table_names():
+            return
+        cols = {c["name"] for c in insp.get_columns("transcripts")}
+    except Exception as exc:
+        log.warning(f"Schema guard: could not inspect transcripts table: {exc}")
+        return
+
+    statements = []
+    if "speaker_segments" not in cols:
+        statements.append("ALTER TABLE transcripts ADD COLUMN speaker_segments JSON")
+    if "speaker_label_error" not in cols:
+        statements.append("ALTER TABLE transcripts ADD COLUMN speaker_label_error TEXT")
+
+    if not statements:
+        return
+
+    with db.engine.begin() as conn:
+        for stmt in statements:
+            try:
+                conn.execute(text(stmt))
+                log.info(f"Schema guard: applied '{stmt}'")
+            except Exception as exc:
+                log.warning(f"Schema guard: '{stmt}' failed: {exc}")
 
 
 def _seed_categories():
