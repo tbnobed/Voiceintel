@@ -491,8 +491,9 @@ def _seed_five9_teams():
 def _backfill_five9_recordings():
     """
     Repair historical Five9 rows that were ingested before campaign/agent
-    parsing was available. This is safe to run on every boot: it fills only a
-    missing agent and an unlocked, missing team assignment.
+    parsing and timezone conversion were available. This is safe to run on
+    every boot: it fills only a missing agent and an unlocked, missing team
+    assignment, while correcting Five9 filename timestamps.
 
     Five9 files are flattened into storage paths before pipeline processing, so
     the filename parser accepts both current raw upload names and the older
@@ -509,24 +510,18 @@ def _backfill_five9_recordings():
     normalized_sources = 0
     repaired_agents = 0
     repaired_teams = 0
+    repaired_times = 0
 
-    incomplete_recordings = (
+    recordings_to_repair = (
         Voicemail.query
         .filter(
             (Voicemail.source == "sftp")
             | Voicemail.message_id.like("sftp-%")
         )
-        .filter(
-            (Voicemail.source != "sftp")
-            | Voicemail.source.is_(None)
-            | (Voicemail.agent.is_(None))
-            | (Voicemail.agent == "")
-            | ((Voicemail.team_id.is_(None)) & (Voicemail.team_locked.is_(False)))
-        )
         .all()
     )
 
-    for voicemail in incomplete_recordings:
+    for voicemail in recordings_to_repair:
         parsed = _parse_five9_filename(voicemail.filename or "")
 
         if voicemail.source != "sftp":
@@ -536,6 +531,10 @@ def _backfill_five9_recordings():
         if not (voicemail.agent or "").strip() and parsed["agent"]:
             voicemail.agent = parsed["agent"]
             repaired_agents += 1
+
+        if parsed["recorded_at"] and voicemail.received_at != parsed["recorded_at"]:
+            voicemail.received_at = parsed["recorded_at"]
+            repaired_times += 1
 
         if (
             voicemail.team_id is None
@@ -551,13 +550,14 @@ def _backfill_five9_recordings():
                 voicemail.team_id = team.id
                 repaired_teams += 1
 
-    if normalized_sources or repaired_agents or repaired_teams:
+    if normalized_sources or repaired_agents or repaired_teams or repaired_times:
         db.session.commit()
         log.info(
-            "Five9 recording backfill: normalized source=%d, repaired agent=%d, team=%d",
+            "Five9 recording backfill: normalized source=%d, repaired agent=%d, team=%d, time=%d",
             normalized_sources,
             repaired_agents,
             repaired_teams,
+            repaired_times,
         )
     else:
         log.debug("Five9 recording backfill: nothing to repair")

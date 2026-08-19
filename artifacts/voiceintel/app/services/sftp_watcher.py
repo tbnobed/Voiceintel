@@ -32,7 +32,8 @@ import logging
 import os
 import re
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,47 @@ AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".ogg", ".aac", ".flac", ".wma", ".o
 # Minimum file age in seconds before we consider it fully uploaded.
 # Five9 writes sequentially; 10 s gives enough margin even on a slow link.
 MIN_AGE_SECONDS = 10
+
+
+def _five9_recording_date(path: str):
+    """Extract Five9's created-date directory from raw or flattened paths."""
+    normalized = path.replace("\\", "/")
+    match = re.search(
+        r"(?:^|/)recordings/(\d{1,2})_(\d{1,2})_(\d{4})(?:/|_)",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        match = re.match(
+            r"^recordings_(\d{1,2})_(\d{1,2})_(\d{4})_",
+            os.path.basename(normalized),
+            flags=re.IGNORECASE,
+        )
+    if not match:
+        return None
+    try:
+        return datetime(int(match.group(3)), int(match.group(1)), int(match.group(2))).date()
+    except ValueError:
+        return None
+
+
+def _five9_time_to_utc(value: datetime) -> datetime:
+    """
+    Five9's filename time is a local wall-clock time. Convert it to the UTC
+    naive datetime convention used by the database instead of treating the
+    wall-clock value as UTC. DISPLAY_TZ is shared with the UI and defaults to
+    VoiceIntel's America/Chicago operating timezone.
+    """
+    display_tz = os.environ.get("DISPLAY_TZ", "America/Chicago")
+    try:
+        local_zone = ZoneInfo(display_tz)
+    except Exception:
+        local_zone = ZoneInfo("America/Chicago")
+    return (
+        value.replace(tzinfo=local_zone)
+        .astimezone(timezone.utc)
+        .replace(tzinfo=None)
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -112,9 +154,11 @@ def _parse_five9_filename(path: str) -> dict:
         for fmt in ("%I_%M_%S %p", "%H_%M_%S"):
             try:
                 t = datetime.strptime(time_clean.strip(), fmt)
-                today = datetime.utcnow().date()
-                recorded_at = datetime(today.year, today.month, today.day,
-                                       t.hour, t.minute, t.second)
+                today = _five9_recording_date(path) or datetime.utcnow().date()
+                recorded_at = _five9_time_to_utc(
+                    datetime(today.year, today.month, today.day,
+                             t.hour, t.minute, t.second)
+                )
                 break
             except ValueError:
                 continue

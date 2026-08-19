@@ -38,6 +38,14 @@ description: How Five9 call recordings flow into VoiceIntel via SFTP, and how th
 
 **How to apply:** Use the source-or-message-ID rule consistently in Recordings, Voicemails, and analytics filters so a record cannot appear in both views or neither.
 
+## Five9 timestamp handling
+- Five9 filename times are local wall-clock values in `DISPLAY_TZ`; convert them to UTC before storing because the database uses naive UTC.
+- Historical SFTP records are time-corrected during startup backfill from their flattened filename and created-date prefix.
+
+**Why:** Treating `3:23 PM` as UTC makes it render as `10:23 AM` in Chicago, pushing recent recordings below older rows in the default date sort.
+
+**How to apply:** Parse `recordings/<month>_<day>_<year>/` (or the flattened equivalent) and use that date plus the filename time for both newly ingested and repaired recordings.
+
 ## UI separation
 - `/voicemails` filters WHERE source='email' OR source IS NULL
 - `/recordings` filters WHERE source='sftp'
