@@ -1,0 +1,30 @@
+2026-08-19 20:37:15,041 [INFO] asyncssh: [conn=78] Accepted SSH client connection
+2026-08-19 20:37:15,041 [INFO] asyncssh: [conn=78]   Local address: 172.18.0.5, port 2222
+2026-08-19 20:37:15,041 [INFO] asyncssh: [conn=78]   Peer address: 198.105.202.150, port 42429
+2026-08-19 20:37:15,041 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:42429
+2026-08-19 20:37:15,613 [INFO] asyncssh: [conn=78] Beginning auth for user five9
+2026-08-19 20:37:15,749 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 20:37:15,749 [INFO] asyncssh: [conn=78] Auth for user five9 succeeded
+2026-08-19 20:37:15,860 [INFO] asyncssh: [conn=78, chan=0] New SSH session requested
+2026-08-19 20:37:15,921 [INFO] asyncssh: [conn=78, chan=0]   Subsystem: sftp
+2026-08-19 20:37:15,922 [INFO] asyncssh.sftp: [conn=78, chan=0] Starting SFTP server
+2026-08-19 20:37:17,011 [INFO] asyncssh: [conn=78, chan=0] Received channel close
+2026-08-19 20:37:17,012 [INFO] asyncssh: [conn=78, chan=0] Channel closed
+2026-08-19 20:37:17,012 [INFO] asyncssh.sftp: [conn=78, chan=0] SFTP server exited
+2026-08-19 20:37:17,012 [INFO] asyncssh: [conn=78, chan=0] Closing channel
+2026-08-19 20:37:17,017 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 20:37:34,639 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 20:38:04 UTC)" (scheduled at 2026-08-19 20:37:34.638423+00:00)
+2026-08-19 20:37:34,639 [INFO] app.services.sftp_watcher: SFTP watcher: 1 file(s) ready to process
+2026-08-19 20:37:34,640 [INFO] app.services.sftp_watcher: SFTP watcher: moved '8162164041Outbound - Donor Care by smiller@tbn.tv @ 3_36_30 PM.wav' → /data/storage/voicemails/recordings_8_19_2026_8162164041Outbound - Donor Care by smiller@tbn.tv @ 3_36_30 PM.wav
+2026-08-19 20:37:34,640 [INFO] app.services.sftp_watcher: SFTP watcher: submitted '8162164041Outbound - Donor Care by smiller@tbn.tv @ 3_36_30 PM.wav' to pipeline (caller='8162164041', agent='smiller@tbn.tv')
+2026-08-19 20:37:34,640 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 20:38:04 UTC)" executed successfully
+2026-08-19 20:37:34,698 [INFO] app.services.audio_service: Converted /data/storage/voicemails/recordings_8_19_2026_8162164041Outbound - Donor Care by smiller@tbn.tv @ 3_36_30 PM.wav -> /data/storage/processed/recordings_8_19_2026_8162164041Outbound - Donor Care by smiller@tbn.tv @ 3_36_30 PM_converted.wav
+2026-08-19 20:37:34,744 [INFO] app.services.pipeline: Voicemail record created id=21274: 8162164041Outbound - Donor Care by smiller@tbn.tv @ 3_36_30 PM.wav
+2026-08-19 20:37:34,749 [INFO] app.services.pipeline: Campaign routing: vm 21274 → team 'Outbound - Donor Care' (id=11) via campaign='Outbound - Donor Care'
+2026-08-19 20:37:34,830 [INFO] faster_whisper: Processing audio with duration 00:39.780
+2026-08-19 20:37:34,909 [INFO] faster_whisper: VAD filter removed 00:03.120 of audio
+2026-08-19 20:37:35,078 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 20:37:36,359 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/recordings_8_19_2026_8162164041Outbound - Donor Care by smiller@tbn.tv @ 3_36_30 PM_converted.wav' in 1.61s — lang=en, segments=8
+2026-08-19 20:37:36,373 [INFO] app.services.pipeline: Processed voicemail id=21274: 8162164041Outbound - Donor Care by smiller@tbn.tv @ 3_36_30 PM.wav status=completed
+2026-08-19 20:37:38,536 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 20:37:38,549 [INFO] app.services.pipeline: AI summary for vm 21274: status=success in 2163 ms
