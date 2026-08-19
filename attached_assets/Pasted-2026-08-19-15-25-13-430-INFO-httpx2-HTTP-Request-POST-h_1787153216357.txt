@@ -1,0 +1,29 @@
+2026-08-19 15:25:13,430 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 15:25:13,444 [INFO] app.services.pipeline: AI summary for vm 21099: status=success in 1955 ms
+2026-08-19 15:25:16,631 [INFO] asyncssh: [conn=1] Accepted SSH client connection
+2026-08-19 15:25:16,631 [INFO] asyncssh: [conn=1]   Local address: 172.18.0.4, port 2222
+2026-08-19 15:25:16,632 [INFO] asyncssh: [conn=1]   Peer address: 198.105.202.150, port 32808
+2026-08-19 15:25:16,632 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:32808
+2026-08-19 15:25:17,252 [INFO] asyncssh: [conn=1] Beginning auth for user five9
+2026-08-19 15:25:17,369 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 15:25:17,369 [INFO] asyncssh: [conn=1] Auth for user five9 succeeded
+2026-08-19 15:25:17,460 [INFO] asyncssh: [conn=1, chan=0] New SSH session requested
+2026-08-19 15:25:17,525 [INFO] asyncssh: [conn=1, chan=0]   Subsystem: sftp
+2026-08-19 15:25:17,525 [INFO] asyncssh.sftp: [conn=1, chan=0] Starting SFTP server
+2026-08-19 15:25:19,190 [INFO] asyncssh: [conn=1, chan=0] Received channel close
+2026-08-19 15:25:19,191 [INFO] asyncssh: [conn=1, chan=0] Channel closed
+2026-08-19 15:25:19,191 [INFO] asyncssh.sftp: [conn=1, chan=0] SFTP server exited
+2026-08-19 15:25:19,191 [INFO] asyncssh: [conn=1, chan=0] Closing channel
+2026-08-19 15:25:19,230 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 15:25:43,414 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:26:13 UTC)" (scheduled at 2026-08-19 15:25:43.413625+00:00)
+2026-08-19 15:25:43,415 [INFO] app.services.sftp_watcher: SFTP watcher: 1 file(s) ready to process
+2026-08-19 15:25:43,417 [INFO] app.services.sftp_watcher: SFTP watcher: moved '5623361890 by aacuna@tbn.tv @ 10_20_14 AM.wav' → /data/storage/voicemails/recordings_8_19_2026_5623361890 by aacuna@tbn.tv @ 10_20_14 AM.wav
+2026-08-19 15:25:43,417 [INFO] app.services.sftp_watcher: SFTP watcher: submitted '5623361890 by aacuna@tbn.tv @ 10_20_14 AM.wav' to pipeline (caller='5623361890', agent='aacuna@tbn.tv')
+2026-08-19 15:25:43,417 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:26:13 UTC)" executed successfully
+2026-08-19 15:25:43,531 [INFO] app.services.audio_service: Converted /data/storage/voicemails/recordings_8_19_2026_5623361890 by aacuna@tbn.tv @ 10_20_14 AM.wav -> /data/storage/processed/recordings_8_19_2026_5623361890 by aacuna@tbn.tv @ 10_20_14 AM_converted.wav
+2026-08-19 15:25:43,589 [INFO] app.services.pipeline: Voicemail record created id=21100: 5623361890 by aacuna@tbn.tv @ 10_20_14 AM.wav
+2026-08-19 15:25:43,665 [INFO] faster_whisper: Processing audio with duration 04:40.900
+2026-08-19 15:25:44,196 [INFO] faster_whisper: VAD filter removed 00:31.012 of audio
+2026-08-19 15:25:47,580 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 15:26:13,413 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:26:43 UTC)" (scheduled at 2026-08-19 15:26:13.413625+00:00)
+2026-08-19 15:26:13,414 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:26:43 UTC)" executed successfully
