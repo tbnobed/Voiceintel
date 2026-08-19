@@ -78,6 +78,7 @@ services:
         condition: service_started
     ports:
       - "${PORT:-5000}:5000"
+      - "${SFTP_PORT:-2222}:2222"
     # GPU passthrough for faster-whisper transcription. The transcription
     # service auto-detects CUDA at startup and falls back to CPU if absent,
     # so this block can be removed on a CPU-only host.
@@ -119,6 +120,20 @@ services:
       SENDGRID_FROM_NAME:   ${SENDGRID_FROM_NAME:-VoiceIntel}
       SENDGRID_ADMIN_EMAIL: ${SENDGRID_ADMIN_EMAIL:-}
       SENDGRID_WEBHOOK_KEY: ${SENDGRID_WEBHOOK_KEY:-}
+
+      # ── SFTP server (Five9 recording push) ──────────────────────────────────
+      # Set SFTP_ENABLED=true in .env to activate.  Five9 VCC → Export →
+      # Recordings → SFTP → point at this host on SFTP_PORT (default 2222).
+      SFTP_ENABLED:         ${SFTP_ENABLED:-false}
+      SFTP_PORT:            ${SFTP_PORT:-2222}
+      SFTP_USERNAME:        ${SFTP_USERNAME:-}
+      SFTP_PASSWORD:        ${SFTP_PASSWORD:-}
+      # Optional: one OpenSSH public-key line per entry (newline-separated).
+      # If set, Five9 can authenticate with its private key instead of a password.
+      SFTP_AUTHORIZED_KEYS: ${SFTP_AUTHORIZED_KEYS:-}
+      # Optional: PEM-encoded host private key.  If unset, one is auto-generated
+      # and saved to storage/sftp_host_key (persistent across restarts).
+      SFTP_HOST_KEY:        ${SFTP_HOST_KEY:-}
 
       # ── Ollama (local AI — Analytics Insights) ───────────────────────────────
       OLLAMA_BASE_URL:      http://ollama:11434/v1

@@ -118,6 +118,42 @@ timeout. A genuinely hung decode would block the single pipeline worker
 indefinitely. Subprocess isolation is the right long-term fix; for now the
 risk is bounded by the lock + 503 backpressure.
 
+## SFTP Server (Five9 Call Recording Push)
+
+VoiceIntel can receive recordings pushed by Five9 VCC over SFTP. An embedded
+`asyncssh`-based SFTP server runs inside the container on a configurable port
+(default 2222). Five9 connects and deposits `.wav`/`.mp3` files; a 30-second
+APScheduler job picks them up, parses caller phone + agent name from the Five9
+filename pattern, and feeds them through the existing transcription + NLP pipeline.
+
+### Five9 VCC Configuration
+In Five9 VCC → **Export → Recordings → SFTP** tab:
+- **Hostname**: your server's public IP or hostname (e.g. `voice-ai.obtv.io`)
+- **Username** / **Password**: values of `SFTP_USERNAME` / `SFTP_PASSWORD` in `.env`
+- Port: `2222` (or whatever `SFTP_PORT` is set to)
+- The default Recording File Name Pattern is fine — VoiceIntel parses it automatically
+
+### Environment Variables
+| Variable | Description | Default |
+|---|---|---|
+| `SFTP_ENABLED` | Set `true` to start the SFTP server | `false` |
+| `SFTP_PORT` | Port the SFTP server listens on (also exposed in `docker-compose.yml`) | `2222` |
+| `SFTP_USERNAME` | Username Five9 authenticates with | — |
+| `SFTP_PASSWORD` | Password for username/password auth | — |
+| `SFTP_AUTHORIZED_KEYS` | OpenSSH public key line(s) for key-based auth (newline-separated) | — |
+| `SFTP_HOST_KEY` | PEM-encoded host private key. If unset, auto-generated and saved to `storage/sftp_host_key` | — |
+
+### File flow
+1. Five9 uploads to `storage/sftp_incoming/<owner>/<date>/<filename>.wav`
+2. APScheduler job (every 30 s) picks up files ≥10 s old
+3. File is atomically moved to `storage/voicemails/` (same Docker volume)
+4. Pipeline: FFmpeg conversion → Whisper transcription → NLP → AI summary
+5. Voicemail appears in the dashboard with caller phone parsed from filename
+
+### Services
+- `app/services/sftp_server.py` — asyncssh SFTP server (daemon thread)
+- `app/services/sftp_watcher.py` — APScheduler job that ingests incoming files
+
 ## Stack (Node.js/TypeScript monorepo)
 
 - **Monorepo tool**: pnpm workspaces

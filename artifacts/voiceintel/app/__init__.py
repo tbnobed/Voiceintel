@@ -119,6 +119,8 @@ def create_app():
         _seed_admin_user()
 
     _start_insights_scheduler(app)
+    _start_sftp_server(app)
+    _start_sftp_watcher(app)
 
     return app
 
@@ -233,6 +235,55 @@ def _start_insights_scheduler(app):
     boot_kick = threading.Timer(60.0, _job)
     boot_kick.daemon = True
     boot_kick.start()
+
+
+def _start_sftp_server(app) -> None:
+    """Start the embedded asyncssh SFTP server (when SFTP_ENABLED=true)."""
+    from app.services.sftp_server import start_sftp_server
+    start_sftp_server(app)
+
+
+def _start_sftp_watcher(app) -> None:
+    """
+    Register a 30-second APScheduler job that scans sftp_incoming/ and feeds
+    any ready audio files into the transcription pipeline.  The job is always
+    registered (it is a no-op when the directory is empty), but it only does
+    real work after the SFTP server has deposited at least one file.
+    """
+    import logging
+    import os
+    from apscheduler.schedulers.background import BackgroundScheduler
+
+    log = logging.getLogger(__name__)
+
+    # Same reloader guard as the insights scheduler.
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "false":
+        return
+    if app.config.get("DEBUG") and not os.environ.get("WERKZEUG_RUN_MAIN"):
+        return
+    if getattr(app, "_sftp_watcher_started", False):
+        return
+    app._sftp_watcher_started = True
+
+    def _job():
+        try:
+            from app.services.sftp_watcher import process_sftp_incoming
+            process_sftp_incoming(app)
+        except Exception as exc:
+            log.error("SFTP watcher job crashed: %s", exc, exc_info=True)
+
+    scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
+    scheduler.add_job(
+        _job,
+        trigger="interval",
+        seconds=30,
+        id="sftp_incoming_watcher",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=60,
+    )
+    scheduler.start()
+    log.info("SFTP watcher scheduler started — scans sftp_incoming/ every 30 s")
 
 
 def _ensure_voicemails_columns():
