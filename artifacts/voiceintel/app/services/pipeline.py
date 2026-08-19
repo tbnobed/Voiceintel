@@ -103,6 +103,38 @@ def process_email_items(app, items: list):
                 db.session.commit()
                 logger.info(f"Voicemail record created id={voicemail.id}: {item['filename']}")
 
+                # ── Campaign-based routing for Five9 SFTP recordings ─────────
+                # If the watcher extracted a campaign/owner directory name from
+                # the Five9 SFTP path, look up a team with a matching name
+                # (case-insensitive) and assign it directly — no routing rules
+                # needed. The normal routing-rule engine still runs afterwards
+                # and can override if an explicit rule fires.
+                campaign = item.get("campaign")
+                if item.get("source") == "sftp" and campaign:
+                    try:
+                        from app.models.team import Team
+                        from sqlalchemy import func as _func
+                        matched_team = (
+                            Team.query
+                            .filter(_func.lower(Team.name) == campaign.lower())
+                            .first()
+                        )
+                        if matched_team:
+                            voicemail.team_id = matched_team.id
+                            db.session.commit()
+                            logger.info(
+                                "Campaign routing: vm %s → team %r (id=%s) via campaign=%r",
+                                voicemail.id, matched_team.name, matched_team.id, campaign,
+                            )
+                        else:
+                            logger.info(
+                                "Campaign routing: no team found for campaign=%r on vm %s "
+                                "(falling through to routing rules)",
+                                campaign, voicemail.id,
+                            )
+                    except Exception as cr_err:
+                        logger.warning("Campaign routing lookup failed for vm %s: %s", voicemail.id, cr_err)
+
                 # Defensive: if an admin soft-deleted between record creation
                 # and now (rare but possible during reprocessing), skip every
                 # remaining downstream stage. Treat refresh failure as 'skip'

@@ -143,6 +143,16 @@ def _ingest_one(app, src_path: str, voicemails_dir: str, incoming_dir: str) -> N
     except ValueError:
         rel = filename
     flat_name = rel.replace(os.sep, "_").replace("/", "_")
+
+    # Extract the Five9 campaign/owner from the first directory component of
+    # the relative path.  Five9 SFTP exports use the path structure:
+    #   recordings/<owner>/<date>/<filename>.wav
+    # so the first path segment is the campaign name (e.g. "Prayer",
+    # "Help Desk", "Donation Center").  If the file landed directly in
+    # sftp_incoming/ with no subdirectory, campaign is left empty and the
+    # normal routing-rule engine handles it.
+    parts = rel.replace("\\", "/").split("/")
+    campaign = parts[0].strip() if len(parts) > 1 else ""
     dest_path = os.path.join(voicemails_dir, flat_name)
 
     # Atomic rename — same filesystem (same Docker volume).
@@ -186,6 +196,7 @@ def _ingest_one(app, src_path: str, voicemails_dir: str, incoming_dir: str) -> N
         "uid": None,
         "source": "sftp",
         "agent": agent or None,
+        "campaign": campaign or None,   # Five9 owner/campaign directory name
     }
 
     def _run():
