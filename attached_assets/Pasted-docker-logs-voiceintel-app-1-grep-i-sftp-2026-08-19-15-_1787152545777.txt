@@ -1,0 +1,83 @@
+docker logs voiceintel-app-1 | grep -i sftp
+[2026-08-19 15:10:42 +0000] [1] [INFO] Starting gunicorn 23.0.0
+[2026-08-19 15:10:42 +0000] [1] [INFO] Listening at: http://0.0.0.0:5000 (1)
+[2026-08-19 15:10:42 +0000] [1] [INFO] Using worker: gthread
+[2026-08-19 15:10:42 +0000] [7] [INFO] Booting worker with pid: 7
+2026-08-19 15:10:43,114 [INFO] alembic.runtime.plugins: setup plugin alembic.autogenerate.schemas
+2026-08-19 15:10:43,114 [INFO] alembic.runtime.plugins: setup plugin alembic.autogenerate.tables
+2026-08-19 15:10:43,114 [INFO] alembic.runtime.plugins: setup plugin alembic.autogenerate.types
+2026-08-19 15:10:43,114 [INFO] alembic.runtime.plugins: setup plugin alembic.autogenerate.constraints
+2026-08-19 15:10:43,114 [INFO] alembic.runtime.plugins: setup plugin alembic.autogenerate.defaults
+2026-08-19 15:10:43,114 [INFO] alembic.runtime.plugins: setup plugin alembic.autogenerate.comments
+2026-08-19 15:10:43,114 [INFO] alembic.runtime.plugins: setup plugin alembic.autogenerate.checkconstraint_byname
+2026-08-19 15:10:43,153 [INFO] app: Display timezone: America/Chicago
+2026-08-19 15:10:43,243 [INFO] app: Schema guard: applied 'ALTER TABLE insights ALTER COLUMN ai_intent TYPE TEXT'
+2026-08-19 15:10:43,274 [INFO] app: Five9 team seed: created 14 team(s)
+2026-08-19 15:10:43,310 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-08-19 15:10:43,311 [INFO] apscheduler.scheduler: Added job "_start_insights_scheduler.<locals>._job" to job store "default"
+2026-08-19 15:10:43,311 [INFO] apscheduler.scheduler: Scheduler started
+2026-08-19 15:10:43,311 [INFO] app: AI insights scheduler started — runs every 1 hour
+/usr/local/lib/python3.11/site-packages/asyncssh/crypto/cipher.py:29: CryptographyDeprecationWarning: ARC4 has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.ARC4 and will be removed from cryptography.hazmat.primitives.ciphers.algorithms in 48.0.0.
+  from cryptography.hazmat.primitives.ciphers.algorithms import AES, ARC4
+/usr/local/lib/python3.11/site-packages/asyncssh/crypto/cipher.py:30: CryptographyDeprecationWarning: TripleDES has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.TripleDES and will be removed from cryptography.hazmat.primitives.ciphers.algorithms in 48.0.0.
+  from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES
+2026-08-19 15:10:43,412 [INFO] app.services.sftp_server: SFTP: generated new RSA host key → /data/storage/sftp_host_key
+2026-08-19 15:10:43,413 [INFO] app.services.sftp_server: SFTP: server thread started (port=2222, user='five9')
+2026-08-19 15:10:43,413 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-08-19 15:10:43,413 [INFO] apscheduler.scheduler: Added job "_start_sftp_watcher.<locals>._job" to job store "default"
+2026-08-19 15:10:43,413 [INFO] apscheduler.scheduler: Scheduler started
+2026-08-19 15:10:43,414 [INFO] app: SFTP watcher scheduler started — scans sftp_incoming/ every 30 s
+2026-08-19 15:10:43,416 [INFO] asyncssh: Creating SSH listener on port 2222
+2026-08-19 15:10:43,416 [INFO] app.services.sftp_server: SFTP: server listening on port 2222 (user='five9')
+2026-08-19 15:10:43,540 [INFO] app.services.transcription_service: No CUDA — using CPU for transcription
+2026-08-19 15:10:43,540 [INFO] app.services.transcription_service: Loading Whisper model 'large-v3' on cpu (int8) with 32 CPU threads
+2026-08-19 15:10:43,619 [INFO] app.services.webhook_service: SendGrid webhook: from='Prayer VM <prayervm@tbn.tv>', subject='FW: New Voice Message from RANDALL THOMAS (410) 747-6302 on 08/19/2026 8:09 AM', attachments=0
+2026-08-19 15:10:43,624 [INFO] app.services.webhook_service: Raw email parse: found 1 nested audio part(s)
+2026-08-19 15:10:43,625 [INFO] app.services.webhook_service: Saved nested audio part: /data/storage/voicemails/_sg_20260819151043619807_PrayerVMprayervmtbnt_voic_14107476302-0819-080940.mp3 (94221 bytes)
+2026-08-19 15:10:43,690 [INFO] app.services.audio_service: Converted /data/storage/voicemails/_sg_20260819151043619807_PrayerVMprayervmtbnt_voic_14107476302-0819-080940.mp3 -> /data/storage/processed/_sg_20260819151043619807_PrayerVMprayervmtbnt_voic_14107476302-0819-080940_converted.wav
+2026-08-19 15:10:43,731 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/agent-harnesses "HTTP/1.1 200 OK"
+2026-08-19 15:10:43,746 [INFO] app.services.pipeline: Voicemail record created id=21097: 14107476302-0819-080940.mp3
+2026-08-19 15:10:43,754 [INFO] app.services.routing_service: Routed voicemail id=21097 to team_id=1 via rule id=1 (recipient_email='prayer@mail3.opscal.io')
+2026-08-19 15:10:43,818 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-large-v3/revision/main "HTTP/1.1 200 OK"
+2026-08-19 15:10:43,917 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-large-v3/tree/edaa852ec7e145841d8ffdb056a99866b5f0a478?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-08-19 15:10:47,812 [INFO] app.services.transcription_service: Whisper model loaded successfully
+2026-08-19 15:10:47,846 [INFO] faster_whisper: Processing audio with duration 00:23.320
+2026-08-19 15:10:47,982 [INFO] faster_whisper: VAD filter removed 00:06.104 of audio
+2026-08-19 15:10:51,008 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 15:11:01,563 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/_sg_20260819151043619807_PrayerVMprayervmtbnt_voic_14107476302-0819-080940_converted.wav' in 17.81s — lang=en, segments=5
+2026-08-19 15:11:02,019 [INFO] app.services.pipeline: Processed voicemail id=21097: 14107476302-0819-080940.mp3 status=completed
+2026-08-19 15:11:03,818 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 15:11:03,838 [INFO] app.services.pipeline: AI summary for vm 21097: status=success in 1800 ms
+2026-08-19 15:11:13,415 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:11:13 UTC)" (scheduled at 2026-08-19 15:11:13.413625+00:00)
+2026-08-19 15:11:13,420 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:11:43 UTC)" executed successfully
+2026-08-19 15:11:43,414 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:12:13 UTC)" (scheduled at 2026-08-19 15:11:43.413625+00:00)
+2026-08-19 15:11:43,414 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:12:13 UTC)" executed successfully
+2026-08-19 15:11:47,744 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 15:11:47,761 [INFO] app.services.insights_service: AI insights generated successfully in 4426 ms
+2026-08-19 15:12:13,414 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:12:43 UTC)" (scheduled at 2026-08-19 15:12:13.413625+00:00)
+2026-08-19 15:12:13,415 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:12:43 UTC)" executed successfully
+2026-08-19 15:12:43,414 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:13:13 UTC)" (scheduled at 2026-08-19 15:12:43.413625+00:00)
+2026-08-19 15:12:43,415 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:13:13 UTC)" executed successfully
+2026-08-19 15:13:09,856 [INFO] app.services.webhook_service: SendGrid webhook: from='Prayer VM <prayervm@tbn.tv>', subject='FW: New Voice Message from WIRELESS CALLER (608) 449-1870 on 08/19/2026 8:03 AM', attachments=0
+2026-08-19 15:13:09,867 [INFO] app.services.webhook_service: Raw email parse: found 1 nested audio part(s)
+2026-08-19 15:13:09,868 [INFO] app.services.webhook_service: Saved nested audio part: /data/storage/voicemails/_sg_20260819151309856169_PrayerVMprayervmtbnt_voic_16084491870-0819-080331.mp3 (146061 bytes)
+2026-08-19 15:13:09,943 [INFO] app.services.audio_service: Converted /data/storage/voicemails/_sg_20260819151309856169_PrayerVMprayervmtbnt_voic_16084491870-0819-080331.mp3 -> /data/storage/processed/_sg_20260819151309856169_PrayerVMprayervmtbnt_voic_16084491870-0819-080331_converted.wav
+2026-08-19 15:13:09,989 [INFO] app.services.pipeline: Voicemail record created id=21098: 16084491870-0819-080331.mp3
+2026-08-19 15:13:09,993 [INFO] app.services.routing_service: Routed voicemail id=21098 to team_id=1 via rule id=1 (recipient_email='prayer@mail3.opscal.io')
+2026-08-19 15:13:10,065 [INFO] faster_whisper: Processing audio with duration 00:36.260
+2026-08-19 15:13:10,134 [INFO] faster_whisper: VAD filter removed 00:02.756 of audio
+2026-08-19 15:13:13,328 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 15:13:13,413 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:13:43 UTC)" (scheduled at 2026-08-19 15:13:13.413625+00:00)
+2026-08-19 15:13:13,414 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:13:43 UTC)" executed successfully
+2026-08-19 15:13:29,943 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/_sg_20260819151309856169_PrayerVMprayervmtbnt_voic_16084491870-0819-080331_converted.wav' in 19.95s — lang=en, segments=2
+2026-08-19 15:13:29,959 [INFO] app.services.pipeline: Processed voicemail id=21098: 16084491870-0819-080331.mp3 status=completed
+2026-08-19 15:13:31,214 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 15:13:31,226 [INFO] app.services.pipeline: AI summary for vm 21098: status=success in 1254 ms
+2026-08-19 15:13:43,414 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:14:13 UTC)" (scheduled at 2026-08-19 15:13:43.413625+00:00)
+2026-08-19 15:13:43,415 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:14:13 UTC)" executed successfully
+2026-08-19 15:14:13,414 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:14:43 UTC)" (scheduled at 2026-08-19 15:14:13.413625+00:00)
+2026-08-19 15:14:13,414 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:14:43 UTC)" executed successfully
+2026-08-19 15:14:43,414 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:15:13 UTC)" (scheduled at 2026-08-19 15:14:43.413625+00:00)
+2026-08-19 15:14:43,415 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:15:13 UTC)" executed successfully
+2026-08-19 15:15:13,414 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:15:43 UTC)" (scheduled at 2026-08-19 15:15:13.413625+00:00)
+2026-08-19 15:15:13,415 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:15:43 UTC)" executed successfully

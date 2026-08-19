@@ -91,10 +91,12 @@ def _build_server_factory(incoming_dir: str, username: str,
                 logger.warning("SFTP: connection closed with error: %s", exc)
 
         def begin_auth(self, attempted_user: str) -> bool:
+            # Always return True — asyncssh interprets False as "allow without
+            # credentials", which is the opposite of what we want for unknown
+            # users. Wrong usernames will fail all auth methods naturally.
             if attempted_user != username:
-                logger.warning("SFTP: rejected unknown user %r", attempted_user)
-                return False  # deny immediately
-            return True  # proceed to credential check
+                logger.warning("SFTP: unknown user %r — will fail all auth methods", attempted_user)
+            return True  # always require authentication
 
         # ── Password auth ──────────────────────────────────────────────────
         def password_auth_supported(self) -> bool:
