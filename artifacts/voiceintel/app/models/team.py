@@ -28,6 +28,7 @@ RULE_KINDS = (
     "sender_domain",
     "keyword",
     "caller_phone",
+    "agent_name",
 )
 
 RULE_KIND_LABELS = {
@@ -37,6 +38,7 @@ RULE_KIND_LABELS = {
     "sender_domain":    "Sender domain",
     "keyword":          "Transcript keyword",
     "caller_phone":     "Caller phone (digits)",
+    "agent_name":       "Five9 agent name",
 }
 
 

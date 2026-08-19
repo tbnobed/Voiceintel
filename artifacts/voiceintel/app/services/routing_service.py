@@ -80,6 +80,18 @@ def _matches(rule: RoutingRule, vm) -> bool:
         target = _digits(pattern)
         return bool(target) and target in _digits(phone)
 
+    if kind == "agent_name":
+        # Match Five9 agent name recorded on SFTP-sourced recordings.
+        # Primary: check the dedicated `agent` column (set by sftp_watcher).
+        # Fallback: scan the subject line ("3330001235 by Agent Name @ …").
+        agent_field = getattr(vm, "agent", None) or ""
+        if agent_field:
+            return pattern.lower() in agent_field.lower()
+        # Fallback to subject for recordings ingested before the agent column
+        # was populated, or for keyword-style matches.
+        subject = getattr(vm, "subject", None) or ""
+        return bool(subject) and pattern.lower() in subject.lower()
+
     return False
 
 

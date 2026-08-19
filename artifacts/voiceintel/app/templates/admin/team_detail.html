@@ -146,7 +146,7 @@
           <option value="{{ k }}">{{ rule_kind_labels[k] }}</option>
           {% endfor %}
         </select>
-        <input type="text" name="pattern" required placeholder="e.g. team1@mail3.opscal.io"
+        <input type="text" name="pattern" required placeholder="e.g. Jane Smith"
                class="form-input" />
         <input type="number" name="priority" value="100" min="1" max="9999" placeholder="100"
                class="form-input" title="Lower = evaluated first" />
@@ -156,7 +156,32 @@
         <button type="submit" class="btn btn-primary" style="padding:6px 14px;font-size:12px;">Add Rule</button>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:8px;">
-        Rule types: recipient/sender (exact email or domain like <code>opscal.io</code>), keyword (substring of transcript or subject, case-insensitive), caller phone (digit substring, e.g. <code>262</code> matches all 262 area-code calls).
+        Rule types: <strong>Five9 agent name</strong> (matches the agent field on SFTP recordings — use for Five9 routing), recipient/sender (exact email or domain like <code>opscal.io</code>), keyword (substring of transcript or subject), caller phone (digit substring, e.g. <code>262</code>).
+      </div>
+    </form>
+
+    <!-- Bulk Five9 agent import -->
+    <form method="POST" action="/admin/teams/{{ team.id }}/rules/bulk-agents"
+          style="border-top:1px solid var(--border-m);padding:16px 20px;background:rgba(247,206,91,0.03);">
+      <div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">
+        Bulk Import Five9 Agent Names
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <div style="flex:1;">
+          <textarea name="agent_names" rows="4" class="form-input" style="width:100%;resize:vertical;"
+                    placeholder="One agent display name per line&#10;e.g.&#10;Jane Smith&#10;Bob Jones&#10;Maria Garcia"></textarea>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">
+            Paste the Five9 agent display names (one per line or comma-separated).  An <strong>agent_name</strong> routing rule will be created for each — recordings handled by these agents will be automatically assigned to <strong>{{ team.name }}</strong>.
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:120px;">
+          <div>
+            <label style="font-size:11px;color:var(--sub);">Priority</label>
+            <input type="number" name="priority" value="50" min="1" max="9999"
+                   class="form-input" style="width:100%;" title="Lower = evaluated first" />
+          </div>
+          <button type="submit" class="btn btn-primary" style="padding:6px 14px;font-size:12px;margin-top:auto;">Import</button>
+        </div>
       </div>
     </form>
   </div>

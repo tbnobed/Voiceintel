@@ -285,3 +285,67 @@ def delete_rule(rule_id):
     db.session.commit()
     flash("Rule removed.", "success")
     return redirect(url_for("teams_admin.team_detail", team_id=team_id) + "#rules")
+
+
+# ---------------------------------------------------------------------------
+# Bulk Five9 agent-name import
+# ---------------------------------------------------------------------------
+
+@teams_admin_bp.route("/<int:team_id>/rules/bulk-agents", methods=["POST"])
+@login_required
+def bulk_add_agent_rules(team_id):
+    """
+    Bulk-create agent_name routing rules from a newline-separated list of
+    Five9 agent display names.  Each name that doesn't already have an
+    agent_name rule for this team gets a new active rule at priority 50
+    (fires before the default 100 catch-all rules).
+    Admin-only for the same reasons as add_rule.
+    """
+    if not current_user.is_admin:
+        abort(403)
+    team = Team.query.get_or_404(team_id)
+    raw = request.form.get("agent_names", "")
+    priority = request.form.get("priority", type=int) or 50
+
+    # Split on newlines and commas, deduplicate, strip blanks.
+    names = {
+        n.strip()
+        for line in raw.replace(",", "\n").splitlines()
+        for n in [line.strip()]
+        if n
+    }
+    if not names:
+        flash("No agent names provided.", "error")
+        return redirect(url_for("teams_admin.team_detail", team_id=team_id) + "#rules")
+
+    # Find names that already have a rule so we don't create duplicates.
+    existing_patterns = {
+        r.pattern.lower()
+        for r in RoutingRule.query.filter_by(team_id=team.id, kind="agent_name").all()
+    }
+
+    added = 0
+    skipped = 0
+    for name in sorted(names):
+        if name.lower() in existing_patterns:
+            skipped += 1
+            continue
+        r = RoutingRule(
+            team_id=team.id,
+            kind="agent_name",
+            pattern=name,
+            priority=priority,
+            is_active=True,
+        )
+        db.session.add(r)
+        added += 1
+
+    db.session.commit()
+
+    parts = []
+    if added:
+        parts.append(f"{added} agent rule(s) added")
+    if skipped:
+        parts.append(f"{skipped} already existed (skipped)")
+    flash(", ".join(parts) + ".", "success" if added else "info")
+    return redirect(url_for("teams_admin.team_detail", team_id=team_id) + "#rules")
