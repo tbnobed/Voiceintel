@@ -152,7 +152,12 @@ def _ingest_one(app, src_path: str, voicemails_dir: str, incoming_dir: str) -> N
     # sftp_incoming/ with no subdirectory, campaign is left empty and the
     # normal routing-rule engine handles it.
     parts = rel.replace("\\", "/").split("/")
-    campaign = parts[0].strip() if len(parts) > 1 else ""
+    # Five9 paths are  recordings/<owner>/<date>/<file>
+    # Skip the leading "recordings" directory to get the owner/campaign name.
+    if parts and parts[0].lower() == "recordings":
+        campaign = parts[1].strip() if len(parts) > 2 else ""
+    else:
+        campaign = parts[0].strip() if len(parts) > 1 else ""
     dest_path = os.path.join(voicemails_dir, flat_name)
 
     # Atomic rename — same filesystem (same Docker volume).
