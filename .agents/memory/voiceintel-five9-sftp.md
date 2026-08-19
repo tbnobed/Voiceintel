@@ -14,8 +14,13 @@ description: How Five9 call recordings flow into VoiceIntel via SFTP, and how th
 
 ## Routing
 - SFTP items set sender = `<phone> <five9-sftp@voiceintel.internal>`, recipient = ''
-- 15 Five9 campaign teams are seeded on boot (_seed_five9_teams in app/__init__.py)
-- No routing rules yet — all recordings land with team_id=NULL (Task #6)
+- Five9 campaign teams are seeded on boot.
+- The watcher extracts the campaign from the filename and the pipeline matches it to a team case-insensitively before regular routing rules run.
+- The date directory must never be used as a campaign fallback.
+
+**Why:** Five9's current export layout places a date at `recordings/<created_date>/`; treating that component as an owner silently creates unrouted recordings.
+
+**How to apply:** Preserve the filename-based campaign parser whenever updating Five9 ingestion. If parsing fails, leave the recording unrouted rather than guessing from the directory.
 
 ## UI separation
 - `/voicemails` filters WHERE source='email' OR source IS NULL
@@ -23,7 +28,9 @@ description: How Five9 call recordings flow into VoiceIntel via SFTP, and how th
 - `begin_auth` in sftp_server.py must return True (not False) for unknown users — False means "allow without auth" in asyncssh
 
 ## Five9 filename pattern confirmed
-`<phone> by <agent_email> @ <HH_MM_SS AM/PM>.wav` (no owner/campaign directory prefix confirmed from VCC screenshot)
+`recordings/<created_date>/<phone><Campaign Name> by <agent_email> @ <HH_MM_SS AM/PM>.wav`
+
+Campaign text is appended directly after the leading phone digits and may contain spaces or hyphens, such as `3182907743Outbound - Donor Care by smiller@tbn.tv @ 12_46_20 PM.wav`.
 
 ## Schema guard
 Both `source` and `agent` columns are added by `_ensure_voicemail_columns()` in app/__init__.py — safe to re-run.

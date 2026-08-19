@@ -1,0 +1,283 @@
+ Accepted SSH client connection
+2026-08-19 17:31:28,041 [INFO] asyncssh: [conn=31]   Local address: 172.18.0.5, port 2222
+2026-08-19 17:31:28,041 [INFO] asyncssh: [conn=31]   Peer address: 198.105.202.150, port 33405
+2026-08-19 17:31:28,041 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:33405
+2026-08-19 17:31:29,369 [INFO] asyncssh: [conn=31] Beginning auth for user five9
+2026-08-19 17:31:29,488 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 17:31:29,488 [INFO] asyncssh: [conn=31] Auth for user five9 succeeded
+2026-08-19 17:31:30,014 [INFO] asyncssh: [conn=31, chan=0] New SSH session requested
+2026-08-19 17:31:30,071 [INFO] asyncssh: [conn=31, chan=0]   Subsystem: sftp
+2026-08-19 17:31:30,071 [INFO] asyncssh.sftp: [conn=31, chan=0] Starting SFTP server
+2026-08-19 17:31:31,007 [INFO] asyncssh: [conn=31, chan=0] Received channel close
+2026-08-19 17:31:31,008 [INFO] asyncssh: [conn=31, chan=0] Channel closed
+2026-08-19 17:31:31,008 [INFO] asyncssh.sftp: [conn=31, chan=0] SFTP server exited
+2026-08-19 17:31:31,008 [INFO] asyncssh: [conn=31, chan=0] Closing channel
+2026-08-19 17:31:31,068 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 17:31:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:32:13 UTC)" (scheduled at 2026-08-19 17:31:43.019555+00:00)
+2026-08-19 17:31:43,021 [INFO] app.services.sftp_watcher: SFTP watcher: 1 file(s) ready to process
+2026-08-19 17:31:43,030 [INFO] app.services.sftp_watcher: SFTP watcher: moved '9492755904Outbound by aacuna@tbn.tv @ 12_30_13 PM.wav' → /data/storage/voicemails/recordings_8_19_2026_9492755904Outbound by aacuna@tbn.tv @ 12_30_13 PM.wav
+2026-08-19 17:31:43,031 [INFO] app.services.sftp_watcher: SFTP watcher: submitted '9492755904Outbound by aacuna@tbn.tv @ 12_30_13 PM.wav' to pipeline (caller='9492755904', agent='aacuna@tbn.tv')
+2026-08-19 17:31:43,031 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:32:13 UTC)" executed successfully
+2026-08-19 17:31:43,104 [INFO] app.services.audio_service: Converted /data/storage/voicemails/recordings_8_19_2026_9492755904Outbound by aacuna@tbn.tv @ 12_30_13 PM.wav -> /data/storage/processed/recordings_8_19_2026_9492755904Outbound by aacuna@tbn.tv @ 12_30_13 PM_converted.wav
+2026-08-19 17:31:43,147 [INFO] app.services.pipeline: Voicemail record created id=21175: 9492755904Outbound by aacuna@tbn.tv @ 12_30_13 PM.wav
+2026-08-19 17:31:43,151 [INFO] app.services.pipeline: Campaign routing: vm 21175 → team 'Outbound' (id=10) via campaign='Outbound'
+2026-08-19 17:31:43,218 [INFO] faster_whisper: Processing audio with duration 00:58.820
+2026-08-19 17:31:43,330 [INFO] faster_whisper: VAD filter removed 00:03.648 of audio
+2026-08-19 17:31:43,510 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 17:31:45,439 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/recordings_8_19_2026_9492755904Outbound by aacuna@tbn.tv @ 12_30_13 PM_converted.wav' in 2.29s — lang=en, segments=19
+2026-08-19 17:31:45,454 [INFO] app.services.pipeline: Processed voicemail id=21175: 9492755904Outbound by aacuna@tbn.tv @ 12_30_13 PM.wav status=completed
+2026-08-19 17:31:47,369 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:31:47,383 [INFO] app.services.pipeline: AI summary for vm 21175: status=success in 1915 ms
+2026-08-19 17:32:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:32:43 UTC)" (scheduled at 2026-08-19 17:32:13.019555+00:00)
+2026-08-19 17:32:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:32:43 UTC)" executed successfully
+2026-08-19 17:32:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:33:13 UTC)" (scheduled at 2026-08-19 17:32:43.019555+00:00)
+2026-08-19 17:32:43,020 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:33:13 UTC)" executed successfully
+2026-08-19 17:32:54,747 [INFO] asyncssh: [conn=32] Accepted SSH client connection
+2026-08-19 17:32:54,747 [INFO] asyncssh: [conn=32]   Local address: 172.18.0.5, port 2222
+2026-08-19 17:32:54,747 [INFO] asyncssh: [conn=32]   Peer address: 198.105.202.150, port 28260
+2026-08-19 17:32:54,747 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:28260
+2026-08-19 17:32:57,833 [INFO] asyncssh: [conn=32] Beginning auth for user five9
+2026-08-19 17:32:57,942 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 17:32:57,942 [INFO] asyncssh: [conn=32] Auth for user five9 succeeded
+2026-08-19 17:32:58,110 [INFO] asyncssh: [conn=32, chan=0] New SSH session requested
+2026-08-19 17:32:58,163 [INFO] asyncssh: [conn=32, chan=0]   Subsystem: sftp
+2026-08-19 17:32:58,164 [INFO] asyncssh.sftp: [conn=32, chan=0] Starting SFTP server
+2026-08-19 17:33:01,472 [INFO] asyncssh: [conn=32, chan=0] Received channel close
+2026-08-19 17:33:01,473 [INFO] asyncssh: [conn=32, chan=0] Channel closed
+2026-08-19 17:33:01,473 [INFO] asyncssh.sftp: [conn=32, chan=0] SFTP server exited
+2026-08-19 17:33:01,473 [INFO] asyncssh: [conn=32, chan=0] Closing channel
+2026-08-19 17:33:01,499 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 17:33:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:33:43 UTC)" (scheduled at 2026-08-19 17:33:13.019555+00:00)
+2026-08-19 17:33:13,021 [INFO] app.services.sftp_watcher: SFTP watcher: 1 file(s) ready to process
+2026-08-19 17:33:13,030 [INFO] app.services.sftp_watcher: SFTP watcher: moved '3602804211Outbound by aacuna@tbn.tv @ 12_31_36 PM.wav' → /data/storage/voicemails/recordings_8_19_2026_3602804211Outbound by aacuna@tbn.tv @ 12_31_36 PM.wav
+2026-08-19 17:33:13,030 [INFO] app.services.sftp_watcher: SFTP watcher: submitted '3602804211Outbound by aacuna@tbn.tv @ 12_31_36 PM.wav' to pipeline (caller='3602804211', agent='aacuna@tbn.tv')
+2026-08-19 17:33:13,031 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:33:43 UTC)" executed successfully
+2026-08-19 17:33:13,104 [INFO] app.services.audio_service: Converted /data/storage/voicemails/recordings_8_19_2026_3602804211Outbound by aacuna@tbn.tv @ 12_31_36 PM.wav -> /data/storage/processed/recordings_8_19_2026_3602804211Outbound by aacuna@tbn.tv @ 12_31_36 PM_converted.wav
+2026-08-19 17:33:13,154 [INFO] app.services.pipeline: Voicemail record created id=21176: 3602804211Outbound by aacuna@tbn.tv @ 12_31_36 PM.wav
+2026-08-19 17:33:13,158 [INFO] app.services.pipeline: Campaign routing: vm 21176 → team 'Outbound' (id=10) via campaign='Outbound'
+2026-08-19 17:33:13,232 [INFO] faster_whisper: Processing audio with duration 00:57.040
+2026-08-19 17:33:13,342 [INFO] faster_whisper: VAD filter removed 00:04.208 of audio
+2026-08-19 17:33:13,521 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 17:33:15,343 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/recordings_8_19_2026_3602804211Outbound by aacuna@tbn.tv @ 12_31_36 PM_converted.wav' in 2.19s — lang=en, segments=16
+2026-08-19 17:33:15,355 [INFO] app.services.pipeline: Processed voicemail id=21176: 3602804211Outbound by aacuna@tbn.tv @ 12_31_36 PM.wav status=completed
+2026-08-19 17:33:17,344 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:33:17,356 [INFO] app.services.pipeline: AI summary for vm 21176: status=success in 1988 ms
+2026-08-19 17:33:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:34:13 UTC)" (scheduled at 2026-08-19 17:33:43.019555+00:00)
+2026-08-19 17:33:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:34:13 UTC)" executed successfully
+2026-08-19 17:34:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:34:43 UTC)" (scheduled at 2026-08-19 17:34:13.019555+00:00)
+2026-08-19 17:34:13,020 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:34:43 UTC)" executed successfully
+2026-08-19 17:34:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:35:13 UTC)" (scheduled at 2026-08-19 17:34:43.019555+00:00)
+2026-08-19 17:34:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:35:13 UTC)" executed successfully
+2026-08-19 17:35:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:35:43 UTC)" (scheduled at 2026-08-19 17:35:13.019555+00:00)
+2026-08-19 17:35:13,020 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:35:43 UTC)" executed successfully
+2026-08-19 17:35:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:36:13 UTC)" (scheduled at 2026-08-19 17:35:43.019555+00:00)
+2026-08-19 17:35:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:36:13 UTC)" executed successfully
+2026-08-19 17:36:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:36:43 UTC)" (scheduled at 2026-08-19 17:36:13.019555+00:00)
+2026-08-19 17:36:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:36:43 UTC)" executed successfully
+2026-08-19 17:36:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:37:13 UTC)" (scheduled at 2026-08-19 17:36:43.019555+00:00)
+2026-08-19 17:36:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:37:13 UTC)" executed successfully
+2026-08-19 17:37:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:37:43 UTC)" (scheduled at 2026-08-19 17:37:13.019555+00:00)
+2026-08-19 17:37:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:37:43 UTC)" executed successfully
+2026-08-19 17:37:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:38:13 UTC)" (scheduled at 2026-08-19 17:37:43.019555+00:00)
+2026-08-19 17:37:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:38:13 UTC)" executed successfully
+2026-08-19 17:38:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:38:43 UTC)" (scheduled at 2026-08-19 17:38:13.019555+00:00)
+2026-08-19 17:38:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:38:43 UTC)" executed successfully
+2026-08-19 17:38:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:39:13 UTC)" (scheduled at 2026-08-19 17:38:43.019555+00:00)
+2026-08-19 17:38:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:39:13 UTC)" executed successfully
+2026-08-19 17:39:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:39:43 UTC)" (scheduled at 2026-08-19 17:39:13.019555+00:00)
+2026-08-19 17:39:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:39:43 UTC)" executed successfully
+2026-08-19 17:39:16,439 [INFO] asyncssh: [conn=33] Accepted SSH client connection
+2026-08-19 17:39:16,440 [INFO] asyncssh: [conn=33]   Local address: 172.18.0.5, port 2222
+2026-08-19 17:39:16,440 [INFO] asyncssh: [conn=33]   Peer address: 198.105.202.150, port 13864
+2026-08-19 17:39:16,440 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:13864
+2026-08-19 17:39:17,137 [INFO] asyncssh: [conn=33] Beginning auth for user five9
+2026-08-19 17:39:17,255 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 17:39:17,256 [INFO] asyncssh: [conn=33] Auth for user five9 succeeded
+2026-08-19 17:39:17,338 [INFO] asyncssh: [conn=33, chan=0] New SSH session requested
+2026-08-19 17:39:17,397 [INFO] asyncssh: [conn=33, chan=0]   Subsystem: sftp
+2026-08-19 17:39:17,398 [INFO] asyncssh.sftp: [conn=33, chan=0] Starting SFTP server
+2026-08-19 17:39:20,200 [INFO] asyncssh: [conn=33, chan=0] Received channel close
+2026-08-19 17:39:20,201 [INFO] asyncssh: [conn=33, chan=0] Channel closed
+2026-08-19 17:39:20,201 [INFO] asyncssh.sftp: [conn=33, chan=0] SFTP server exited
+2026-08-19 17:39:20,201 [INFO] asyncssh: [conn=33, chan=0] Closing channel
+2026-08-19 17:39:20,213 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 17:39:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:40:13 UTC)" (scheduled at 2026-08-19 17:39:43.019555+00:00)
+2026-08-19 17:39:43,021 [INFO] app.services.sftp_watcher: SFTP watcher: 1 file(s) ready to process
+2026-08-19 17:39:43,021 [INFO] app.services.sftp_watcher: SFTP watcher: moved '9492755904Outbound by jtorres@tbn.tv @ 12_36_24 PM.wav' → /data/storage/voicemails/recordings_8_19_2026_9492755904Outbound by jtorres@tbn.tv @ 12_36_24 PM.wav
+2026-08-19 17:39:43,022 [INFO] app.services.sftp_watcher: SFTP watcher: submitted '9492755904Outbound by jtorres@tbn.tv @ 12_36_24 PM.wav' to pipeline (caller='9492755904', agent='jtorres@tbn.tv')
+2026-08-19 17:39:43,022 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:40:13 UTC)" executed successfully
+2026-08-19 17:39:43,098 [INFO] app.services.audio_service: Converted /data/storage/voicemails/recordings_8_19_2026_9492755904Outbound by jtorres@tbn.tv @ 12_36_24 PM.wav -> /data/storage/processed/recordings_8_19_2026_9492755904Outbound by jtorres@tbn.tv @ 12_36_24 PM_converted.wav
+2026-08-19 17:39:43,150 [INFO] app.services.pipeline: Voicemail record created id=21177: 9492755904Outbound by jtorres@tbn.tv @ 12_36_24 PM.wav
+2026-08-19 17:39:43,155 [INFO] app.services.pipeline: Campaign routing: vm 21177 → team 'Outbound' (id=10) via campaign='Outbound'
+2026-08-19 17:39:43,235 [INFO] faster_whisper: Processing audio with duration 02:31.060
+2026-08-19 17:39:43,541 [INFO] faster_whisper: VAD filter removed 00:21.140 of audio
+2026-08-19 17:39:43,759 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 17:39:48,631 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/recordings_8_19_2026_9492755904Outbound by jtorres@tbn.tv @ 12_36_24 PM_converted.wav' in 5.48s — lang=en, segments=35
+2026-08-19 17:39:48,646 [INFO] app.services.pipeline: Processed voicemail id=21177: 9492755904Outbound by jtorres@tbn.tv @ 12_36_24 PM.wav status=completed
+2026-08-19 17:39:50,431 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:39:50,444 [INFO] app.services.pipeline: AI summary for vm 21177: status=success in 1785 ms
+2026-08-19 17:40:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:40:43 UTC)" (scheduled at 2026-08-19 17:40:13.019555+00:00)
+2026-08-19 17:40:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:40:43 UTC)" executed successfully
+2026-08-19 17:40:16,518 [INFO] app.services.webhook_service: SendGrid webhook: from='Prayer VM <prayervm@tbn.tv>', subject='FW: New Voice Message from BALTIMORE    MD (667) 487-3247 on 08/19/2026 10:39 AM', attachments=0
+2026-08-19 17:40:16,534 [INFO] app.services.webhook_service: Raw email parse: found 1 nested audio part(s)
+2026-08-19 17:40:16,543 [INFO] app.services.webhook_service: Saved nested audio part: /data/storage/voicemails/_sg_20260819174016517996_PrayerVMprayervmtbnt_voic_16674873247-0819-103940.mp3 (522189 bytes)
+2026-08-19 17:40:16,605 [INFO] app.services.audio_service: Converted /data/storage/voicemails/_sg_20260819174016517996_PrayerVMprayervmtbnt_voic_16674873247-0819-103940.mp3 -> /data/storage/processed/_sg_20260819174016517996_PrayerVMprayervmtbnt_voic_16674873247-0819-103940_converted.wav
+2026-08-19 17:40:16,650 [INFO] app.services.pipeline: Voicemail record created id=21178: 16674873247-0819-103940.mp3
+2026-08-19 17:40:16,654 [INFO] app.services.routing_service: Routed voicemail id=21178 to team_id=1 via rule id=1 (recipient_email='prayer@mail3.opscal.io')
+2026-08-19 17:40:16,731 [INFO] faster_whisper: Processing audio with duration 02:10.320
+2026-08-19 17:40:16,978 [INFO] faster_whisper: VAD filter removed 00:02.896 of audio
+2026-08-19 17:40:17,203 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 17:40:21,330 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/_sg_20260819174016517996_PrayerVMprayervmtbnt_voic_16674873247-0819-103940_converted.wav' in 4.68s — lang=en, segments=20
+2026-08-19 17:40:21,345 [INFO] app.services.pipeline: Processed voicemail id=21178: 16674873247-0819-103940.mp3 status=completed
+2026-08-19 17:40:23,722 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:40:23,734 [INFO] app.services.pipeline: AI summary for vm 21178: status=success in 2377 ms
+2026-08-19 17:40:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:41:13 UTC)" (scheduled at 2026-08-19 17:40:43.019555+00:00)
+2026-08-19 17:40:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:41:13 UTC)" executed successfully
+2026-08-19 17:41:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:41:43 UTC)" (scheduled at 2026-08-19 17:41:13.019555+00:00)
+2026-08-19 17:41:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:41:43 UTC)" executed successfully
+2026-08-19 17:41:23,282 [INFO] asyncssh: [conn=34] Accepted SSH client connection
+2026-08-19 17:41:23,282 [INFO] asyncssh: [conn=34]   Local address: 172.18.0.5, port 2222
+2026-08-19 17:41:23,283 [INFO] asyncssh: [conn=34]   Peer address: 198.105.202.150, port 48545
+2026-08-19 17:41:23,283 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:48545
+2026-08-19 17:41:23,980 [INFO] asyncssh: [conn=34] Beginning auth for user five9
+2026-08-19 17:41:24,095 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 17:41:24,095 [INFO] asyncssh: [conn=34] Auth for user five9 succeeded
+2026-08-19 17:41:24,575 [INFO] asyncssh: [conn=34, chan=0] New SSH session requested
+2026-08-19 17:41:24,633 [INFO] asyncssh: [conn=34, chan=0]   Subsystem: sftp
+2026-08-19 17:41:24,634 [INFO] asyncssh.sftp: [conn=34, chan=0] Starting SFTP server
+2026-08-19 17:41:28,796 [INFO] asyncssh: [conn=34, chan=0] Received channel close
+2026-08-19 17:41:28,796 [INFO] asyncssh: [conn=34, chan=0] Channel closed
+2026-08-19 17:41:28,796 [INFO] asyncssh.sftp: [conn=34, chan=0] SFTP server exited
+2026-08-19 17:41:28,796 [INFO] asyncssh: [conn=34, chan=0] Closing channel
+2026-08-19 17:41:28,827 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 17:41:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:42:13 UTC)" (scheduled at 2026-08-19 17:41:43.019555+00:00)
+2026-08-19 17:41:43,021 [INFO] app.services.sftp_watcher: SFTP watcher: 1 file(s) ready to process
+2026-08-19 17:41:43,030 [INFO] app.services.sftp_watcher: SFTP watcher: moved '6465717216Prayer by morejel@tbn.tv @ 12_33_40 PM.wav' → /data/storage/voicemails/recordings_8_19_2026_6465717216Prayer by morejel@tbn.tv @ 12_33_40 PM.wav
+2026-08-19 17:41:43,031 [INFO] app.services.sftp_watcher: SFTP watcher: submitted '6465717216Prayer by morejel@tbn.tv @ 12_33_40 PM.wav' to pipeline (caller='6465717216', agent='morejel@tbn.tv')
+2026-08-19 17:41:43,031 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:42:13 UTC)" executed successfully
+2026-08-19 17:41:43,164 [INFO] app.services.audio_service: Converted /data/storage/voicemails/recordings_8_19_2026_6465717216Prayer by morejel@tbn.tv @ 12_33_40 PM.wav -> /data/storage/processed/recordings_8_19_2026_6465717216Prayer by morejel@tbn.tv @ 12_33_40 PM_converted.wav
+2026-08-19 17:41:43,223 [INFO] app.services.pipeline: Voicemail record created id=21179: 6465717216Prayer by morejel@tbn.tv @ 12_33_40 PM.wav
+2026-08-19 17:41:43,228 [INFO] app.services.pipeline: Campaign routing: vm 21179 → team 'Prayer' (id=1) via campaign='Prayer'
+2026-08-19 17:41:43,321 [INFO] faster_whisper: Processing audio with duration 07:22.840
+2026-08-19 17:41:44,162 [INFO] faster_whisper: VAD filter removed 00:27.640 of audio
+2026-08-19 17:41:44,530 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 17:42:13,019 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:42:43 UTC)" (scheduled at 2026-08-19 17:42:13.019555+00:00)
+2026-08-19 17:42:13,020 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:42:43 UTC)" executed successfully
+2026-08-19 17:42:25,348 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/recordings_8_19_2026_6465717216Prayer by morejel@tbn.tv @ 12_33_40 PM_converted.wav' in 42.12s — lang=en, segments=124
+2026-08-19 17:42:25,370 [INFO] app.services.pipeline: Processed voicemail id=21179: 6465717216Prayer by morejel@tbn.tv @ 12_33_40 PM.wav status=completed
+2026-08-19 17:42:27,362 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:42:27,375 [INFO] app.services.pipeline: AI summary for vm 21179: status=success in 1991 ms
+2026-08-19 17:42:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:43:13 UTC)" (scheduled at 2026-08-19 17:42:43.019555+00:00)
+2026-08-19 17:42:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:43:13 UTC)" executed successfully
+2026-08-19 17:43:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:43:43 UTC)" (scheduled at 2026-08-19 17:43:13.019555+00:00)
+2026-08-19 17:43:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:43:43 UTC)" executed successfully
+2026-08-19 17:43:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:44:13 UTC)" (scheduled at 2026-08-19 17:43:43.019555+00:00)
+2026-08-19 17:43:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:44:13 UTC)" executed successfully
+2026-08-19 17:44:12,947 [INFO] apscheduler.executors.default: Running job "_start_insights_scheduler.<locals>._job (trigger: interval[1:00:00], next run at: 2026-08-19 17:44:12 UTC)" (scheduled at 2026-08-19 17:44:12.945677+00:00)
+2026-08-19 17:44:13,019 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:44:43 UTC)" (scheduled at 2026-08-19 17:44:13.019555+00:00)
+2026-08-19 17:44:13,019 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:44:43 UTC)" executed successfully
+2026-08-19 17:44:15,670 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:44:15,678 [INFO] app.services.insights_service: AI insights generated successfully in 2724 ms
+2026-08-19 17:44:15,678 [INFO] apscheduler.executors.default: Job "_start_insights_scheduler.<locals>._job (trigger: interval[1:00:00], next run at: 2026-08-19 18:44:12 UTC)" executed successfully
+2026-08-19 17:44:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:45:13 UTC)" (scheduled at 2026-08-19 17:44:43.019555+00:00)
+2026-08-19 17:44:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:45:13 UTC)" executed successfully
+2026-08-19 17:44:52,818 [INFO] app.services.webhook_service: SendGrid webhook: from='Prayer VM <prayervm@tbn.tv>', subject='FW: New Voice Message from PENTECOSTAL CH (816) 361-9474 on 08/19/2026 10:44 AM', attachments=0
+2026-08-19 17:44:52,828 [INFO] app.services.webhook_service: Raw email parse: found 1 nested audio part(s)
+2026-08-19 17:44:52,837 [INFO] app.services.webhook_service: Saved nested audio part: /data/storage/voicemails/_sg_20260819174452818462_PrayerVMprayervmtbnt_voic_18163619474-0819-104419.mp3 (100845 bytes)
+2026-08-19 17:44:52,901 [INFO] app.services.audio_service: Converted /data/storage/voicemails/_sg_20260819174452818462_PrayerVMprayervmtbnt_voic_18163619474-0819-104419.mp3 -> /data/storage/processed/_sg_20260819174452818462_PrayerVMprayervmtbnt_voic_18163619474-0819-104419_converted.wav
+2026-08-19 17:44:52,941 [INFO] app.services.pipeline: Voicemail record created id=21180: 18163619474-0819-104419.mp3
+2026-08-19 17:44:52,945 [INFO] app.services.routing_service: Routed voicemail id=21180 to team_id=1 via rule id=1 (recipient_email='prayer@mail3.opscal.io')
+2026-08-19 17:44:53,009 [INFO] faster_whisper: Processing audio with duration 00:24.960
+2026-08-19 17:44:53,058 [INFO] faster_whisper: VAD filter removed 00:02.944 of audio
+2026-08-19 17:44:53,222 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 17:44:54,141 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/_sg_20260819174452818462_PrayerVMprayervmtbnt_voic_18163619474-0819-104419_converted.wav' in 1.2s — lang=en, segments=10
+2026-08-19 17:44:54,155 [INFO] app.services.pipeline: Processed voicemail id=21180: 18163619474-0819-104419.mp3 status=completed
+2026-08-19 17:44:55,796 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:44:55,806 [INFO] app.services.pipeline: AI summary for vm 21180: status=success in 1641 ms
+2026-08-19 17:45:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:45:43 UTC)" (scheduled at 2026-08-19 17:45:13.019555+00:00)
+2026-08-19 17:45:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:45:43 UTC)" executed successfully
+2026-08-19 17:45:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:46:13 UTC)" (scheduled at 2026-08-19 17:45:43.019555+00:00)
+2026-08-19 17:45:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:46:13 UTC)" executed successfully
+2026-08-19 17:45:43,169 [INFO] asyncssh: [conn=35] Accepted SSH client connection
+2026-08-19 17:45:43,169 [INFO] asyncssh: [conn=35]   Local address: 172.18.0.5, port 2222
+2026-08-19 17:45:43,169 [INFO] asyncssh: [conn=35]   Peer address: 198.105.202.150, port 54536
+2026-08-19 17:45:43,169 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:54536
+2026-08-19 17:45:43,717 [INFO] asyncssh: [conn=35] Beginning auth for user five9
+2026-08-19 17:45:43,845 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 17:45:43,845 [INFO] asyncssh: [conn=35] Auth for user five9 succeeded
+2026-08-19 17:45:43,915 [INFO] asyncssh: [conn=35, chan=0] New SSH session requested
+2026-08-19 17:45:44,107 [INFO] asyncssh: [conn=35, chan=0]   Subsystem: sftp
+2026-08-19 17:45:44,108 [INFO] asyncssh.sftp: [conn=35, chan=0] Starting SFTP server
+2026-08-19 17:45:45,238 [INFO] asyncssh: [conn=35, chan=0] Received channel close
+2026-08-19 17:45:45,239 [INFO] asyncssh: [conn=35, chan=0] Channel closed
+2026-08-19 17:45:45,239 [INFO] asyncssh.sftp: [conn=35, chan=0] SFTP server exited
+2026-08-19 17:45:45,239 [INFO] asyncssh: [conn=35, chan=0] Closing channel
+2026-08-19 17:45:45,246 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 17:46:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:46:43 UTC)" (scheduled at 2026-08-19 17:46:13.019555+00:00)
+2026-08-19 17:46:13,021 [INFO] app.services.sftp_watcher: SFTP watcher: 1 file(s) ready to process
+2026-08-19 17:46:13,030 [INFO] app.services.sftp_watcher: SFTP watcher: moved '5617848745Operator by jtorres@tbn.tv @ 12_45_10 PM.wav' → /data/storage/voicemails/recordings_8_19_2026_5617848745Operator by jtorres@tbn.tv @ 12_45_10 PM.wav
+2026-08-19 17:46:13,030 [INFO] app.services.sftp_watcher: SFTP watcher: submitted '5617848745Operator by jtorres@tbn.tv @ 12_45_10 PM.wav' to pipeline (caller='5617848745', agent='jtorres@tbn.tv')
+2026-08-19 17:46:13,030 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:46:43 UTC)" executed successfully
+2026-08-19 17:46:13,087 [INFO] app.services.audio_service: Converted /data/storage/voicemails/recordings_8_19_2026_5617848745Operator by jtorres@tbn.tv @ 12_45_10 PM.wav -> /data/storage/processed/recordings_8_19_2026_5617848745Operator by jtorres@tbn.tv @ 12_45_10 PM_converted.wav
+2026-08-19 17:46:13,140 [INFO] app.services.pipeline: Voicemail record created id=21181: 5617848745Operator by jtorres@tbn.tv @ 12_45_10 PM.wav
+2026-08-19 17:46:13,145 [INFO] app.services.pipeline: Campaign routing: vm 21181 → team 'Operator' (id=9) via campaign='Operator'
+2026-08-19 17:46:13,215 [INFO] faster_whisper: Processing audio with duration 00:11.500
+2026-08-19 17:46:13,238 [INFO] faster_whisper: VAD filter removed 00:01.680 of audio
+2026-08-19 17:46:13,396 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 17:46:13,713 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/recordings_8_19_2026_5617848745Operator by jtorres@tbn.tv @ 12_45_10 PM_converted.wav' in 0.57s — lang=en, segments=2
+2026-08-19 17:46:13,727 [INFO] app.services.pipeline: Processed voicemail id=21181: 5617848745Operator by jtorres@tbn.tv @ 12_45_10 PM.wav status=completed
+2026-08-19 17:46:14,740 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:46:14,753 [INFO] app.services.pipeline: AI summary for vm 21181: status=success in 1013 ms
+2026-08-19 17:46:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:47:13 UTC)" (scheduled at 2026-08-19 17:46:43.019555+00:00)
+2026-08-19 17:46:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:47:13 UTC)" executed successfully
+2026-08-19 17:47:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:47:43 UTC)" (scheduled at 2026-08-19 17:47:13.019555+00:00)
+2026-08-19 17:47:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:47:43 UTC)" executed successfully
+2026-08-19 17:47:19,017 [INFO] asyncssh: [conn=36] Accepted SSH client connection
+2026-08-19 17:47:19,017 [INFO] asyncssh: [conn=36]   Local address: 172.18.0.5, port 2222
+2026-08-19 17:47:19,017 [INFO] asyncssh: [conn=36]   Peer address: 198.105.202.150, port 62484
+2026-08-19 17:47:19,018 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:62484
+2026-08-19 17:47:19,834 [INFO] asyncssh: [conn=36] Beginning auth for user five9
+2026-08-19 17:47:19,946 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 17:47:19,946 [INFO] asyncssh: [conn=36] Auth for user five9 succeeded
+2026-08-19 17:47:21,482 [INFO] asyncssh: [conn=36, chan=0] New SSH session requested
+2026-08-19 17:47:21,538 [INFO] asyncssh: [conn=36, chan=0]   Subsystem: sftp
+2026-08-19 17:47:21,539 [INFO] asyncssh.sftp: [conn=36, chan=0] Starting SFTP server
+2026-08-19 17:47:22,359 [INFO] asyncssh: [conn=36, chan=0] Received channel close
+2026-08-19 17:47:22,360 [INFO] asyncssh: [conn=36, chan=0] Channel closed
+2026-08-19 17:47:22,360 [INFO] asyncssh.sftp: [conn=36, chan=0] SFTP server exited
+2026-08-19 17:47:22,360 [INFO] asyncssh: [conn=36, chan=0] Closing channel
+2026-08-19 17:47:23,592 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 17:47:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:48:13 UTC)" (scheduled at 2026-08-19 17:47:43.019555+00:00)
+2026-08-19 17:47:43,021 [INFO] app.services.sftp_watcher: SFTP watcher: 1 file(s) ready to process
+2026-08-19 17:47:43,021 [INFO] app.services.sftp_watcher: SFTP watcher: moved '3182907743Outbound - Donor Care by smiller@tbn.tv @ 12_46_20 PM.wav' → /data/storage/voicemails/recordings_8_19_2026_3182907743Outbound - Donor Care by smiller@tbn.tv @ 12_46_20 PM.wav
+2026-08-19 17:47:43,021 [INFO] app.services.sftp_watcher: SFTP watcher: submitted '3182907743Outbound - Donor Care by smiller@tbn.tv @ 12_46_20 PM.wav' to pipeline (caller='3182907743124620', agent='')
+2026-08-19 17:47:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:48:13 UTC)" executed successfully
+2026-08-19 17:47:43,097 [INFO] app.services.audio_service: Converted /data/storage/voicemails/recordings_8_19_2026_3182907743Outbound - Donor Care by smiller@tbn.tv @ 12_46_20 PM.wav -> /data/storage/processed/recordings_8_19_2026_3182907743Outbound - Donor Care by smiller@tbn.tv @ 12_46_20 PM_converted.wav
+2026-08-19 17:47:43,149 [INFO] app.services.pipeline: Voicemail record created id=21182: 3182907743Outbound - Donor Care by smiller@tbn.tv @ 12_46_20 PM.wav
+2026-08-19 17:47:43,149 [INFO] app.services.pipeline: Campaign routing: no team found for campaign='8_19_2026' on vm 21182 (falling through to routing rules)
+2026-08-19 17:47:43,214 [INFO] faster_whisper: Processing audio with duration 00:50.020
+2026-08-19 17:47:43,309 [INFO] faster_whisper: VAD filter removed 00:05.124 of audio
+2026-08-19 17:47:43,485 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 17:47:44,996 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/recordings_8_19_2026_3182907743Outbound - Donor Care by smiller@tbn.tv @ 12_46_20 PM_converted.wav' in 1.85s — lang=en, segments=6
+2026-08-19 17:47:45,009 [INFO] app.services.pipeline: Processed voicemail id=21182: 3182907743Outbound - Donor Care by smiller@tbn.tv @ 12_46_20 PM.wav status=completed
+2026-08-19 17:47:46,627 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:47:46,630 [INFO] app.services.pipeline: AI summary for vm 21182: status=success in 1617 ms
+2026-08-19 17:48:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:48:43 UTC)" (scheduled at 2026-08-19 17:48:13.019555+00:00)
+2026-08-19 17:48:13,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:48:43 UTC)" executed successfully
+2026-08-19 17:48:43,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:49:13 UTC)" (scheduled at 2026-08-19 17:48:43.019555+00:00)
+2026-08-19 17:48:43,021 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:49:13 UTC)" executed successfully
+2026-08-19 17:49:08,304 [INFO] app.services.webhook_service: SendGrid webhook: from='Prayer VM <prayervm@tbn.tv>', subject='FW: New Voice Message from JULIE HAYES (309) 678-3066 on 08/19/2026 10:48 AM', attachments=0
+2026-08-19 17:49:08,308 [INFO] app.services.webhook_service: Raw email parse: found 1 nested audio part(s)
+2026-08-19 17:49:08,308 [INFO] app.services.webhook_service: Saved nested audio part: /data/storage/voicemails/_sg_20260819174908304368_PrayerVMprayervmtbnt_voic_13096783066-0819-104826.mp3 (225549 bytes)
+2026-08-19 17:49:08,375 [INFO] app.services.audio_service: Converted /data/storage/voicemails/_sg_20260819174908304368_PrayerVMprayervmtbnt_voic_13096783066-0819-104826.mp3 -> /data/storage/processed/_sg_20260819174908304368_PrayerVMprayervmtbnt_voic_13096783066-0819-104826_converted.wav
+2026-08-19 17:49:08,429 [INFO] app.services.pipeline: Voicemail record created id=21183: 13096783066-0819-104826.mp3
+2026-08-19 17:49:08,432 [INFO] app.services.routing_service: Routed voicemail id=21183 to team_id=1 via rule id=1 (recipient_email='prayer@mail3.opscal.io')
+2026-08-19 17:49:08,505 [INFO] faster_whisper: Processing audio with duration 00:56.100
+2026-08-19 17:49:08,612 [INFO] faster_whisper: VAD filter removed 00:03.204 of audio
+2026-08-19 17:49:08,792 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 17:49:10,127 [INFO] app.services.transcription_service: Transcribed '/data/storage/processed/_sg_20260819174908304368_PrayerVMprayervmtbnt_voic_13096783066-0819-104826_converted.wav' in 1.69s — lang=en, segments=13
+2026-08-19 17:49:10,141 [INFO] app.services.pipeline: Processed voicemail id=21183: 13096783066-0819-104826.mp3 status=completed
+2026-08-19 17:49:11,868 [INFO] httpx2: HTTP Request: POST http://ollama:11434/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-19 17:49:11,882 [INFO] app.services.pipeline: AI summary for vm 21183: status=success in 1728 ms
+2026-08-19 17:49:13,020 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 17:49:43 UTC)" (scheduled at 2026-08-19 17:49:13.019555+00:00)
+2026-08-19 17:49:13,021 [INFO] apscheduler.executors.default: Job "_

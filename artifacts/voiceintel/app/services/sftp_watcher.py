@@ -72,8 +72,10 @@ def _parse_five9_filename(path: str) -> dict:
     agent = ""
     recorded_at = None
 
-    # Primary pattern: "<phone+campaign> by <agent> @ <time_with_module>"
-    m = re.match(r"^(\S+)\s+by\s+(.+?)\s+@\s+(.+)$", stem, re.IGNORECASE)
+    # Primary pattern: "<phone+campaign> by <agent> @ <time_with_module>".
+    # Capture the entire phone/campaign token up to " by" because campaign
+    # names may contain spaces or hyphens, e.g. "Outbound - Donor Care".
+    m = re.match(r"^(.+?)\s+by\s+(.+?)\s+@\s+(.+)$", stem, re.IGNORECASE)
     if m:
         number_raw = m.group(1).strip()
         agent_raw = m.group(2).strip()
@@ -105,7 +107,10 @@ def _parse_five9_filename(path: str) -> dict:
             except ValueError:
                 continue
     else:
-        # Fallback: treat the whole stem as a phone number candidate
+        # Fallback: treat the whole stem as a phone number candidate. Do not
+        # infer a campaign here: the new Five9 layout stores the date in the
+        # directory, and using that directory as a campaign would misroute
+        # recordings to a team named like "8_19_2026".
         number = re.sub(r"\D", "", stem)[:20]
 
     return {"number": number, "campaign": campaign, "agent": agent, "recorded_at": recorded_at}
@@ -158,16 +163,12 @@ def _ingest_one(app, src_path: str, voicemails_dir: str, incoming_dir: str) -> N
         rel = filename
     flat_name = rel.replace(os.sep, "_").replace("/", "_")
 
-    # Campaign is now embedded in the filename itself (parsed above), not in a
-    # directory component.  Fall back to directory-based extraction only if the
-    # filename parser found nothing (e.g. non-standard filenames).
+    # Campaign is embedded in the filename itself (parsed above).  Do not use
+    # the directory as a fallback: current Five9 paths use
+    # recordings/<created_date>/<file>, so that directory is a date, not a
+    # campaign.  Older owner-directory uploads should remain unrouted rather
+    # than being incorrectly assigned to a date-named team.
     campaign = meta.get("campaign") or ""
-    if not campaign:
-        parts = rel.replace("\\", "/").split("/")
-        if parts and parts[0].lower() == "recordings":
-            campaign = parts[1].strip() if len(parts) > 2 else ""
-        else:
-            campaign = parts[0].strip() if len(parts) > 1 else ""
 
     dest_path = os.path.join(voicemails_dir, flat_name)
 
