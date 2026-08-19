@@ -80,22 +80,14 @@ services:
       - "${PORT:-5000}:5000"
       - "${SFTP_PORT:-2222}:2222"
     # GPU passthrough for faster-whisper transcription. The transcription
-    # service auto-detects CUDA at startup and falls back to CPU if absent,
-    # so this block can be removed on a CPU-only host or if nvidia-persistenced
-    # is not running. Ollama (above) keeps its GPU block and handles all AI
-    # inference on the GPU regardless.
-    #
-    # To re-enable GPU transcription once nvidia-persistenced is running:
-    #   sudo systemctl enable --now nvidia-persistenced
-    # then uncomment the block below and run: docker compose up -d
-    #
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    # service auto-detects CUDA at startup and falls back to CPU if absent.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       # ── Flask ───────────────────────────────────────────────────────────────
       SESSION_SECRET:       ${SESSION_SECRET}
