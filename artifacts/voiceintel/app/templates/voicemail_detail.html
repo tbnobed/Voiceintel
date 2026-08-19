@@ -515,10 +515,10 @@
         {% if current_user.is_admin or current_user.is_supervisor %}
         <div style="padding-top:6px; border-top:1px solid var(--border-m);">
           <form method="POST" action="/voicemails/{{ vm.id }}/delete"
-                onsubmit="return confirm('Permanently delete this voicemail and its audio files? This cannot be undone.');">
+                onsubmit="return confirm('Permanently delete this {{ 'recording' if vm.source == 'sftp' else 'voicemail' }} and its audio files? This cannot be undone.');">
             <button type="submit" class="btn btn-block"
                     style="background:rgba(224,92,58,0.12); color:var(--urgent); border:1px solid rgba(224,92,58,0.25); font-size:12px;">
-              Delete voicemail
+              Delete {{ 'recording' if vm.source == 'sftp' else 'voicemail' }}
             </button>
           </form>
         </div>

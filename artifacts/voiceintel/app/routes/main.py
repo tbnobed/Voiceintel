@@ -377,11 +377,15 @@ def voicemail_detail(vm_id):
             Team.query.filter(Team.id.in_(ids)).order_by(Team.name).all()
             if ids else []
         )
+    # Tell the base template which nav item to highlight.
+    # SFTP recordings share the /voicemails/<id> URL but belong under Recordings.
+    active_nav = "recordings" if vm.source == "sftp" else "voicemails"
     return render_template(
         "voicemail_detail.html",
         vm=vm, q=q,
         assignable_users=assignable_users,
         all_teams=all_teams,
+        active_nav=active_nav,
     )
 
 
