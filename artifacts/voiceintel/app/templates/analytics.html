@@ -8,7 +8,27 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">Analytics</h1>
-  <p class="page-sub">Trends, insights, and patterns across all voicemails</p>
+  <p class="page-sub">
+    {% if source == 'sftp' %}Trends and patterns across Five9 call recordings
+    {% elif source == 'email' %}Trends and patterns across email voicemails
+    {% else %}Trends, insights, and patterns across all voicemails and recordings
+    {% endif %}
+  </p>
+</div>
+
+<!-- ── Source toggle ──────────────────────────────────────────────────────── -->
+<div style="display:flex; gap:6px; margin-bottom:20px;">
+  {% for label, val in [('All', 'all'), ('Voicemails', 'email'), ('Recordings', 'sftp')] %}
+    <a href="/analytics?source={{ val }}"
+       style="padding:5px 14px; border-radius:20px; font-size:12px; font-weight:500; text-decoration:none; border:1px solid;
+              {% if source == val %}
+                background:rgba(247,206,91,0.15); border-color:rgba(247,206,91,0.5); color:var(--accent);
+              {% else %}
+                background:transparent; border-color:var(--border-m); color:var(--muted);
+              {% endif %}">
+      {{ label }}
+    </a>
+  {% endfor %}
 </div>
 
 <!-- ── AI Insights card (auto-generated hourly by background scheduler) ────
@@ -121,17 +141,34 @@
       {% if category_dist %}
         {% set cat_max = category_dist[0].count if category_dist else 1 %}
         {% for item in category_dist %}
-          <a class="cat-row" href="/voicemails?category={{ item.id }}"
-             title="View the {{ item.count }} voicemail{{ '' if item.count == 1 else 's' }} in “{{ item.name }}”"
-             style="display:block; text-decoration:none; color:inherit; cursor:pointer;">
-            <div class="cat-meta">
-              <span class="cat-name">{{ item.name }}</span>
-              <span class="cat-count">{{ item.count }}</span>
+          {% if source == 'all' %}
+            {# Combined view — can't accurately represent both sources in one
+               filtered list, so the bar is informational only (no drill-down). #}
+            <div class="cat-row"
+                 title="Drill-down not available in the combined view — select Voicemails or Recordings to filter"
+                 style="display:block; color:inherit; cursor:default;">
+              <div class="cat-meta">
+                <span class="cat-name">{{ item.name }}</span>
+                <span class="cat-count">{{ item.count }}</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:{{ ((item.count / cat_max) * 100) | round(1) }}%"></div>
+              </div>
             </div>
-            <div class="bar-track">
-              <div class="bar-fill" style="width:{{ ((item.count / cat_max) * 100) | round(1) }}%"></div>
-            </div>
-          </a>
+          {% else %}
+            {% set _cat_href = ('/recordings' if source == 'sftp' else '/voicemails') ~ '?category=' ~ item.id %}
+            <a class="cat-row" href="{{ _cat_href }}"
+               title="View {{ item.count }} {{ 'recording' if source == 'sftp' else 'voicemail' }}{{ '' if item.count == 1 else 's' }} in {{ item.name }}"
+               style="display:block; text-decoration:none; color:inherit; cursor:pointer;">
+              <div class="cat-meta">
+                <span class="cat-name">{{ item.name }}</span>
+                <span class="cat-count">{{ item.count }}</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:{{ ((item.count / cat_max) * 100) | round(1) }}%"></div>
+              </div>
+            </a>
+          {% endif %}
         {% endfor %}
       {% else %}
         <div class="empty" style="padding:28px 0;"><p class="empty-sub">No data yet</p></div>
@@ -148,22 +185,31 @@
 
 </div>
 
-<!-- ── Row 3: Keywords + Urgency keywords + Frequent callers ─────────────── -->
+<!-- ── Row 3: Keywords + Urgency keywords + Frequent callers / Agent board ── -->
 <div class="grid-1-1-1" style="margin-bottom:16px; align-items:start;">
 
   <div class="card">
     <div class="card-head"><span class="card-head-title">Top Keywords</span></div>
     <div class="card-body">
       {% if top_keywords %}
+        {% set _kw_href_base = '/recordings?q=' if source == 'sftp' else ('/voicemails?q=' if source == 'email' else '') %}
         <div style="display:flex; flex-wrap:wrap; gap:6px; padding-bottom:4px;">
           {% for kw in top_keywords %}
             {% set opacity = 0.4 + (0.6 * kw.count / top_keywords[0].count) %}
-            <a href="/voicemails?q={{ kw.word }}"
+            {% if _kw_href_base %}
+            <a href="{{ _kw_href_base }}{{ kw.word }}"
                class="kw-tag"
                style="font-size:{{ 10 + (4 * kw.count / top_keywords[0].count) | round | int }}px; opacity:{{ opacity }};"
                title="{{ kw.count }} occurrences">
               {{ kw.word }}
             </a>
+            {% else %}
+            <span class="kw-tag"
+                  style="font-size:{{ 10 + (4 * kw.count / top_keywords[0].count) | round | int }}px; opacity:{{ opacity }}; cursor:default;"
+                  title="{{ kw.count }} occurrences — select Voicemails or Recordings to drill down">
+              {{ kw.word }}
+            </span>
+            {% endif %}
           {% endfor %}
         </div>
         <div style="margin-top:16px;">
@@ -179,24 +225,75 @@
     <div class="card-head"><span class="card-head-title">Urgency Keywords</span></div>
     <div class="card-body">
       {% if top_urgency_kw %}
+        {% set _urg_href_base = '/recordings?q=' if source == 'sftp' else ('/voicemails?q=' if source == 'email' else '') %}
+        {% if not _urg_href_base %}
+          <p style="font-size:11px; color:var(--muted); margin-bottom:8px; font-style:italic;">
+            Select Voicemails or Recordings to drill down into matches.
+          </p>
+        {% endif %}
         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">
           {% for kw in top_urgency_kw %}
-            <a href="/voicemails?q={{ kw.word }}"
-               title="{{ kw.count }} occurrences — click to view matching voicemails"
+            {% if _urg_href_base %}
+            <a href="{{ _urg_href_base }}{{ kw.word }}"
+               title="{{ kw.count }} occurrences — click to view matching items"
                style="background:rgba(224,92,58,0.1); color:var(--urgent); border:1px solid rgba(224,92,58,0.22); padding:3px 10px; border-radius:3px; font-size:12px; text-decoration:none; transition:background 0.15s;"
                onmouseover="this.style.background='rgba(224,92,58,0.22)';"
                onmouseout="this.style.background='rgba(224,92,58,0.1)';">
               {{ kw.word }} <span style="opacity:.6; font-size:10px;">×{{ kw.count }}</span>
             </a>
+            {% else %}
+            <span title="{{ kw.count }} occurrences"
+                  style="background:rgba(224,92,58,0.1); color:var(--urgent); border:1px solid rgba(224,92,58,0.22); padding:3px 10px; border-radius:3px; font-size:12px; cursor:default;">
+              {{ kw.word }} <span style="opacity:.6; font-size:10px;">×{{ kw.count }}</span>
+            </span>
+            {% endif %}
           {% endfor %}
         </div>
-        <canvas id="urgKwChart" style="max-height:170px; cursor:pointer;" title="Click a bar to view matching voicemails"></canvas>
+        <canvas id="urgKwChart" style="max-height:170px; {% if _urg_href_base %}cursor:pointer;{% endif %}" title="{% if _urg_href_base %}Click a bar to view matching items{% else %}Select Voicemails or Recordings to enable drill-down{% endif %}"></canvas>
       {% else %}
         <div class="empty" style="padding:28px 0;"><p class="empty-sub">No urgency keywords triggered yet</p></div>
       {% endif %}
     </div>
   </div>
 
+  {# 3rd card: Agent Leaderboard for Recordings view, Frequent Callers otherwise #}
+  {% if source == 'sftp' %}
+  <div class="card">
+    <div class="card-head">
+      <span class="card-head-title">Agent Leaderboard</span>
+      <span style="font-size:10px; color:var(--muted);">Five9 recordings</span>
+    </div>
+    <div class="card-body">
+      {% if agent_leaderboard %}
+        {% set _al_max = agent_leaderboard[0].count %}
+        <div style="display:flex; flex-direction:column; gap:0;">
+          {% for a in agent_leaderboard %}
+            {% set _al_pct = (100 * a.count / _al_max) | round | int %}
+            <a href="/recordings?agent={{ a.agent | urlencode }}"
+               title="{{ a.count }} recording{{ '' if a.count == 1 else 's' }} — click to view"
+               style="display:block; padding:10px 0; border-bottom:1px solid var(--border-m); text-decoration:none; color:inherit;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:5px;">
+                <div style="min-width:0; flex:1;">
+                  <div style="font-size:13px; font-weight:500; color:var(--vanilla); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    {{ a.agent.split('@')[0] if '@' in a.agent else a.agent }}
+                  </div>
+                  <div style="font-size:11px; color:var(--muted); margin-top:1px;">{{ a.agent }}</div>
+                </div>
+                <div style="font-size:12px; font-weight:600; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap;">
+                  {{ a.count }} <span style="opacity:.55; font-weight:400; font-size:10px;">call{{ '' if a.count == 1 else 's' }}</span>
+                </div>
+              </div>
+              <div class="bar-track"><div class="bar-fill" style="width:{{ _al_pct }}%;"></div></div>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty" style="padding:28px 0;"><p class="empty-sub">No Five9 recordings yet</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% else %}
   <div class="card">
     <div class="card-head"><span class="card-head-title">Frequent Callers</span></div>
     <div class="card-body">
@@ -233,14 +330,59 @@
       {% endif %}
     </div>
   </div>
+  {% endif %}
 
 </div>
+
+<!-- ── Row 4: Agent Leaderboard (All view only — supplements Frequent Callers) -->
+{% if source == 'all' and agent_leaderboard %}
+<div style="margin-bottom:16px;">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-head-title">Agent Leaderboard</span>
+      <span style="font-size:10px; color:var(--muted);">Five9 call recordings</span>
+    </div>
+    <div class="card-body" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:0;">
+      {% set _al_max = agent_leaderboard[0].count %}
+      {% for a in agent_leaderboard %}
+        {% set _al_pct = (100 * a.count / _al_max) | round | int %}
+        <a href="/recordings?agent={{ a.agent | urlencode }}"
+           title="{{ a.count }} recording{{ '' if a.count == 1 else 's' }}"
+           style="display:block; padding:10px 16px; border-bottom:1px solid var(--border-m); text-decoration:none; color:inherit;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:5px;">
+            <div style="min-width:0; flex:1;">
+              <div style="font-size:13px; font-weight:500; color:var(--vanilla); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                {{ a.agent.split('@')[0] if '@' in a.agent else a.agent }}
+              </div>
+              <div style="font-size:11px; color:var(--muted); margin-top:1px;">{{ a.agent }}</div>
+            </div>
+            <div style="font-size:12px; font-weight:600; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap;">
+              {{ a.count }} <span style="opacity:.55; font-weight:400; font-size:10px;">call{{ '' if a.count == 1 else 's' }}</span>
+            </div>
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:{{ _al_pct }}%;"></div></div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+// Source context for drill-down links.
+// 'sftp'  → /recordings (Five9 recordings list, supports category + sentiment)
+// 'email' → /voicemails (email voicemails list)
+// 'all'   → null  (combined data can't be accurately represented in either
+//                   list alone; drill-down is disabled for this view)
+const ANALYTICS_SOURCE = {{ source | tojson }};
+const _drillBase = ANALYTICS_SOURCE === 'sftp' ? '/recordings'
+                 : ANALYTICS_SOURCE === 'email' ? '/voicemails'
+                 : null; // combined — drill-down disabled
+
 Chart.defaults.color          = 'rgba(175,155,70,0.5)';
 Chart.defaults.font.family    = "'Inter', system-ui, sans-serif";
 Chart.defaults.font.size      = 11;
@@ -317,7 +459,7 @@ if (Object.keys(sentData).length && document.getElementById('sentimentChart')) {
       onClick: (_evt, elements) => {
         if (!elements.length) return;
         const label = labels[elements[0].index];
-        if (label) window.location.href = '/voicemails?sentiment=' + encodeURIComponent(label);
+        if (label && _drillBase) window.location.href = _drillBase + '?sentiment=' + encodeURIComponent(label);
       },
     },
   });
@@ -389,7 +531,7 @@ if (urgData.length && document.getElementById('urgKwChart')) {
       onClick: (_evt, elements) => {
         if (!elements.length) return;
         const word = urgData[elements[0].index]?.word;
-        if (word) window.location.href = '/voicemails?q=' + encodeURIComponent(word);
+        if (word && _drillBase) window.location.href = _drillBase + '?q=' + encodeURIComponent(word);
       },
       plugins: {
         legend: { display: false },

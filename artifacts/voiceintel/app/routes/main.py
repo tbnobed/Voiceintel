@@ -22,6 +22,23 @@ def _filter_keywords(keywords):
         if kw and len(kw) >= 3 and kw.lower() not in STOPWORDS
     ]
 
+
+def _source_filter(query, source: str):
+    """
+    Apply a source filter to a Voicemail query.
+      "all"   → no restriction
+      "email" → email voicemails (source='email' OR source IS NULL)
+      "sftp"  → Five9 call recordings (source='sftp')
+    Unknown values are treated as "all".
+    """
+    if source == "email":
+        return query.filter(
+            (Voicemail.source == "email") | Voicemail.source.is_(None)
+        )
+    if source == "sftp":
+        return query.filter(Voicemail.source == "sftp")
+    return query
+
 main_bp = Blueprint("main", __name__)
 
 
@@ -619,6 +636,11 @@ def analytics():
     week_ago   = now - timedelta(days=7)
     month_ago  = now - timedelta(days=30)
 
+    # Source toggle: "all" | "email" | "sftp"
+    source = request.args.get("source", "all")
+    if source not in ("all", "email", "sftp"):
+        source = "all"
+
     # Bucket analytics by the user-facing display timezone, not UTC. Voicemails
     # are stored as naive UTC, so we re-label as UTC and convert to DISPLAY_TZ
     # before extracting day/hour. Without this, a 9pm Central call shows up
@@ -626,38 +648,31 @@ def analytics():
     tz_name = os.environ.get("DISPLAY_TZ", "America/Chicago")
     received_local = func.timezone(tz_name, func.timezone("UTC", Voicemail.received_at))
 
+    def _sf(q):
+        """Shorthand: apply team scope + source filter to a query."""
+        return _source_filter(scope_voicemails(q, current_user), source)
+
     # Every aggregation below is scoped to the voicemails this user is allowed
     # to see — admins see everything, supervisors see only their teams (+
     # unrouted). For Insight-based aggregations we join through Voicemail so
     # scope_voicemails can apply its team filter.
-    total        = scope_voicemails(Voicemail.query, current_user).count()
-    week_count   = scope_voicemails(
-        Voicemail.query.filter(Voicemail.received_at >= week_ago), current_user,
-    ).count()
-    month_count  = scope_voicemails(
-        Voicemail.query.filter(Voicemail.received_at >= month_ago), current_user,
-    ).count()
-    urgent_count = scope_voicemails(
-        Voicemail.query.filter_by(is_urgent=True), current_user,
-    ).count()
+    total        = _sf(Voicemail.query).count()
+    week_count   = _sf(Voicemail.query.filter(Voicemail.received_at >= week_ago)).count()
+    month_count  = _sf(Voicemail.query.filter(Voicemail.received_at >= month_ago)).count()
+    urgent_count = _sf(Voicemail.query.filter_by(is_urgent=True)).count()
 
     # Average duration (seconds)
     avg_dur_q = db.session.query(func.avg(Voicemail.duration)).filter(
         Voicemail.duration.isnot(None)
     )
-    avg_dur_q = scope_voicemails(avg_dur_q, current_user)
-    avg_duration = round(avg_dur_q.scalar() or 0)
+    avg_duration = round(_sf(avg_dur_q).scalar() or 0)
 
     # 30-day daily trend (bucketed in DISPLAY_TZ)
-    daily_q = (
-        db.session.query(
-            func.date(received_local).label("day"),
-            func.count(Voicemail.id).label("cnt"),
-        )
-        .filter(Voicemail.received_at >= month_ago)
-    )
-    daily_q = scope_voicemails(daily_q, current_user)
-    daily_rows = daily_q.group_by(func.date(received_local)).order_by("day").all()
+    daily_q = db.session.query(
+        func.date(received_local).label("day"),
+        func.count(Voicemail.id).label("cnt"),
+    ).filter(Voicemail.received_at >= month_ago)
+    daily_rows = _sf(daily_q).group_by(func.date(received_local)).order_by("day").all()
     daily_trend = [{"day": str(r.day), "count": r.cnt} for r in daily_rows]
 
     # Sentiment distribution — joined to Voicemail for scoping.
@@ -665,8 +680,7 @@ def analytics():
         db.session.query(Insight.sentiment, func.count(Insight.id))
         .join(Voicemail, Voicemail.id == Insight.voicemail_id)
     )
-    sent_q = scope_voicemails(sent_q, current_user)
-    sentiment_rows = sent_q.group_by(Insight.sentiment).all()
+    sentiment_rows = _sf(sent_q).group_by(Insight.sentiment).all()
     sentiment_dist = {s or "neutral": c for s, c in sentiment_rows}
 
     # Category distribution — include the id so the analytics page can link
@@ -675,11 +689,10 @@ def analytics():
         db.session.query(Category.id, Category.name, func.count(Voicemail.id))
         .join(Voicemail, Voicemail.category_id == Category.id, isouter=True)
     )
-    cat_q = scope_voicemails(cat_q, current_user)
     cat_rows = (
-        cat_q.group_by(Category.id, Category.name)
-             .order_by(func.count(Voicemail.id).desc())
-             .all()
+        _sf(cat_q).group_by(Category.id, Category.name)
+                  .order_by(func.count(Voicemail.id).desc())
+                  .all()
     )
     category_dist = [
         {"id": cid, "name": n, "count": c} for cid, n, c in cat_rows if c > 0
@@ -691,24 +704,19 @@ def analytics():
         .join(Voicemail, Voicemail.id == Insight.voicemail_id)
         .filter(Insight.keywords.isnot(None))
     )
-    kw_q = scope_voicemails(kw_q, current_user)
     all_kw: list = []
-    for ins in kw_q.all():
+    for ins in _sf(kw_q).all():
         if ins.keywords:
             all_kw.extend(_filter_keywords(ins.keywords))
     kw_counter = Counter(all_kw)
     top_keywords = [{"word": w, "count": c} for w, c in kw_counter.most_common(20)]
 
     # Hourly call distribution (0-23, bucketed in DISPLAY_TZ)
-    hour_q = (
-        db.session.query(
-            func.extract("hour", received_local).label("hr"),
-            func.count(Voicemail.id).label("cnt"),
-        )
-        .filter(Voicemail.received_at.isnot(None))
-    )
-    hour_q = scope_voicemails(hour_q, current_user)
-    hour_rows = hour_q.group_by("hr").order_by("hr").all()
+    hour_q = db.session.query(
+        func.extract("hour", received_local).label("hr"),
+        func.count(Voicemail.id).label("cnt"),
+    ).filter(Voicemail.received_at.isnot(None))
+    hour_rows = _sf(hour_q).group_by("hr").order_by("hr").all()
     hourly = {int(r.hr): r.cnt for r in hour_rows}
     hourly_dist = [{"hour": h, "count": hourly.get(h, 0)} for h in range(24)]
 
@@ -718,9 +726,8 @@ def analytics():
         .join(Voicemail, Voicemail.id == Insight.voicemail_id)
         .filter(Insight.urgency_keywords.isnot(None))
     )
-    urg_q = scope_voicemails(urg_q, current_user)
     urg_kw: list = []
-    for ins in urg_q.all():
+    for ins in _sf(urg_q).all():
         if ins.urgency_keywords:
             urg_kw.extend(ins.urgency_keywords)
     top_urgency_kw = [{"word": w, "count": c} for w, c in Counter(urg_kw).most_common(10)]
@@ -731,64 +738,74 @@ def analytics():
     # reads `vm.insights.ai_caller_name`) doesn't N+1 across hundreds of
     # rows. Voicemails with no parseable phone are skipped — without a
     # stable identifier we can't safely cluster them.
-    fc_q = (
-        db.session.query(Voicemail)
-        .options(selectinload(Voicemail.insights))
-        .filter(Voicemail.subject.isnot(None))
-    )
-    fc_q = scope_voicemails(fc_q, current_user)
-    fc_groups: dict[str, dict] = {}
-    for vm in fc_q.all():
-        ci = vm.caller_info or {}
-        phone_raw = (ci.get("phone") or "").strip()
-        digits = re.sub(r"\D+", "", phone_raw)
-        if not digits:
-            continue
-        g = fc_groups.setdefault(digits, {
-            "phone": phone_raw,
-            "name": None,
-            "count": 0,
-            "last_received": None,
-            "last_vm_id": None,
-        })
-        g["count"] += 1
-        if vm.received_at and (g["last_received"] is None or vm.received_at > g["last_received"]):
-            g["last_received"] = vm.received_at
-            g["last_vm_id"] = vm.id
-        # First non-empty display name wins; display_caller_name already
-        # prefers the AI-extracted name over generic carrier placeholders.
-        if not g["name"]:
-            nm = vm.display_caller_name
-            if nm:
-                g["name"] = nm
-    # Only surface callers who have left at least this many voicemails. Keeps
-    # the card focused on actually-frequent callers and avoids cluttering it
-    # with one-offs.
-    FREQUENT_CALLER_MIN_COUNT = 5
-    # Sort by count desc, then most-recent desc as a deterministic tiebreaker.
-    # Keep `last_received` as a raw datetime so the `localtime` Jinja filter
-    # can render it in DISPLAY_TZ.
-    frequent_callers = [
-        {
-            "phone": g["phone"],
-            "phone_digits": d,
-            "name": g["name"],
-            "count": g["count"],
-            "last_received": g["last_received"],
-            "last_vm_id": g["last_vm_id"],
-        }
-        for d, g in sorted(
-            (item for item in fc_groups.items() if item[1]["count"] >= FREQUENT_CALLER_MIN_COUNT),
-            key=lambda item: (-item[1]["count"], -(item[1]["last_received"].timestamp() if item[1]["last_received"] else 0)),
-        )[:10]
-    ]
+    # Only shown when source is "all" or "email" (phone-centric view).
+    frequent_callers = []
+    if source in ("all", "email"):
+        fc_q = (
+            db.session.query(Voicemail)
+            .options(selectinload(Voicemail.insights))
+            .filter(Voicemail.subject.isnot(None))
+        )
+        fc_groups: dict[str, dict] = {}
+        for vm in _sf(fc_q).all():
+            ci = vm.caller_info or {}
+            phone_raw = (ci.get("phone") or "").strip()
+            digits = re.sub(r"\D+", "", phone_raw)
+            if not digits:
+                continue
+            g = fc_groups.setdefault(digits, {
+                "phone": phone_raw,
+                "name": None,
+                "count": 0,
+                "last_received": None,
+                "last_vm_id": None,
+            })
+            g["count"] += 1
+            if vm.received_at and (g["last_received"] is None or vm.received_at > g["last_received"]):
+                g["last_received"] = vm.received_at
+                g["last_vm_id"] = vm.id
+            # First non-empty display name wins; display_caller_name already
+            # prefers the AI-extracted name over generic carrier placeholders.
+            if not g["name"]:
+                nm = vm.display_caller_name
+                if nm:
+                    g["name"] = nm
+        # Only surface callers who have left at least this many voicemails.
+        FREQUENT_CALLER_MIN_COUNT = 5
+        frequent_callers = [
+            {
+                "phone": g["phone"],
+                "phone_digits": d,
+                "name": g["name"],
+                "count": g["count"],
+                "last_received": g["last_received"],
+                "last_vm_id": g["last_vm_id"],
+            }
+            for d, g in sorted(
+                (item for item in fc_groups.items() if item[1]["count"] >= FREQUENT_CALLER_MIN_COUNT),
+                key=lambda item: (-item[1]["count"], -(item[1]["last_received"].timestamp() if item[1]["last_received"] else 0)),
+            )[:10]
+        ]
+
+    # Agent leaderboard — top Five9 agents by recording count.
+    # Shown when viewing "Recordings" or "All"; hidden for email-only view.
+    agent_leaderboard = []
+    if source in ("all", "sftp"):
+        al_q = (
+            db.session.query(Voicemail.agent, func.count(Voicemail.id).label("cnt"))
+            .filter(Voicemail.source == "sftp", Voicemail.agent.isnot(None))
+        )
+        al_q = scope_voicemails(al_q, current_user)
+        al_rows = (
+            al_q.group_by(Voicemail.agent)
+                .order_by(func.count(Voicemail.id).desc())
+                .limit(10).all()
+        )
+        agent_leaderboard = [{"agent": a, "count": c} for a, c in al_rows if a]
 
     # Processing status breakdown
-    status_q = (
-        db.session.query(Voicemail.processing_status, func.count(Voicemail.id))
-    )
-    status_q = scope_voicemails(status_q, current_user)
-    status_rows = status_q.group_by(Voicemail.processing_status).all()
+    status_q = db.session.query(Voicemail.processing_status, func.count(Voicemail.id))
+    status_rows = _sf(status_q).group_by(Voicemail.processing_status).all()
     status_dist = {s: c for s, c in status_rows}
 
     # Latest cached AI insight is generated from ALL voicemails globally by
@@ -799,6 +816,7 @@ def analytics():
 
     return render_template(
         "analytics.html",
+        source=source,
         total=total,
         week_count=week_count,
         month_count=month_count,
@@ -811,6 +829,7 @@ def analytics():
         hourly_dist=hourly_dist,
         top_urgency_kw=top_urgency_kw,
         frequent_callers=frequent_callers,
+        agent_leaderboard=agent_leaderboard,
         status_dist=status_dist,
         latest_insight=latest_insight,
     )
@@ -1076,6 +1095,10 @@ def recordings_list():
     date_to = request.args.get("date_to")
     team_filter = request.args.get("team", "").strip()
     agent_filter = request.args.get("agent", "").strip()
+    category_id = request.args.get("category", type=int)
+    sentiment = request.args.get("sentiment", "").strip().lower()
+    if sentiment not in ("positive", "negative", "neutral"):
+        sentiment = ""
 
     sort = request.args.get("sort", "received_at")
     direction = request.args.get("dir", "desc").lower()
@@ -1112,6 +1135,18 @@ def recordings_list():
 
     if agent_filter:
         query = query.filter(Voicemail.agent.ilike(f"%{agent_filter}%"))
+
+    if category_id:
+        query = query.filter(Voicemail.category_id == category_id)
+
+    if sentiment:
+        query = query.join(Insight, Insight.voicemail_id == Voicemail.id, isouter=True)
+        if sentiment == "neutral":
+            query = query.filter(
+                (Insight.sentiment == "neutral") | Insight.sentiment.is_(None)
+            )
+        else:
+            query = query.filter(Insight.sentiment == sentiment)
 
     if date_from:
         try:
@@ -1153,6 +1188,8 @@ def recordings_list():
         available_teams=available_teams,
         team_filter=team_filter,
         agent_filter=agent_filter,
+        category_id=category_id,
+        sentiment=sentiment,
         q=q,
         date_from=date_from,
         date_to=date_to,
