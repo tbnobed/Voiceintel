@@ -30,6 +30,14 @@ description: How Five9 call recordings flow into VoiceIntel via SFTP, and how th
 
 **How to apply:** Keep the backfill idempotent and never overwrite a populated agent, an assigned team, or a manually locked team.
 
+## Source recognition
+- Treat `message_id` values beginning with `sftp-` as Five9 recordings even when a historical row has an incorrect or missing `source` value.
+- The startup backfill normalizes that source value to `sftp`.
+
+**Why:** The Recordings page must not hide completed Five9 uploads because an older database default saved the source as email.
+
+**How to apply:** Use the source-or-message-ID rule consistently in Recordings, Voicemails, and analytics filters so a record cannot appear in both views or neither.
+
 ## UI separation
 - `/voicemails` filters WHERE source='email' OR source IS NULL
 - `/recordings` filters WHERE source='sftp'

@@ -23,20 +23,37 @@ def _filter_keywords(keywords):
     ]
 
 
+def _is_sftp_recording():
+    """
+    SQL clause which recognizes Five9 recordings by either their explicit
+    source field or their durable, ingestion-generated message ID. The latter
+    protects historical rows created while the source column was absent or
+    incorrectly defaulted to email.
+    """
+    return (
+        (Voicemail.source == "sftp")
+        | Voicemail.message_id.like("sftp-%")
+    )
+
+
 def _source_filter(query, source: str):
     """
     Apply a source filter to a Voicemail query.
       "all"   → no restriction
-      "email" → email voicemails (source='email' OR source IS NULL)
-      "sftp"  → Five9 call recordings (source='sftp')
+      "email" → email voicemails, excluding any Five9 message ID
+      "sftp"  → Five9 call recordings (source='sftp' OR message_id='sftp-*')
     Unknown values are treated as "all".
     """
     if source == "email":
         return query.filter(
-            (Voicemail.source == "email") | Voicemail.source.is_(None)
+            (
+                (Voicemail.source == "email")
+                | Voicemail.source.is_(None)
+            )
+            & ~_is_sftp_recording()
         )
     if source == "sftp":
-        return query.filter(Voicemail.source == "sftp")
+        return query.filter(_is_sftp_recording())
     return query
 
 main_bp = Blueprint("main", __name__)
@@ -191,7 +208,11 @@ def voicemail_list():
 
     # Exclude Five9 call-center recordings — they have their own /recordings page.
     query = query.filter(
-        (Voicemail.source == "email") | Voicemail.source.is_(None)
+        (
+            (Voicemail.source == "email")
+            | Voicemail.source.is_(None)
+        )
+        & ~_is_sftp_recording()
     )
 
     if q:
@@ -797,7 +818,7 @@ def analytics():
     if source in ("all", "sftp"):
         al_q = (
             db.session.query(Voicemail.agent, func.count(Voicemail.id).label("cnt"))
-            .filter(Voicemail.source == "sftp", Voicemail.agent.isnot(None))
+            .filter(_is_sftp_recording(), Voicemail.agent.isnot(None))
         )
         al_q = scope_voicemails(al_q, current_user)
         al_rows = (
@@ -1118,7 +1139,7 @@ def recordings_list():
     if sort not in sort_columns:
         sort = "received_at"
 
-    query = Voicemail.query.filter(Voicemail.source == "sftp").join(
+    query = Voicemail.query.filter(_is_sftp_recording()).join(
         Transcript, Voicemail.id == Transcript.voicemail_id, isouter=True
     )
 
@@ -1206,7 +1227,7 @@ def recordings_list():
 @login_required
 def recordings_poll():
     scoped = scope_voicemails(
-        Voicemail.query.filter(Voicemail.source == "sftp"), current_user
+        Voicemail.query.filter(_is_sftp_recording()), current_user
     )
     latest = scoped.order_by(desc(Voicemail.created_at)).first()
     return jsonify({

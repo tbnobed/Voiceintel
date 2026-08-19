@@ -506,25 +506,32 @@ def _backfill_five9_recordings():
     from app.services.sftp_watcher import _parse_five9_filename
 
     log = _logging.getLogger(__name__)
+    normalized_sources = 0
     repaired_agents = 0
     repaired_teams = 0
 
     incomplete_recordings = (
         Voicemail.query
-        .filter(Voicemail.source == "sftp")
         .filter(
-            (Voicemail.agent.is_(None))
+            (Voicemail.source == "sftp")
+            | Voicemail.message_id.like("sftp-%")
+        )
+        .filter(
+            (Voicemail.source != "sftp")
+            | Voicemail.source.is_(None)
+            | (Voicemail.agent.is_(None))
             | (Voicemail.agent == "")
-            | (
-                (Voicemail.team_id.is_(None))
-                & (Voicemail.team_locked.is_(False))
-            )
+            | ((Voicemail.team_id.is_(None)) & (Voicemail.team_locked.is_(False)))
         )
         .all()
     )
 
     for voicemail in incomplete_recordings:
         parsed = _parse_five9_filename(voicemail.filename or "")
+
+        if voicemail.source != "sftp":
+            voicemail.source = "sftp"
+            normalized_sources += 1
 
         if not (voicemail.agent or "").strip() and parsed["agent"]:
             voicemail.agent = parsed["agent"]
@@ -544,10 +551,11 @@ def _backfill_five9_recordings():
                 voicemail.team_id = team.id
                 repaired_teams += 1
 
-    if repaired_agents or repaired_teams:
+    if normalized_sources or repaired_agents or repaired_teams:
         db.session.commit()
         log.info(
-            "Five9 recording backfill: repaired agent=%d, team=%d",
+            "Five9 recording backfill: normalized source=%d, repaired agent=%d, team=%d",
+            normalized_sources,
             repaired_agents,
             repaired_teams,
         )
