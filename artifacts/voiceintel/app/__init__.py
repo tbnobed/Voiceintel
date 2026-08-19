@@ -117,6 +117,7 @@ def create_app():
         _ensure_insights_columns()
         _seed_categories()
         _seed_admin_user()
+        _seed_five9_teams()
 
     _start_insights_scheduler(app)
     _start_sftp_server(app)
@@ -415,6 +416,71 @@ def _seed_categories():
             cat = Category(name=name, description=desc)
             db.session.add(cat)
     db.session.commit()
+
+
+def _seed_five9_teams():
+    """
+    Idempotent boot guard — creates one VoiceIntel Team for each of the 15
+    Five9 campaigns seen in VCC.  Teams are created with distinct colors and
+    a description noting their Five9 origin; existing teams are never touched.
+
+    Set SEED_FIVE9_TEAMS=false in the environment to skip this (useful for
+    non-OBTV deployments that don't use the Five9 integration).
+    """
+    import logging as _logging
+    import re as _re
+    log = _logging.getLogger(__name__)
+
+    if os.environ.get("SEED_FIVE9_TEAMS", "true").lower() in ("false", "0", "no"):
+        return
+
+    from app.models.team import Team
+
+    campaigns = [
+        ("Donation Center",        "donation-center",        "#4CAF50",
+         "Five9 inbound campaign — Donation Center calls"),
+        ("Donor Services",         "donor-services",         "#2196F3",
+         "Five9 inbound campaign — Donor Services calls"),
+        ("FCC",                    "fcc",                    "#9C27B0",
+         "Five9 inbound campaign — FCC calls"),
+        ("Help Desk",              "help-desk",              "#FF9800",
+         "Five9 inbound campaign — Help Desk calls"),
+        ("Living Legacy",          "living-legacy",          "#795548",
+         "Five9 inbound campaign — Living Legacy calls"),
+        ("My Story",               "my-story",               "#E91E63",
+         "Five9 inbound campaign — My Story calls"),
+        ("Operator",               "operator",               "#607D8B",
+         "Five9 inbound campaign — Operator queue calls"),
+        ("Outbound",               "outbound",               "#F44336",
+         "Five9 outbound campaign — general outbound calls"),
+        ("Outbound - Donor Care",  "outbound-donor-care",    "#FF5722",
+         "Five9 outbound campaign — Donor Care follow-up calls"),
+        ("Outbound - Winning Walk","outbound-winning-walk",  "#FF7043",
+         "Five9 outbound campaign — Winning Walk follow-up calls"),
+        ("Prayer",                 "prayer",                 "#3F51B5",
+         "Five9 inbound campaign — Prayer calls"),
+        ("TBN Ambassador",         "tbn-ambassador",         "#009688",
+         "Five9 inbound campaign — TBN Ambassador calls"),
+        ("TBN Plus",               "tbn-plus",               "#00BCD4",
+         "Five9 inbound campaign — TBN Plus calls"),
+        ("Trilogy Publishing VM",  "trilogy-publishing-vm",  "#8BC34A",
+         "Five9 inbound campaign — Trilogy Publishing voicemail"),
+        ("Winning Walk",           "winning-walk",           "#FFC107",
+         "Five9 inbound campaign — Winning Walk calls"),
+    ]
+
+    created = 0
+    for name, slug, color, description in campaigns:
+        if not Team.query.filter_by(slug=slug).first():
+            team = Team(name=name, slug=slug, color=color, description=description)
+            db.session.add(team)
+            created += 1
+
+    if created:
+        db.session.commit()
+        log.info("Five9 team seed: created %d team(s)", created)
+    else:
+        log.debug("Five9 team seed: all teams already exist — nothing to do")
 
 
 def _seed_admin_user():
