@@ -118,7 +118,7 @@ def create_app():
         _seed_categories()
         _seed_five9_teams()
         _seed_admin_user()
-        _seed_five9_teams()
+        _backfill_five9_recordings()
 
     _start_insights_scheduler(app)
     _start_sftp_server(app)
@@ -486,6 +486,73 @@ def _seed_five9_teams():
         log.info("Five9 team seed: created %d team(s)", created)
     else:
         log.debug("Five9 team seed: all teams already exist — nothing to do")
+
+
+def _backfill_five9_recordings():
+    """
+    Repair historical Five9 rows that were ingested before campaign/agent
+    parsing was available. This is safe to run on every boot: it fills only a
+    missing agent and an unlocked, missing team assignment.
+
+    Five9 files are flattened into storage paths before pipeline processing, so
+    the filename parser accepts both current raw upload names and the older
+    ``recordings_<date>_<filename>`` form stored in the database.
+    """
+    import logging as _logging
+
+    from sqlalchemy import func as _func
+    from app.models.team import Team
+    from app.models.voicemail import Voicemail
+    from app.services.sftp_watcher import _parse_five9_filename
+
+    log = _logging.getLogger(__name__)
+    repaired_agents = 0
+    repaired_teams = 0
+
+    incomplete_recordings = (
+        Voicemail.query
+        .filter(Voicemail.source == "sftp")
+        .filter(
+            (Voicemail.agent.is_(None))
+            | (Voicemail.agent == "")
+            | (
+                (Voicemail.team_id.is_(None))
+                & (Voicemail.team_locked.is_(False))
+            )
+        )
+        .all()
+    )
+
+    for voicemail in incomplete_recordings:
+        parsed = _parse_five9_filename(voicemail.filename or "")
+
+        if not (voicemail.agent or "").strip() and parsed["agent"]:
+            voicemail.agent = parsed["agent"]
+            repaired_agents += 1
+
+        if (
+            voicemail.team_id is None
+            and not voicemail.team_locked
+            and parsed["campaign"]
+        ):
+            team = (
+                Team.query
+                .filter(_func.lower(Team.name) == parsed["campaign"].lower())
+                .first()
+            )
+            if team:
+                voicemail.team_id = team.id
+                repaired_teams += 1
+
+    if repaired_agents or repaired_teams:
+        db.session.commit()
+        log.info(
+            "Five9 recording backfill: repaired agent=%d, team=%d",
+            repaired_agents,
+            repaired_teams,
+        )
+    else:
+        log.debug("Five9 recording backfill: nothing to repair")
 
 
 def _seed_admin_user():

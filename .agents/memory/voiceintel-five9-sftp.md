@@ -22,6 +22,14 @@ description: How Five9 call recordings flow into VoiceIntel via SFTP, and how th
 
 **How to apply:** Preserve the filename-based campaign parser whenever updating Five9 ingestion. If parsing fails, leave the recording unrouted rather than guessing from the directory.
 
+## Historical recording repair
+- On startup, incomplete SFTP rows are backfilled from their stored filename: missing agent values and unlocked, missing team assignments are repaired.
+- Flattened legacy names begin with `recordings_<date>_`; strip that storage prefix before applying the normal filename parser.
+
+**Why:** Records created before campaign parsing otherwise remain visible in the Recordings view with blank Agent and Team fields even after new uploads are routed correctly.
+
+**How to apply:** Keep the backfill idempotent and never overwrite a populated agent, an assigned team, or a manually locked team.
+
 ## UI separation
 - `/voicemails` filters WHERE source='email' OR source IS NULL
 - `/recordings` filters WHERE source='sftp'

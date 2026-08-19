@@ -67,6 +67,18 @@ def _parse_five9_filename(path: str) -> dict:
     basename = os.path.basename(path)
     stem, _ext = os.path.splitext(basename)
 
+    # Recordings already ingested before the filename parser was added were
+    # flattened into names like:
+    #   recordings_8_19_2026_3182907743Outbound - Donor Care by ...
+    # Strip that storage-only prefix so the same parser can repair historical
+    # rows during the idempotent startup backfill.
+    stem = re.sub(
+        r"^recordings_\d{1,2}_\d{1,2}_\d{4}_",
+        "",
+        stem,
+        flags=re.IGNORECASE,
+    )
+
     number = ""
     campaign = ""
     agent = ""
