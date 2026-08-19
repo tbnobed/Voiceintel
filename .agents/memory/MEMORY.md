@@ -1,0 +1,2 @@
+- [VoiceIntel Five9 SFTP pipeline](voiceintel-five9-sftp.md) — asyncssh embedded server + sftp_watcher; source/agent columns distinguish recordings from voicemails
+- [VoiceIntel GPU transcription](voiceintel-gpu.md) — ctranslate2 CUDA auto-detect; GPU deploy block in docker-compose.yml must stay enabled; nvidia-persistenced not required on this host

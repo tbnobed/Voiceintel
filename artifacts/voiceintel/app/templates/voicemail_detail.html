@@ -4,7 +4,11 @@
 {% block title %}{{ _title_name or vm.subject or 'Voicemail' }} — VoiceIntel{% endblock %}
 
 {% block breadcrumb %}
+  {% if vm.source == 'sftp' %}
+  <a href="/recordings" style="color:var(--muted);">Recordings</a>
+  {% else %}
   <a href="/voicemails" style="color:var(--muted);">Voicemails</a>
+  {% endif %}
   <span class="sep">›</span>
   <span>{{ _title_name or (vm.subject or 'Detail')[:44] }}</span>
 {% endblock %}
