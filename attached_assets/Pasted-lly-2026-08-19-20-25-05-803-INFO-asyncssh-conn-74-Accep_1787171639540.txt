@@ -1,0 +1,31 @@
+lly
+2026-08-19 20:25:05,803 [INFO] asyncssh: [conn=74] Accepted SSH client connection
+2026-08-19 20:25:05,803 [INFO] asyncssh: [conn=74]   Local address: 172.18.0.5, port 2222
+2026-08-19 20:25:05,803 [INFO] asyncssh: [conn=74]   Peer address: 198.105.202.150, port 21870
+2026-08-19 20:25:05,803 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:21870
+2026-08-19 20:25:06,240 [INFO] asyncssh: [conn=74] Beginning auth for user five9
+2026-08-19 20:25:06,354 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 20:25:06,355 [INFO] asyncssh: [conn=74] Auth for user five9 succeeded
+2026-08-19 20:25:06,422 [INFO] asyncssh: [conn=74, chan=0] New SSH session requested
+2026-08-19 20:25:06,478 [INFO] asyncssh: [conn=74, chan=0]   Subsystem: sftp
+2026-08-19 20:25:06,479 [INFO] asyncssh.sftp: [conn=74, chan=0] Starting SFTP server
+2026-08-19 20:25:07,348 [INFO] asyncssh: [conn=74, chan=0] Received channel close
+2026-08-19 20:25:07,348 [INFO] asyncssh: [conn=74, chan=0] Channel closed
+2026-08-19 20:25:07,349 [INFO] asyncssh.sftp: [conn=74, chan=0] SFTP server exited
+2026-08-19 20:25:07,349 [INFO] asyncssh: [conn=74, chan=0] Closing channel
+2026-08-19 20:25:07,350 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 20:25:16,044 [INFO] asyncssh: [conn=75] Accepted SSH client connection
+2026-08-19 20:25:16,044 [INFO] asyncssh: [conn=75]   Local address: 172.18.0.5, port 2222
+2026-08-19 20:25:16,044 [INFO] asyncssh: [conn=75]   Peer address: 198.105.202.150, port 42881
+2026-08-19 20:25:16,044 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:42881
+2026-08-19 20:25:16,605 [INFO] asyncssh: [conn=75] Beginning auth for user five9
+2026-08-19 20:25:16,729 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 20:25:16,729 [INFO] asyncssh: [conn=75] Auth for user five9 succeeded
+2026-08-19 20:25:16,789 [INFO] asyncssh: [conn=75, chan=0] New SSH session requested
+2026-08-19 20:25:16,850 [INFO] asyncssh: [conn=75, chan=0]   Subsystem: sftp
+2026-08-19 20:25:16,851 [INFO] asyncssh.sftp: [conn=75, chan=0] Starting SFTP server
+2026-08-19 20:25:17,554 [INFO] asyncssh: [conn=75, chan=0] Received channel close
+2026-08-19 20:25:17,554 [INFO] asyncssh: [conn=75, chan=0] Channel closed
+2026-08-19 20:25:17,555 [INFO] asyncssh.sftp: [conn=75, chan=0] SFTP server exited
+2026-08-19 20:25:17,555 [INFO] asyncssh: [conn=75, chan=0] Closing channel
+2026-08-19 20:25:17,555 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
