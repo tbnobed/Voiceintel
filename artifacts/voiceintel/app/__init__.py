@@ -116,6 +116,7 @@ def create_app():
         _ensure_voicemails_columns()
         _ensure_insights_columns()
         _seed_categories()
+        _seed_five9_teams()
         _seed_admin_user()
         _seed_five9_teams()
 
@@ -428,7 +429,6 @@ def _seed_five9_teams():
     non-OBTV deployments that don't use the Five9 integration).
     """
     import logging as _logging
-    import re as _re
     log = _logging.getLogger(__name__)
 
     if os.environ.get("SEED_FIVE9_TEAMS", "true").lower() in ("false", "0", "no"):
