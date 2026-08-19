@@ -1,0 +1,30 @@
+2026-08-19 15:20:36,791 [INFO] asyncssh: [conn=0] Accepted SSH client connection
+2026-08-19 15:20:36,791 [INFO] asyncssh: [conn=0]   Local address: 172.18.0.4, port 2222
+2026-08-19 15:20:36,791 [INFO] asyncssh: [conn=0]   Peer address: 198.105.202.150, port 44278
+2026-08-19 15:20:36,791 [INFO] app.services.sftp_server: SFTP: connection from 198.105.202.150:44278
+2026-08-19 15:20:38,534 [INFO] asyncssh: [conn=0] Beginning auth for user five9
+2026-08-19 15:20:40,223 [INFO] app.services.sftp_server: SFTP: 'five9' authenticated (password)
+2026-08-19 15:20:40,223 [INFO] asyncssh: [conn=0] Auth for user five9 succeeded
+2026-08-19 15:20:40,411 [INFO] asyncssh: [conn=0, chan=0] New SSH session requested
+2026-08-19 15:20:40,478 [INFO] asyncssh: [conn=0, chan=0]   Subsystem: sftp
+2026-08-19 15:20:40,479 [INFO] asyncssh.sftp: [conn=0, chan=0] Starting SFTP server
+2026-08-19 15:20:42,688 [INFO] asyncssh: [conn=0, chan=0] Received channel close
+2026-08-19 15:20:42,688 [INFO] asyncssh: [conn=0, chan=0] Channel closed
+2026-08-19 15:20:42,689 [INFO] asyncssh.sftp: [conn=0, chan=0] SFTP server exited
+2026-08-19 15:20:42,689 [INFO] asyncssh: [conn=0, chan=0] Closing channel
+2026-08-19 15:20:43,414 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:21:13 UTC)" (scheduled at 2026-08-19 15:20:43.413625+00:00)
+2026-08-19 15:20:43,415 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:21:13 UTC)" executed successfully
+2026-08-19 15:20:43,436 [WARNING] app.services.sftp_server: SFTP: connection closed with error: Connection lost
+2026-08-19 15:21:13,287 [INFO] app.services.webhook_service: SendGrid webhook: from='Prayer VM <prayervm@tbn.tv>', subject='FW: New Voice Message from WIRELESS CALLER (864) 605-1527 on 08/19/2026 8:20 AM', attachments=0
+2026-08-19 15:21:13,298 [INFO] app.services.webhook_service: Raw email parse: found 1 nested audio part(s)
+2026-08-19 15:21:13,299 [INFO] app.services.webhook_service: Saved nested audio part: /data/storage/voicemails/_sg_20260819152113286866_PrayerVMprayervmtbnt_voic_18646051527-0819-082013.mp3 (187245 bytes)
+2026-08-19 15:21:13,357 [INFO] app.services.audio_service: Converted /data/storage/voicemails/_sg_20260819152113286866_PrayerVMprayervmtbnt_voic_18646051527-0819-082013.mp3 -> /data/storage/processed/_sg_20260819152113286866_PrayerVMprayervmtbnt_voic_18646051527-0819-082013_converted.wav
+2026-08-19 15:21:13,408 [INFO] app.services.pipeline: Voicemail record created id=21099: 18646051527-0819-082013.mp3
+2026-08-19 15:21:13,411 [INFO] app.services.routing_service: Routed voicemail id=21099 to team_id=1 via rule id=1 (recipient_email='prayer@mail3.opscal.io')
+2026-08-19 15:21:13,413 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:21:43 UTC)" (scheduled at 2026-08-19 15:21:13.413625+00:00)
+2026-08-19 15:21:13,414 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:21:43 UTC)" executed successfully
+2026-08-19 15:21:13,476 [INFO] faster_whisper: Processing audio with duration 00:46.520
+2026-08-19 15:21:13,564 [INFO] faster_whisper: VAD filter removed 00:04.888 of audio
+2026-08-19 15:21:16,414 [INFO] faster_whisper: Detected language 'en' with probability 1.00
+2026-08-19 15:21:43,413 [INFO] apscheduler.executors.default: Running job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:22:13 UTC)" (scheduled at 2026-08-19 15:21:43.413625+00:00)
+2026-08-19 15:21:43,414 [INFO] apscheduler.executors.default: Job "_start_sftp_watcher.<locals>._job (trigger: interval[0:00:30], next run at: 2026-08-19 15:22:13 UTC)" executed successfully
