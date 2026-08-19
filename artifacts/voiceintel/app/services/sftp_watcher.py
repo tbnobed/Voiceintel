@@ -11,8 +11,11 @@ registered in app/__init__.py).  For each mature audio file found:
      goes through FFmpeg conversion → Whisper transcription → NLP → AI summary.
 
 Five9 default Recording File Name Pattern produces paths like:
-  recordings/<owner>/<created_date>/<phone> by <agent_name> @ <time>_<module>.wav
-  e.g.  recordings/Owner/4_11_2012/3330001235 by Agent Name @ 12_52_19 PM_Ivr Module.wav
+  recordings/<created_date>/<phone><CampaignName> by <agent_name> @ <time>_<module>.wav
+  e.g.  recordings/4_11_2012/3330001235Campaign Name by Agent Name @ 12_52_19 PM_Ivr Module.wav
+
+The campaign name is embedded directly after the digits of the phone number in the
+filename stem (no separator).  There is no longer a separate campaign directory.
 
 We flatten the directory tree into a single filename when moving to voicemails/
 so the pipeline's audio-serving logic doesn't need to handle nested paths.
@@ -46,33 +49,44 @@ MIN_AGE_SECONDS = 10
 
 def _parse_five9_filename(path: str) -> dict:
     """
-    Extract caller phone, agent name, and recording timestamp from a Five9
-    recording path.  Returns a dict with keys:
+    Extract caller phone, campaign name, agent name, and recording timestamp
+    from a Five9 recording path.  Returns a dict with keys:
       number      – digits-only caller phone (e.g. "3330001235"), or ""
+      campaign    – campaign name embedded after phone digits (e.g. "Campaign Name"), or ""
       agent       – agent display name, or ""
       recorded_at – datetime (best effort), or None
 
-    Five9 stem format (from the VCC Recording File Name Pattern screen):
-      "<number> by <agent> @ <HH_MM_SS AM/PM>_<module>"
+    Five9 stem format (Recording File Name Pattern):
+      "<phone><CampaignName> by <agent> @ <HH_MM_SS AM/PM>_<module>"
     Example stem:
-      "3330001235 by Agent Name @ 12_52_19 PM_Ivr Module"
+      "3330001235Campaign Name by Agent Name @ 12_52_19 PM_Ivr Module"
+
+    The campaign name immediately follows the digits of the phone number with no
+    separator; we split on the first non-digit character after the leading digits.
     """
     basename = os.path.basename(path)
     stem, _ext = os.path.splitext(basename)
 
     number = ""
+    campaign = ""
     agent = ""
     recorded_at = None
 
-    # Primary pattern: "<number> by <agent> @ <time_with_module>"
+    # Primary pattern: "<phone+campaign> by <agent> @ <time_with_module>"
     m = re.match(r"^(\S+)\s+by\s+(.+?)\s+@\s+(.+)$", stem, re.IGNORECASE)
     if m:
         number_raw = m.group(1).strip()
         agent_raw = m.group(2).strip()
         time_raw = m.group(3).strip()
 
-        # Number: keep only the digits part (strip any prefix like "+1")
-        number = re.sub(r"\D", "", number_raw)
+        # Split leading digits (phone) from the trailing text (campaign name).
+        # e.g. "3330001235Campaign Name" → number="3330001235", campaign="Campaign Name"
+        digit_match = re.match(r"^(\+?[\d\-\(\)]+)(.*)", number_raw)
+        if digit_match:
+            number = re.sub(r"\D", "", digit_match.group(1))
+            campaign = digit_match.group(2).strip()
+        else:
+            number = re.sub(r"\D", "", number_raw)
 
         # Agent: strip trailing "_Ivr Module" or similar suffix that sometimes
         # bleeds into the agent token when the pattern has no space before @.
@@ -94,7 +108,7 @@ def _parse_five9_filename(path: str) -> dict:
         # Fallback: treat the whole stem as a phone number candidate
         number = re.sub(r"\D", "", stem)[:20]
 
-    return {"number": number, "agent": agent, "recorded_at": recorded_at}
+    return {"number": number, "campaign": campaign, "agent": agent, "recorded_at": recorded_at}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -144,20 +158,17 @@ def _ingest_one(app, src_path: str, voicemails_dir: str, incoming_dir: str) -> N
         rel = filename
     flat_name = rel.replace(os.sep, "_").replace("/", "_")
 
-    # Extract the Five9 campaign/owner from the first directory component of
-    # the relative path.  Five9 SFTP exports use the path structure:
-    #   recordings/<owner>/<date>/<filename>.wav
-    # so the first path segment is the campaign name (e.g. "Prayer",
-    # "Help Desk", "Donation Center").  If the file landed directly in
-    # sftp_incoming/ with no subdirectory, campaign is left empty and the
-    # normal routing-rule engine handles it.
-    parts = rel.replace("\\", "/").split("/")
-    # Five9 paths are  recordings/<owner>/<date>/<file>
-    # Skip the leading "recordings" directory to get the owner/campaign name.
-    if parts and parts[0].lower() == "recordings":
-        campaign = parts[1].strip() if len(parts) > 2 else ""
-    else:
-        campaign = parts[0].strip() if len(parts) > 1 else ""
+    # Campaign is now embedded in the filename itself (parsed above), not in a
+    # directory component.  Fall back to directory-based extraction only if the
+    # filename parser found nothing (e.g. non-standard filenames).
+    campaign = meta.get("campaign") or ""
+    if not campaign:
+        parts = rel.replace("\\", "/").split("/")
+        if parts and parts[0].lower() == "recordings":
+            campaign = parts[1].strip() if len(parts) > 2 else ""
+        else:
+            campaign = parts[0].strip() if len(parts) > 1 else ""
+
     dest_path = os.path.join(voicemails_dir, flat_name)
 
     # Atomic rename — same filesystem (same Docker volume).
