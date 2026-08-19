@@ -159,6 +159,7 @@ class TranscriptionService:
         file_path: str,
         output_dir: str,
         agent_channel: str = "left",
+        mixed_transcription: dict | None = None,
     ) -> dict:
         """
         Transcribe each channel of a stereo call independently and return
@@ -183,6 +184,25 @@ class TranscriptionService:
         paths, split_error = audio_service.split_stereo_channels(file_path, output_dir)
         if split_error:
             return {"speaker_segments": [], "error": split_error}
+
+        # Use the mixed transcript's timestamps so channel bleed cannot cause
+        # Whisper to merge an Agent and Caller exchange into one role.
+        if mixed_transcription is not None:
+            try:
+                speaker_segments, label_error = audio_service.label_segments_by_channel(
+                    paths,
+                    mixed_transcription.get("segments") or [],
+                    agent_channel,
+                )
+            finally:
+                for path in paths.values():
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+            if label_error:
+                return {"speaker_segments": [], "error": label_error}
+            return {"speaker_segments": speaker_segments, "error": None}
 
         caller_channel = "right" if agent_channel == "left" else "left"
         channel_roles = {

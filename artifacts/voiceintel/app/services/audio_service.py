@@ -1,6 +1,9 @@
 import os
 import logging
 import subprocess
+import math
+import wave
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +90,10 @@ def split_stereo_channels(input_path, output_dir):
 
     os.makedirs(output_dir, exist_ok=True)
     base = os.path.splitext(os.path.basename(input_path))[0]
+    extraction_id = uuid.uuid4().hex
     paths = {
-        "left": os.path.join(output_dir, f"{base}_left_channel.wav"),
-        "right": os.path.join(output_dir, f"{base}_right_channel.wav"),
+        "left": os.path.join(output_dir, f"{base}_{extraction_id}_left_channel.wav"),
+        "right": os.path.join(output_dir, f"{base}_{extraction_id}_right_channel.wav"),
     }
 
     try:
@@ -127,6 +131,108 @@ def split_stereo_channels(input_path, output_dir):
 
     logger.info("Extracted stereo channels from %s", input_path)
     return paths, None
+
+
+def label_segments_by_channel(channel_paths, segments, agent_channel="left"):
+    """
+    Assign already-transcribed segments to the consistently louder channel.
+
+    Five9 files can contain some cross-channel bleed. Transcribing each
+    channel independently can therefore put two speakers into one channel's
+    transcript. Measuring short windows within each mixed-transcript segment
+    preserves the original turn boundaries while rejecting an exchange,
+    interruption, or overlapped speech inside a purported turn.
+
+    Returns (labeled_segments, error). If any speech window is ambiguous, the
+    caller should retain the mixed transcript rather than publish guesses.
+    """
+    if agent_channel not in {"left", "right"}:
+        return [], f"Invalid Five9 agent channel {agent_channel!r}."
+
+    try:
+        channel_data = {}
+        for channel in ("left", "right"):
+            with wave.open(channel_paths[channel], "rb") as audio:
+                if audio.getnchannels() != 1 or audio.getsampwidth() != 2:
+                    return [], f"{channel.title()} extracted channel has an unsupported format."
+                channel_data[channel] = (
+                    audio.getframerate(),
+                    audio.readframes(audio.getnframes()),
+                )
+    except (OSError, wave.Error) as exc:
+        return [], f"Could not read extracted stereo channels: {exc}"
+
+    def rms_for_window(channel, start, end):
+        rate, raw = channel_data[channel]
+        first = max(0, int(float(start) * rate))
+        last = min(len(raw) // 2, max(first + 1, int(float(end) * rate)))
+        samples = raw[first * 2:last * 2]
+        if not samples:
+            return 0.0
+        total = 0
+        count = len(samples) // 2
+        for offset in range(0, len(samples), 2):
+            sample = int.from_bytes(samples[offset:offset + 2], "little", signed=True)
+            total += sample * sample
+        return math.sqrt(total / count)
+
+    labeled = []
+    for segment in segments or []:
+        text = (segment.get("text") or "").strip()
+        if not text:
+            continue
+        start = segment.get("start", 0)
+        end = segment.get("end", start)
+        # A Whisper "segment" is not guaranteed to be a single speaker turn.
+        # Check dominance over short windows and reject the labeled view if the
+        # active channel switches, overlaps materially, or has no clear voice.
+        duration = max(0.01, float(end) - float(start))
+        window_size = 0.12
+        windows = []
+        cursor = float(start)
+        while cursor < float(end):
+            window_end = min(float(end), cursor + window_size)
+            windows.append((
+                rms_for_window("left", cursor, window_end),
+                rms_for_window("right", cursor, window_end),
+            ))
+            cursor = window_end
+        if not windows:
+            return [], (
+                "Stereo channels were not distinct for every transcript turn; "
+                "mixed transcript retained."
+            )
+
+        peak_rms = max(max(left_rms, right_rms) for left_rms, right_rms in windows)
+        speech_floor = max(40.0, peak_rms * 0.12)
+        active_channels = set()
+        for left_rms, right_rms in windows:
+            louder = max(left_rms, right_rms)
+            quieter = min(left_rms, right_rms)
+            if louder < speech_floor:
+                continue  # silence between spoken words
+            if louder / max(quieter, 1) < 1.25:
+                return [], (
+                    "Stereo channels overlapped for a transcript turn; "
+                    "mixed transcript retained."
+                )
+            active_channels.add("left" if left_rms > right_rms else "right")
+
+        if len(active_channels) != 1:
+            return [], (
+                "Stereo channels were not distinct for every transcript turn; "
+                "mixed transcript retained."
+            )
+
+        active_channel = active_channels.pop()
+        labeled.append({
+            "start": start,
+            "end": end,
+            "text": segment["text"],
+            "speaker": "agent" if active_channel == agent_channel else "caller",
+        })
+
+    return labeled, None
 
 
 def _convert_with_ffmpeg_python(input_path, output_path):

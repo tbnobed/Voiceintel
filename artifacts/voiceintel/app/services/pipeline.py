@@ -176,6 +176,7 @@ def process_email_items(app, items: list):
                             item["saved_path"],
                             processed_dir,
                             app.config.get("FIVE9_AGENT_CHANNEL", "left"),
+                            mixed_transcription=transcription,
                         )
                         speaker_segments = stereo_result.get("speaker_segments") or None
                         speaker_label_error = stereo_result.get("error")
@@ -323,6 +324,7 @@ def reprocess_voicemail(app, voicemail_id):
     from app import db
     from app.models.voicemail import Voicemail, Transcript, Insight, Category
     from app.services.transcription_service import TranscriptionService
+    from app.services import audio_service
     from app.services import nlp_service
     from app.services.trigger_service import run_triggers
 
@@ -343,11 +345,37 @@ def reprocess_voicemail(app, voicemail_id):
         db.session.commit()
 
         transcription = transcriber.transcribe(audio_path)
+        speaker_segments = None
+        speaker_label_error = None
+
+        # A user-initiated reprocess must never leave a stale labeled view from
+        # an earlier transcript. Recompute labels for the original stereo file,
+        # or explicitly clear them when the audio cannot be labeled safely.
+        if vm.source == "sftp" and vm.original_path:
+            try:
+                processed_dir = os.path.join(app.config["STORAGE_DIR"], "processed")
+                stereo_result = transcriber.transcribe_stereo_channels(
+                    vm.original_path,
+                    processed_dir,
+                    app.config.get("FIVE9_AGENT_CHANNEL", "left"),
+                    mixed_transcription=transcription,
+                )
+                speaker_segments = stereo_result.get("speaker_segments") or None
+                speaker_label_error = stereo_result.get("error")
+            except Exception as speaker_exc:
+                speaker_label_error = f"Stereo speaker labeling failed: {speaker_exc}"
+                logger.warning(
+                    "Stereo speaker labeling failed during reprocess for vm %s: %s",
+                    vm.id,
+                    speaker_exc,
+                )
 
         if vm.transcript:
             vm.transcript.text = transcription.get("text")
             vm.transcript.language = transcription.get("language")
             vm.transcript.segments = transcription.get("segments")
+            vm.transcript.speaker_segments = speaker_segments
+            vm.transcript.speaker_label_error = speaker_label_error
             vm.transcript.processing_time = transcription.get("processing_time")
             vm.transcript.error = transcription.get("error")
         else:
@@ -356,6 +384,8 @@ def reprocess_voicemail(app, voicemail_id):
                 text=transcription.get("text"),
                 language=transcription.get("language"),
                 segments=transcription.get("segments"),
+                speaker_segments=speaker_segments,
+                speaker_label_error=speaker_label_error,
                 processing_time=transcription.get("processing_time"),
                 error=transcription.get("error"),
             )

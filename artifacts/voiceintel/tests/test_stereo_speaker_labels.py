@@ -49,6 +49,79 @@ class StereoAudioServiceTests(unittest.TestCase):
             self.assertIsNone(paths)
             self.assertIn("Expected stereo audio", error)
 
+    def test_labels_each_mixed_turn_by_its_louder_stereo_channel(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "agent-caller.wav")
+            with wave.open(source, "wb") as output:
+                output.setnchannels(2)
+                output.setsampwidth(2)
+                output.setframerate(16000)
+                # First second: agent on the left. Second second: caller on
+                # the right. A small opposite-channel signal models bleed.
+                output.writeframes(
+                    b"".join(struct.pack("<hh", 9000, 250) for _ in range(16000))
+                    + b"".join(struct.pack("<hh", 250, 9000) for _ in range(16000))
+                )
+
+            paths, error = audio_service.split_stereo_channels(source, directory)
+            self.assertIsNone(error)
+            labeled, label_error = audio_service.label_segments_by_channel(
+                paths,
+                [
+                    {"start": 0.0, "end": 1.0, "text": "Agent greeting"},
+                    {"start": 1.0, "end": 2.0, "text": "Caller reply"},
+                ],
+                agent_channel="left",
+            )
+
+            self.assertIsNone(label_error)
+            self.assertEqual(
+                [segment["speaker"] for segment in labeled],
+                ["agent", "caller"],
+            )
+
+    def test_turn_containing_both_speakers_rejects_labeled_view(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "merged-turn.wav")
+            with wave.open(source, "wb") as output:
+                output.setnchannels(2)
+                output.setsampwidth(2)
+                output.setframerate(16000)
+                # One Whisper segment (0-2s) that actually contains an
+                # agent-then-caller exchange: left speaks the first second,
+                # right speaks the second. Labeling it as one role would be
+                # confidently wrong, so the whole labeled view must be
+                # rejected.
+                output.writeframes(
+                    b"".join(struct.pack("<hh", 9000, 250) for _ in range(16000))
+                    + b"".join(struct.pack("<hh", 250, 9000) for _ in range(16000))
+                )
+
+            paths, error = audio_service.split_stereo_channels(source, directory)
+            self.assertIsNone(error)
+            labeled, label_error = audio_service.label_segments_by_channel(
+                paths,
+                [{"start": 0.0, "end": 2.0, "text": "Agent greeting Caller reply"}],
+                agent_channel="left",
+            )
+
+            self.assertEqual(labeled, [])
+            self.assertIsNotNone(label_error)
+
+    def test_split_stereo_channels_uses_collision_proof_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "call.wav")
+            self._make_stereo_wav(source)
+
+            first, error_a = audio_service.split_stereo_channels(source, directory)
+            second, error_b = audio_service.split_stereo_channels(source, directory)
+
+            self.assertIsNone(error_a)
+            self.assertIsNone(error_b)
+            # Same input basename twice must never share temp files.
+            self.assertNotEqual(first["left"], second["left"])
+            self.assertNotEqual(first["right"], second["right"])
+
 
 class StereoSpeakerLabelTests(unittest.TestCase):
     def test_right_agent_channel_assigns_roles_and_orders_turns(self):
@@ -178,8 +251,15 @@ class StereoPipelineAndTemplateTests(unittest.TestCase):
                     "error": None,
                 }
 
-            def transcribe_stereo_channels(self, _path, _output_dir, agent_channel):
+            def transcribe_stereo_channels(
+                self,
+                _path,
+                _output_dir,
+                agent_channel,
+                mixed_transcription=None,
+            ):
                 assert agent_channel == "left"
+                assert mixed_transcription["text"] == "Agent greeting Caller question"
                 return {
                     "speaker_segments": [
                         {"start": 0.0, "end": 2.0, "text": "Agent greeting", "speaker": "agent"},
