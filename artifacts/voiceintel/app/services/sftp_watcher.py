@@ -185,6 +185,7 @@ def _ingest_one(app, src_path: str, voicemails_dir: str, incoming_dir: str) -> N
         "received_at": received_at,
         "uid": None,
         "source": "sftp",
+        "agent": agent or None,
     }
 
     def _run():

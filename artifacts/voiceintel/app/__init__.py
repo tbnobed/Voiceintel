@@ -326,6 +326,11 @@ def _ensure_voicemails_columns():
         )
     if "deleted_by_id" not in cols:
         statements.append("ALTER TABLE voicemails ADD COLUMN deleted_by_id INTEGER")
+    # Source + agent columns for Five9 SFTP call-recording ingestion.
+    if "source" not in cols:
+        statements.append("ALTER TABLE voicemails ADD COLUMN source VARCHAR(50) DEFAULT 'email'")
+    if "agent" not in cols:
+        statements.append("ALTER TABLE voicemails ADD COLUMN agent VARCHAR(255)")
 
     if not statements:
         return

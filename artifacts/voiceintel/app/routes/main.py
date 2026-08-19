@@ -172,6 +172,11 @@ def voicemail_list():
     # voicemails that have no category assigned.
     query = query.join(Category, Voicemail.category_id == Category.id, isouter=True)
 
+    # Exclude Five9 call-center recordings — they have their own /recordings page.
+    query = query.filter(
+        (Voicemail.source == "email") | Voicemail.source.is_(None)
+    )
+
     if q:
         # Search across transcript text, subject (carrier puts the caller's
         # phone + name here), and sender. Subject + sender matter for the
@@ -1056,3 +1061,115 @@ def serve_audio(vm_id):
     except Exception as e:
         current_app.logger.error(f"Audio serve error: {e}")
         abort(500)
+
+
+# ── Recordings (Five9 SFTP call-center recordings) ───────────────────────────
+
+@main_bp.route("/recordings")
+@login_required
+def recordings_list():
+    page = request.args.get("page", 1, type=int)
+    per_page = 20
+
+    q = request.args.get("q", "").strip()
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+    team_filter = request.args.get("team", "").strip()
+    agent_filter = request.args.get("agent", "").strip()
+
+    sort = request.args.get("sort", "received_at")
+    direction = request.args.get("dir", "desc").lower()
+    if direction not in ("asc", "desc"):
+        direction = "desc"
+
+    sort_columns = {
+        "received_at": Voicemail.received_at,
+        "subject":     Voicemail.subject,
+        "agent":       Voicemail.agent,
+        "duration":    Voicemail.duration,
+    }
+    if sort not in sort_columns:
+        sort = "received_at"
+
+    query = Voicemail.query.filter(Voicemail.source == "sftp").join(
+        Transcript, Voicemail.id == Transcript.voicemail_id, isouter=True
+    )
+
+    if q:
+        like = f"%{q}%"
+        clauses = [
+            Transcript.text.ilike(like),
+            Voicemail.subject.ilike(like),
+            Voicemail.agent.ilike(like),
+        ]
+        q_digits = re.sub(r"\D+", "", q)
+        if len(q_digits) >= 7 and len(q_digits) >= len(q) - 4:
+            digit_pat = f"%{q_digits}%"
+            clauses.append(
+                func.regexp_replace(Voicemail.subject, r"\D", "", "g").ilike(digit_pat)
+            )
+        query = query.filter(or_(*clauses))
+
+    if agent_filter:
+        query = query.filter(Voicemail.agent.ilike(f"%{agent_filter}%"))
+
+    if date_from:
+        try:
+            query = query.filter(Voicemail.received_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            query = query.filter(Voicemail.received_at < datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1))
+        except ValueError:
+            pass
+
+    if team_filter == "unrouted":
+        query = query.filter(Voicemail.team_id.is_(None))
+    elif team_filter.isdigit():
+        query = query.filter(Voicemail.team_id == int(team_filter))
+
+    query = scope_voicemails(query, current_user)
+
+    primary = sort_columns[sort]
+    primary = primary.asc() if direction == "asc" else primary.desc()
+    query = query.order_by(primary, desc(Voicemail.received_at), desc(Voicemail.id))
+    query = query.options(selectinload(Voicemail.team))
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    if is_unrestricted(current_user):
+        available_teams = Team.query.order_by(Team.name).all()
+    else:
+        ids = user_team_ids(current_user)
+        available_teams = (
+            Team.query.filter(Team.id.in_(ids)).order_by(Team.name).all() if ids else []
+        )
+
+    return render_template(
+        "recordings.html",
+        recordings=pagination.items,
+        pagination=pagination,
+        available_teams=available_teams,
+        team_filter=team_filter,
+        agent_filter=agent_filter,
+        q=q,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        sort_dir=direction,
+    )
+
+
+@main_bp.route("/recordings/poll")
+@login_required
+def recordings_poll():
+    scoped = scope_voicemails(
+        Voicemail.query.filter(Voicemail.source == "sftp"), current_user
+    )
+    latest = scoped.order_by(desc(Voicemail.created_at)).first()
+    return jsonify({
+        "total": scoped.count(),
+        "latest_id": latest.id if latest else None,
+        "latest_status": latest.processing_status if latest else None,
+    })

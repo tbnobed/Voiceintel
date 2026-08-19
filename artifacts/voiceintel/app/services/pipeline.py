@@ -96,6 +96,8 @@ def process_email_items(app, items: list):
                     duration=duration,
                     file_size=file_size,
                     processing_status="processing",
+                    source=item.get("source", "email"),
+                    agent=item.get("agent"),
                 )
                 db.session.add(voicemail)
                 db.session.commit()

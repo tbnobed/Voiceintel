@@ -175,6 +175,13 @@ class Voicemail(db.Model):
     team_id = db.Column(db.Integer, db.ForeignKey("teams.id", ondelete="SET NULL"), index=True)
     # When True, the team was set manually and routing rules will not overwrite it.
     team_locked = db.Column(db.Boolean, default=False, nullable=False)
+    # Origin of this record: 'email' (SendGrid inbound webhook) or 'sftp'
+    # (Five9 call-center recording pushed via the embedded SFTP server).
+    # NULL / missing = 'email' on legacy rows.
+    source = db.Column(db.String(50), default="email")
+    # For SFTP-sourced recordings: the Five9 agent who handled the call
+    # (parsed from the filename: "<phone> by <agent> @ <time>.wav").
+    agent = db.Column(db.String(255))
     # Soft-delete: when set, the voicemail is hidden from every normal query
     # (list, detail, analytics, API, callbacks, polling) and only appears in
     # the admin-only Deleted folder where it can be restored or permanently
